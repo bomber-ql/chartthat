@@ -36,5 +36,6 @@
 - 后端测试位于 `backend/tests/`，夹具 `sample.md` 内容见 SPEC §12（csv/xlsx 变体由测试动态生成，.gitignore 忽略不落盘）；LLM 测试一律 mock。
 - 运行后端测试需先装 dev 依赖：`python3 -m pip install -r backend/requirements-dev.txt`（`scripts/setup.sh` 已包含），然后 `cd backend && python3 -m pytest`。
 - M1/M2 已实现：`backend/app/modules/parser.py`（文本/CSV/Excel → RawTable）、`semantic.py`（→ SemanticTable），入口 `parse_input`；percent 为小数形态（11.2% → 0.112，SPEC §5.1 v1.2）。
-- M4 验收需解压 pptx 断言 `ppt/charts/chartN.xml` 存在且无外部数据链接（SPEC A-4.x）。
-- 交付前用 test_run 跑静态检查 + 接口冒烟（当前已实现 `/api/health`、`/api/parse`；`/api/recommend`、`/api/generate` 随里程碑补齐）。
+- M3 已实现：`backend/app/modules/recommender.py`（OpenAI 兼容调用、裸 JSON 数组容错解析+失败重试 1 次、列引用投影填充、三语义层 trend/comparison/rate 覆盖、缺失系列追加固定提示语、LLM 不可用/产出为空时启发式降级 `degraded=true`）；校验在 `backend/app/validators.py`（V-1~V-8）。LLM 测试全部注入 `llm_call` mock，禁止真实网络调用。
+- M4 验收需解压 pptx 断言 `ppt/charts/chartN.xml` 存在且无外部数据链接（SPEC A-4.x）；M4 开工前必须先跑通 M0 ablechart spike（`backend/spikes/`，SPEC §14）。
+- 交付前用 test_run 跑静态检查 + 接口冒烟（已实现 `/api/health`、`/api/parse`、`/api/recommend`；`/api/generate` 随 M4 补齐）。recommend 冒烟注意 pipeline 会给 curl 追加 `-w` 尾巴，落盘文件再 `json.load` 会 Extra data，需用 Python urllib 串联或提取纯 JSON。

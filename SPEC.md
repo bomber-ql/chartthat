@@ -1,10 +1,11 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.2 ｜ 状态：M1/M2 已实现
+> 版本：v1.3 ｜ 状态：M1/M2 已实现，M3 已实现
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
-- v1.2：percent 数值形态统一为小数（解析阶段 `+11.2% → 0.112`，M2/M3/ECharts/pptx 全链路一致，M4 不再换算）；缺失标记词表新增「无」；percent 判定新增「列名含 %」规则；M1 parser / M2 semantic 与 `/api/parse` 落地；勘误 §5.3 期望输出（梯队 distinct_count 4→3、平台态势 6→5）。
+- v1.3：图表类型恢复为六种（bar / line / combo / slope / scatter / pie，v1.1 的 MVP 三类型收窄撤销）；LLM 原始输出契约改为**裸 JSON 数组**，每项字段为 `chart_type` / `title` / `config` / `reasoning`（§5.5）；ChartSpec 的推荐理由字段 `rationale` 统一改名 `reasoning`，新增 `semantic_layer` 字段；M3 新增「趋势 / 体量对比 / 变化率」三语义层覆盖要求（含降级补齐）；明确缺失系列由后端确定性追加「该系列数据不完整，建议不纳入」；LLM 容错重试措辞明确为「最多调用 2 次（失败后重试 1 次）」；恢复 V-5~V-8（scatter/slope/pie）不变式与 §8 对应前端映射。
+- v1.2：percent 数值形态统一为小数（解析阶段 `+11.2% → 0.112`，M2/M3/ECharts/pptx 全链路一致，M4 不再换算）；缺失标记词表新增「无」；percent 判定新增「列名含 %」规则；M1 parser / M2 semantic 与 `/api/parse` 落地；勘误 §5.3 期望输出 distinct_count（以 §12 夹具实际值为准：梯队=4、平台态势=6，v1.3 再次校正）。
 - v1.1：MVP 范围收窄（chart_type 仅保留 bar / line / combo，删除 slope / scatter / pie）；新增 §5.1 百分比数值转换表；同列混合单位改为不自动折算（MVP 已知限制）；测试夹具扩为 6 行（含负同比 / DAU 全缺失 / DAU 完整 / MAU 下降）；实施顺序新增 M0 ablechart 可行性验证。
 - v1.0：初版。
 
@@ -21,10 +22,11 @@
 4. 用户选定后导出 `.pptx`，其中所有图表为 **原生 Chart 对象**，可在 WPS / PowerPoint 中**双击编辑数据**。
 
 ### 1.2 范围说明（MVP）
-- **MVP 仅支持三种图表类型：`bar`、`line`、`combo`。** slope / scatter / pie 不在 MVP 内，LLM 输出与前后端实现均不得出现这三种类型；后续版本再评估引入。
+- **支持六种图表类型：`bar`、`line`、`combo`、`slope`、`scatter`、`pie`。** 其中 bar / line / combo 为 M4 PPT 导出的首要路径（M0 门禁保证）；slope / scatter / pie 同样参与推荐与预览，M4 映射规则见 §6（M4 实现时若某类型不满足产物要求，必须先回写 SPEC 再降级处理）。
+- M3 每次推荐**至少覆盖三个语义层**：趋势（trend）、体量对比（comparison）、变化率（rate），见 §6 M3 规则 4。
 
 ### 1.3 非目标（Out of Scope）
-- slope / scatter / pie 等其余图表类型（MVP 后再议）
+- 六种类型之外的图表（面积图、雷达图、箱线图、热力图等）
 - 用户系统 / 多租户 / 历史记录持久化
 - PPT 模板市场、在线协同编辑
 - 图表以 PNG/SVG 图片形式导出（与核心约束 C-1 冲突，明确禁止）
@@ -65,8 +67,8 @@
 - **验证**：M2 输出中「同比」列 `unit=percent` 且解析值为 `0.112`（非 `"11.2%"` 字符串、非 `11.2`）；M3 输出的所有 ChartSpec 通过不变式校验 V-3（见 §5.4）；M4 产物中该序列写入值与 JSON 一致（`0.112`）且轴格式含 `%`。
 
 ### C-5 LLM 推荐输出强约束
-- **要求**：MVP 内 LLM 推荐的图表类型限定在 `bar`、`line`、`combo` 三种。输出必须是严格 JSON（纯 JSON 文本，无 Markdown 代码围栏、无解释性前后缀）。LLM **只输出列引用与图表配置，不输出数据值**——数据由后端从 SemanticTable 投影填充，防止 LLM 编造数字。
-- **验证**：LLM 原始响应先过 JSON parse，再过 §5.5 JSON Schema 校验，再过引用完整性校验（列名必须存在）；任一失败触发重试（≤2 次，携带错误反馈），最终失败走降级策略（见 §6.3）。
+- **要求**：LLM 推荐的图表类型限定在 `bar`、`line`、`combo`、`slope`、`scatter`、`pie` 六种。输出必须是**严格 JSON 数组**（裸数组文本，无 Markdown 代码围栏、无解释性前后缀；元素结构见 §5.5：`chart_type` / `title` / `config` / `reasoning`）。LLM **只输出列引用与图表配置，不输出数据值**——数据由后端从 SemanticTable 投影填充，防止 LLM 编造数字。
+- **验证**：LLM 原始响应先做容错 JSON parse（先直接 parse；失败则剥离 Markdown 代码围栏后再 parse），再过 §5.5 Schema 校验与引用完整性校验（列名必须存在）；parse 或校验失败时携带错误反馈**重试 1 次**（即最多调用 2 次），仍失败走降级策略（见 §6 M3）。
 
 ---
 
@@ -254,8 +256,8 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
     { "name": "同比",       "role": "percent",   "unit": "percent", "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": -0.039, "max": 0.112, "null_count": 0, "distinct_count": 6 } },
     { "name": "2024 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "warnings": [], "stats": { "min": 1.0, "max": 7.0, "null_count": 2, "distinct_count": 4 } },
     { "name": "2025 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "warnings": [], "stats": { "min": 1.1, "max": 7.6, "null_count": 2, "distinct_count": 4 } },
-    { "name": "梯队",       "role": "dimension", "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 3 } },
-    { "name": "平台态势",   "role": "meta",      "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 5 } }
+    { "name": "梯队",       "role": "dimension", "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 4 } },
+    { "name": "平台态势",   "role": "meta",      "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 6 } }
   ],
   "rows": [
     ["微信",   13.9, 14.2,  0.024, null, null, "第二梯队", "稳健"],
@@ -285,15 +287,16 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
   "required": ["id", "chart_type", "title", "categories", "series"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
-    "chart_type": { "type": "string", "enum": ["bar", "line", "combo"] },
+    "chart_type": { "type": "string", "enum": ["bar", "line", "combo", "slope", "scatter", "pie"] },
     "title": { "type": "string", "minLength": 1 },
     "subtitle": { "type": ["string", "null"], "default": null },
-    "rationale": { "type": "string", "default": "", "description": "LLM 推荐理由，UI 展示用" },
+    "reasoning": { "type": "string", "default": "", "description": "推荐理由，UI 展示用；系列不完整时必须追加规定提示语（见 §6 M3 规则 5）" },
+    "semantic_layer": { "type": "string", "enum": ["trend", "comparison", "rate"], "description": "趋势 / 体量对比 / 变化率，三语义层覆盖依据" },
     "dimension_column": { "type": "string" },
     "categories": {
       "type": "array", "minItems": 1,
       "items": { "type": "string" },
-      "description": "分类轴标签（dimension 列投影值）"
+      "description": "分类轴标签（dimension 列投影值）；slope 为实体（如平台），scatter 存放行标签用于 tooltip，pie 为扇区名"
     },
     "series": {
       "type": "array",
@@ -305,8 +308,8 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
           "name": { "type": "string", "minLength": 1 },
           "source_column": { "type": "string", "description": "来源列名，可追溯" },
           "kind": {
-            "type": "string", "enum": ["line", "bar"], "default": "bar",
-            "description": "combo 必填（各序列的绘制形态）；bar/line 图省略时取与 chart_type 一致的形态"
+            "type": "string", "enum": ["line", "bar", "scatter"], "default": "bar",
+            "description": "combo 必填（各序列的绘制形态）；scatter 图序列 kind=scatter；其余类型省略时取与 chart_type 一致的默认形态"
           },
           "unit": { "type": "string", "enum": ["count", "yi", "wan", "percent"] },
           "axis": { "type": "string", "enum": ["primary", "secondary"] },
@@ -340,52 +343,54 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
 ```
 
 **不变式（validators 必须实现，M3/M4 入口均执行）：**
-- **V-1** 所有 `series[i].data.length === categories.length`。
-- **V-2** `chart_type ∈ {bar, line, combo}`（C-5）。
+- **V-1** 非 scatter 图：所有 `series[i].data.length === categories.length`。
+- **V-2** `chart_type ∈ {bar, line, combo, slope, scatter, pie}`（C-5）。
 - **V-3** `unit=percent` 的序列：当同图存在非 percent 序列时，必须 `axis=secondary`；主副轴 unit 不得相同。（C-4）
 - **V-4** `combo`：序列数 ≥ 2 且至少包含两种不同 `kind`；percent 序列 `kind` 必须为 `line` 并挂副轴。
 - **V-5** 所有 `series[i].source_column` 必须存在于 SemanticTable.columns，且其 role 与 `unit` 必须和源列一致（禁止前端/LLM 篡改单位）。
+- **V-6** `slope`：序列 ≥ 2 且全部同 unit（measure）；`categories` 为实体集合（series 为各期快照，每条序列画为一条两点连线；line 图的特例约定）。
+- **V-7** `scatter`：恰好 2 个 measure 序列（`kind=scatter`，分别为 X/Y）；任一坐标为 null 的点整点剔除。
+- **V-8** `pie`：恰好 1 个 measure 序列；null 数据点对应扇区剔除（不按 0 绘制）。
 
 ### 5.5 LLM 内部输出契约（M3 与 LLM 之间）
 
-LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响应：
+LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**（顶层即 `[ ... ]`，不得包对象、不得带 Markdown 围栏与解释文本），后端按以下元素 Schema 校验：
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "llm_recommendations.schema.json",
-  "title": "LlmRecommendationSet",
+  "$id": "llm_recommendation_item.schema.json",
+  "title": "LlmRecommendationItem（LLM 输出数组的单个元素）",
   "type": "object",
-  "required": ["recommendations"],
+  "required": ["chart_type", "title", "config", "reasoning"],
   "additionalProperties": false,
   "properties": {
-    "recommendations": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 6,
-      "items": {
-        "type": "object",
-        "required": ["chart_type", "title", "dimension", "series", "rationale"],
-        "additionalProperties": false,
-        "properties": {
-          "chart_type": { "type": "string", "enum": ["bar", "line", "combo"] },
-          "title": { "type": "string", "minLength": 1, "maxLength": 60 },
-          "dimension": { "type": "string", "description": "必须是 role=dimension 的列名" },
-          "series": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "required": ["column", "axis"],
-              "additionalProperties": false,
-              "properties": {
-                "column": { "type": "string", "description": "必须是 role=measure 或 percent 的列名" },
-                "kind": { "type": "string", "enum": ["line", "bar"], "default": "bar" },
-                "axis": { "type": "string", "enum": ["primary", "secondary"] }
+    "chart_type": { "type": "string", "enum": ["bar", "line", "combo", "slope", "scatter", "pie"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "reasoning": { "type": "string", "maxLength": 200, "description": "推荐理由（不得编造数据值）" },
+    "config": {
+      "type": "object",
+      "required": ["dimension", "series"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": { "type": "string", "description": "必须是 role=dimension 的列名" },
+        "semantic_layer": { "type": "string", "enum": ["trend", "comparison", "rate"], "description": "可省略，省略时由后端推断" },
+        "series": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["column"],
+            "additionalProperties": false,
+            "properties": {
+              "column": { "type": "string", "description": "必须是 role=measure 或 percent 的列名" },
+              "kind": { "type": "string", "enum": ["line", "bar", "scatter"], "default": "bar" },
+              "axis": {
+                "type": "string", "enum": ["primary", "secondary"],
+                "description": "可省略：percent 列后端强制 secondary（V-3）；其余默认 primary"
               }
             }
-          },
-          "rationale": { "type": "string", "maxLength": 200 }
+          }
         }
       }
     }
@@ -393,7 +398,24 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 }
 ```
 
-**LLM 调用参数**：`temperature ≤ 0.3`；请求 `response_format = {"type": "json_object"}`（或等价 structured output 能力）；system prompt 中内嵌 §5.5 Schema 与 C-4/C-5 约束（含「chart_type 只能是 bar/line/combo」）；user prompt 仅提供 SemanticTable 的列摘要（name/role/unit/stats）与 ≤10 行抽样数据。
+**裸数组示例（LLM 的原始响应文本）：**
+
+```json
+[
+  {
+    "chart_type": "combo",
+    "title": "各平台 MAU 规模与同比增速",
+    "reasoning": "MAU 为亿级体量、同比为百分比，双轴组合图避免量纲混淆",
+    "config": { "dimension": "平台", "semantic_layer": "rate", "series": [
+      { "column": "2024 MAU", "kind": "bar" },
+      { "column": "2025 MAU", "kind": "bar" },
+      { "column": "同比", "kind": "line" }
+    ]}
+  }
+]
+```
+
+**LLM 调用参数**：`temperature ≤ 0.3`；system prompt 内嵌本节元素 Schema、「输出裸 JSON 数组」要求、C-4/C-5 约束（六种 chart_type 枚举、percent 必须挂副轴、禁止输出数据值）与三语义层覆盖要求（趋势 / 体量对比 / 变化率，至少各 1 条）；user prompt 仅提供 SemanticTable 的列摘要（name/role/unit/stats/null_count）与 ≤10 行抽样数据。为兼容不支持 strict 数组模式的模型，不依赖 `response_format`；解析层负责容错（直接 parse → 剥围栏 parse → 识别为 `{"recommendations":[...]}` 旧形态时取数组）。
 
 ### 5.6 GenerateRequest / GenerateResult（M4 输入输出）
 
@@ -514,37 +536,45 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 **职责**：SemanticTable → ChartSpec[]。内部步骤：构造 prompt → 调 LLM → 严格校验 → 数据投影 → 不变式校验。
 
 **处理规则：**
-1. prompt 只含列摘要 + ≤10 行抽样（避免全量数据上传与 token 浪费），并明确 chart_type 只能是 `bar`/`line`/`combo`。
-2. LLM 响应校验链：JSON parse（失败时先尝试剥离 Markdown 围栏再 parse 一次）→ §5.5 Schema 校验 → 引用完整性（列名存在、role 合法、percent 序列 axis=secondary）→ 任一失败，携带具体错误信息重试，最多 2 次。
-3. **数据投影**：校验通过后，后端按 `dimension` + `series[].column` 从 SemanticTable 取出真实数据填充 `categories` 与 `data`（null 原样保留，C-3），生成完整 ChartSpec（§5.4），并过 V-1~V-5 校验；不过则丢弃该条推荐。
-4. **降级策略**（LLM 彻底失败时，保证可用）：基于启发式兜底——
-   - 存在 measure 列 + percent 列 → 推荐 `combo`（measure 为 bar 挂主轴，percent 为 line 挂副轴）；
-   - 存在 ≥2 个同单位 measure 列（如两期 MAU）→ 推荐 `line`（多系列趋势折线）；
-   - 任意 measure 列 → 推荐 `bar`（按 dimension 展开的分组柱）。
-   降级结果同样过 V-1~V-5；表中无任何 measure/percent 列时，`/api/recommend` 返回 `VALIDATION_FAILED`（message：数据中没有可绘图的数值列）。
-5. 输出数量 1~6 条，去重（同 chart_type + 同列组合视为重复）。
+1. prompt 只含列摘要（含 null_count）+ ≤10 行抽样，明确六种 chart_type、三语义层至少各 1 条、禁止输出数据值。
+2. LLM 响应校验链：容错 JSON parse（先直接 parse；失败剥离 Markdown 围栏再 parse；兼容 `{"recommendations":[...]}` 包装形态）→ §5.5 元素 Schema 逐条校验 → 引用完整性（列名存在、role 合法）。parse 或整体校验失败时，携带错误信息**重试 1 次（最多调用 2 次）**；单条推荐非法仅丢弃该条并记 warning，不整体重试。
+3. **轴与形态归一**：LLM 可省略 `axis`——percent 列后端强制 `axis=secondary` 且（combo 内）`kind=line`，其余默认 `primary`；与 LLM 显式指定冲突且违反 V-3/V-4 时，以后端强制规则为准。
+4. **数据投影**：后端按 `config.dimension` + `config.series[].column` 从 SemanticTable 取真实数据填充 `categories` 与 `data`（null 原样保留，C-3），生成完整 ChartSpec（§5.4），过 V-1~V-8；不过则丢弃该条。
+5. **缺失系列提示（确定性，不依赖 LLM 是否写出）**：投影后任一 `series.data` 含 null，则在该 ChartSpec 的 `reasoning` 末尾**原样追加**：`该系列数据不完整，建议不纳入`（LLM 的 reasoning 已包含该短语时不重复追加；多系列缺失时逐系列以「列名：」前缀注明）。**禁止**为缺失值编造任何数值（A-3.6）。
+6. **语义层覆盖**：每条 ChartSpec 的 `semantic_layer` 取 LLM 值（非法/缺失时由后端推断：含 percent 副轴→`rate`；line/slope 且≥2 期同单位→`trend`；否则→`comparison`）。LLM 结果若未同时覆盖 trend / comparison / rate 三层（且数据支持），用降级策略补齐缺失层。
+7. **降级策略**（LLM 失败或覆盖不全时的启发式兜底，按数据条件产出）：
+   - 有 measure + percent → `combo`（measure bar 主轴 + percent line 副轴，`rate`）；
+   - ≥2 个同单位 measure（如两期 MAU）→ `line`（`trend`）；恰为 2 期时同时产出 `slope`（`trend`，series 为两期、categories 为实体）；
+   - 任意 measure → `bar`（`comparison`）；
+   - 恰好 1 个 measure + 1 个 dimension → 追加 `pie`（`comparison`）；≥2 个 measure → 追加 `scatter`（前两列，`comparison`）。
+   降级结果同样过 V-1~V-8。表中无任何 measure/percent 列时，`/api/recommend` 返回 `VALIDATION_FAILED`（message：数据中没有可绘图的数值列）。
+8. 输出数量 1~6 条，去重（同 chart_type + 同列组合视为重复）；LLM 未配置 `LLM_API_KEY` 时直接走降级，不报错。
 
 **输入**：SemanticTable。 **输出**：`{ "recommendations": ChartSpec[], "degraded": boolean }`。
 
 **验收标准：**
-- A-3.1：mock LLM 返回合法 JSON 时，输出 ChartSpec 通过 §5.4 Schema 与 V-1~V-5。
-- A-3.2：mock LLM 返回非 JSON / 含围栏 JSON / 引用不存在列 / chart_type 为 `slope` 等越界值，分别触发重试或丢弃，最终不产出非法 ChartSpec。
-- A-3.3：mock LLM 持续失败时，`degraded=true` 且至少返回 1 条合法推荐；对 §12 夹具必须能产出 combo（含同比副轴）。
-- A-3.4：所有输出中 percent 序列均为 secondary、`kind=line`（C-4）；data 中的 null 未被改写（C-3），值保持 `0.112` 小数形态（§5.1，不出现 `11.2`）。
-- A-3.5：LLM 输出中的任何数值字段不影响最终 data——data 全部来自 SemanticTable 投影（抽查断言）。
+- A-3.1：mock LLM 返回合法裸数组 JSON 时，输出 ChartSpec 通过 §5.4 Schema 与 V-1~V-8；含 Markdown 围栏 / 旧版 `{"recommendations":[...]}` 包装的响应经容错后同样通过。
+- A-3.2：mock LLM 首次返回非 JSON、二次返回合法 JSON → 断言恰好调用 2 次且最终成功；返回引用不存在列 / chart_type 越界（如 `radar`）的条目被丢弃，最终不产出非法 ChartSpec。
+- A-3.3：mock LLM 持续失败时，`degraded=true`；对 §12 夹具必须覆盖三层语义（trend=line/slope、comparison=bar、rate=combo 含同比副轴），且每条通过 V-1~V-8。
+- A-3.4：所有输出中 percent 序列均为 secondary、combo 内 `kind=line`（C-4）；data 中 null 未被改写（C-3），percent 值保持 `0.112` 小数形态（§5.1）。
+- A-3.5：即使 LLM 在 config 外伪造 data/数值字段，最终 data 全部来自 SemanticTable 投影（抽查断言伪造值不出现）。
+- A-3.6：含 DAU 系列的推荐，其 `reasoning` 必须包含短语「该系列数据不完整，建议不纳入」；对应 data 中微信/小红书位置为 `null` 而非 0；LLM 已写该短语时不重复追加。
 
 ### M4 PPT 生成模块（`pptx_builder`）
 
 **职责**：GenerateRequest → `.pptx` 文件流。唯一的产物出口，C-1/C-2/C-3/C-4 的最终落点。
 
 **处理规则：**
-1. 入口先对 GenerateRequest 重跑 Schema + V-1~V-5 校验（不信任前端）。
-2. 图表类型映射（MVP 仅三种）：
+1. 入口先对 GenerateRequest 重跑 Schema + V-1~V-8 校验（不信任前端）。
+2. 图表类型映射：
    | chart_type | 实现方式 |
    |---|---|
    | `bar` | python-pptx `add_chart(COLUMN_CLUSTERED, ...)` |
-   | `line` | python-pptx `add_chart(LINE_MARKERS, ...)`，`connectNulls` 语义（空点断线） |
+   | `line` | python-pptx `add_chart(LINE_MARKERS, ...)`，空点断线（`connectNulls=false` 语义） |
    | `combo` | **`ablechart.create_combo_chart`**（M0 验证通过后）：bar 主轴 + line 副轴 |
+   | `slope` | 两期快照：`add_chart(LINE_MARKERS, ...)`，以实体为序列、两期为类目，开启端点数据标签（R-3） |
+   | `scatter` | `add_chart(XY_SCATTER, ...)` + `XyChartData`，含 null 的点整点剔除（V-7） |
+   | `pie` | `add_chart(PIE, ...)`，null 扇区剔除（V-8） |
 3. 数据写入：`CategoryChartData` 中缺失值以 `None` 写入（line 断线、bar 缺柱，C-3）。
 4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），副轴与数据标签数字格式 `0.0%`；`yi` 序列原值写入，轴标题标注单位（如「MAU（亿）」）。
 5. **BreakLink 收尾（C-2）**：全部 slide 构建完成后、save 之前，遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，检查 chart_data `IsLinked`，为 True 则 `BreakLink()`；无公共 API 时以等价 XML/relationship 操作实现（R-2）。
@@ -558,7 +588,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 - A-4.2：解压产物——每图存在 `ppt/charts/chartN.xml`；`ppt/media/` 无图表图片（C-1）。
 - A-4.3：解压产物——所有 chart 无指向外部文件的数据 relationship（C-2）。
 - A-4.4：以含 `2024 DAU` 的 bar 图生成产物：微信 / 小红书对应数据点在 XML 中为空点而非 `0`（C-3）；以含「同比」的 combo 图生成产物：percent 数据点与 JSON 值一致（`0.024`/`0.112`/`-0.039`）且副轴格式含 `%`（§5.1 / C-4）。
-- A-4.5：构造非法 GenerateRequest（percent 挂主轴 / data 长度不齐 / 未知列 / chart_type=pie）→ 返回 `VALIDATION_FAILED`，不产出文件。
+- A-4.5：构造非法 GenerateRequest（percent 挂主轴 / data 长度不齐 / 未知列 / chart_type=radar）→ 返回 `VALIDATION_FAILED`，不产出文件。
 - A-4.6（人工）：WPS 与 PowerPoint 打开产物，双击每个图表可编辑数据，无「链接文件不可用」提示。
 
 ---
@@ -587,7 +617,8 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
       "id": "rec-01",
       "chart_type": "combo",
       "title": "各平台 MAU 规模与同比增速",
-      "rationale": "MAU 为亿级数值、同比为百分比，组合图双轴可避免量纲混淆；含负增长平台，副轴可体现正负区间",
+      "reasoning": "MAU 为亿级数值、同比为百分比，组合图双轴可避免量纲混淆；含负增长平台，副轴可体现正负区间",
+      "semantic_layer": "rate",
       "dimension_column": "平台",
       "categories": ["微信", "抖音", "快手", "微博", "B站", "小红书"],
       "series": [
@@ -612,13 +643,16 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 
 **页面流（单页三步）：**
 1. **输入页**：文本粘贴区 + 文件拖拽上传（.csv/.xlsx）→ 调 `/api/parse` → 展示规整后的数据表（含 role/unit 徽标、null 高亮为「缺失」、列 warning 提示混合单位置空）。
-2. **预览页**：调 `/api/recommend` → 卡片网格展示候选图表（ECharts 渲染 + 标题 + rationale），支持勾选、调整顺序、编辑标题。
+2. **预览页**：调 `/api/recommend` → 卡片网格展示候选图表（ECharts 渲染 + 标题 + reasoning，含「数据不完整」提示徽标），按 semantic_layer 分组，支持勾选、调整顺序、编辑标题。
 3. **导出页**：调 `/api/generate`（携带 SemanticTable + 选中 ChartSpec）→ fetch 转 blob 下载 pptx。
 
 **ChartSpec → ECharts option 映射规则（前端唯一映射层 `specToOption.ts`）：**
 - `line`：类目轴折线图，`connectNulls: false`（null 断线，C-3 的可视化表达）。
 - `bar`：类目轴分组柱；null 位置缺柱，不渲染为 0。
 - `combo`：bar 系列 `yAxisIndex:0`，percent line 系列 `yAxisIndex:1`；双 y 轴。
+- `slope`：以两期为 x 轴两个类目点、每个实体（平台）一条线，端点显示数值标签；空点断线。
+- `scatter`：两序列配对为 `[x, y]` 点（type=scatter），任一坐标为 null 的点整点剔除（V-7）。
+- `pie`：单序列饼图，null 扇区剔除不绘制（V-8）。
 - tooltip/label 按 `unit` 追加后缀：`yi→" 亿"`、`wan→" 万"`；percent 用 formatter 呈现（数据为小数形态 `0.112`，显示 `(v*100).toFixed(1) + "%"`；副轴 `axisLabel.formatter` 同规则）。前端使用的数据值恒为 `0.112` 形态，**不改数据值**（§5.1）。
 
 **下载约束**：跨域/同源一律 `fetch → blob → a[download]`，不直接用 `<a href>` 触发下载。
@@ -726,7 +760,7 @@ project-root/
 | `PARSE_UNSUPPORTED` | 不支持的文件类型/编码 | 400 |
 | `LLM_INVALID_JSON` | LLM 输出非严格 JSON（重试耗尽） | 502（伴随降级结果时不报错） |
 | `LLM_UNAVAILABLE` | LLM 服务不可达且降级失败 | 502 |
-| `VALIDATION_FAILED` | ChartSpec/GenerateRequest 违反 Schema 或 V-1~V-5；或表中无可绘图数值列 | 400 |
+| `VALIDATION_FAILED` | ChartSpec/GenerateRequest 违反 Schema 或 V-1~V-8；或表中无可绘图数值列 | 400 |
 | `PPTX_BUILD_FAILED` | pptx 构建异常 | 500 |
 
 ---
@@ -748,7 +782,8 @@ project-root/
 
 **端到端验收 checklist：**
 - [ ] 粘贴样例文本 → 8 列 × 6 行正确展示，微信 / 小红书 DAU 高亮「缺失」
-- [ ] 推荐列表 ≥2 条且含 combo；ECharts 预览中 percent 走副轴、显示 `%`，微博 / 快手同比呈现负值
+- [ ] 推荐列表同时覆盖趋势（line/slope）、体量对比（bar）、变化率（combo）三层；percent 走副轴、显示 `%`，微博 / 快手同比呈现负值
+- [ ] 含 DAU 的推荐 reasoning 出现「该系列数据不完整，建议不纳入」提示，且无编造数值
 - [ ] bar / line 图中微信 / 小红书 DAU 位置为空（缺柱 / 断线），不是 0
 - [ ] 导出 pptx；解压校验通过（C-1/C-2/C-3/C-4，percent 写入值与 JSON 一致）
 - [ ] WPS 打开，双击图表可编辑数据，无「链接文件不可用」
@@ -762,15 +797,16 @@ project-root/
 |---|---|---|
 | R-1 | ablechart 的 `create_combo_chart` 双轴与 percent 能力 | **M0 门禁（§6 M0）必须先验证**：双轴 combo、副轴 percent 格式、写入值与 JSON 一致。若不满足，预案为 python-pptx 原生 XML 扩展实现副轴，仍保证 C-1（禁止图片化），并回写本 SPEC |
 | R-2 | python-pptx 公共 BreakLink API 可用性 | 锁定版本若无公共 API，则实现等价的 XML/relationship 操作函数 `break_chart_links(prs)`，对外行为以 C-2 的验证方式为准（zip 解压断言外部链接不存在）；M0 顺带在真实 ablechart 产物上验证 |
-| R-3 | LLM 的 strict JSON 能力差异 | 优先 `response_format=json_object`；模型不支持时回退为 prompt 强约束 + 围栏剥离 + 重试，行为不变（A-3.x 不变） |
+| R-3 | LLM 的严格 JSON 数组能力差异 | 不依赖 `response_format`（OpenAI 的 json_object 只保证对象、不保证裸数组）：prompt 强约束裸数组 + 解析层容错（直接 parse → 剥围栏 → 兼容 `{"recommendations":[...]}` 包装）+ 失败重试 1 次；行为以 A-3.x 为准 |
+| R-4 | slope/scatter/pie 的 pptx 呈现 | slope 按「两期 LINE_MARKERS + 端点标签」实现；scatter 用 XyChartData；pie 用 PIE；M4 实现时若与 ablechart 产物冲突，先回写 SPEC |
 
 ---
 
 ## 14. 实施顺序（里程碑，无时间预估）
 
 0. **M0 ablechart 可行性验证**：运行 `backend/spikes/ablechart_spike.py`，达成 §6 M0 的五项目标（能装、能生成双轴 combo、副轴 percent 生效、原生图表且无外部链接、产物可重开）。**验证通过并回写结果后，才允许进入 M1。**
-1. **M1 + M2 + validators**（本轮已落地 parser/semantic 与 `/api/parse`）：schemas 落地、6 行样例夹具、A-1.x/A-2.x 测试通过。
-2. **M3**：mock LLM 先行（A-3.x 全绿）→ 接入真实 LLM。
+1. **M1 + M2 + validators**（已落地 parser/semantic 与 `/api/parse`；validators 随 M3 落地 V-1~V-8）：6 行样例夹具、A-1.x/A-2.x 测试通过。
+2. **M3**（已落地）：mock LLM（A-3.x 全绿）+ 真实 LLM 接入（OpenAI 兼容，模型名走环境变量）；`/api/recommend` 已实现。
 3. **前端三步页面**：`/api/parse`、`/api/recommend` 联调，ECharts 预览走通。
 4. **M4 + 端到端**：A-4.x 自动化断言 + WPS 人工验收（§12 checklist）。
 

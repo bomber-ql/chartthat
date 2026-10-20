@@ -48,8 +48,8 @@ def test_full_expectation(table: dict[str, Any]) -> None:
         ("同比", "percent", "percent", False, -0.039, 0.112, 0, 6),
         ("2024 DAU", "measure", "yi", True, 1.0, 7.0, 2, 4),
         ("2025 DAU", "measure", "yi", True, 1.1, 7.6, 2, 4),
-        ("梯队", "dimension", "text", False, None, None, 0, 3),
-        ("平台态势", "meta", "text", False, None, None, 0, 5),
+        ("梯队", "dimension", "text", False, None, None, 0, 4),
+        ("平台态势", "meta", "text", False, None, None, 0, 6),
     ]
     for col, (name, role, unit, nullable, vmin, vmax, null_count, distinct) in zip(
         table["columns"], expected_columns
