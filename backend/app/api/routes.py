@@ -5,6 +5,7 @@
 - POST /api/parse          M1+M2：文本/CSV/Excel → SemanticTable（SPEC §5.3）
 - POST /api/recommend      M3：SemanticTable → ChartSpec[]（SPEC §5.4/§6 M3）
 - POST /api/generate-pptx  M4：单图自描述请求 → .pptx 文件流（SPEC §5.6/§6 M4）
+- POST /api/generate-animated-pptx  M4b：GIF 帧序列 → 动效版 .pptx（SPEC §5.6a/§6a，v1.11）
 
 待实现（随里程碑推进）：/api/generate（多图 deck，§5.6b）。
 错误响应统一为 ApiError（SPEC §5.7）：{"code", "message", "details"}。
@@ -21,6 +22,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import UploadFile
 
 from app.modules import ParseError, analyze_table, parse_bytes, parse_text
+from app.modules.gif_builder import build_animated_pptx
 from app.modules.pptx_builder import PptxValidationError, build_pptx
 from app.modules.recommender import RecommendationError, recommend_charts
 
@@ -135,9 +137,32 @@ async def generate_pptx_endpoint(request: Request):
             return _error_response(exc)
 
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        # v1.7：动效版导出（animate=true）文件名与标准版区分（§5.6 GenerateResult）。
-        prefix = "chart-animated" if isinstance(body, dict) and body.get("animate") is True else "chart"
-        headers = {"Content-Disposition": f'attachment; filename="{prefix}-{stamp}.pptx"'}
+        # v1.11：标准导出恒为 chart-*.pptx；动效版走 /api/generate-animated-pptx（§5.6a）。
+        headers = {"Content-Disposition": f'attachment; filename="chart-{stamp}.pptx"'}
+        return Response(content=blob, media_type=PPTX_MEDIA_TYPE, headers=headers)
+    except ParseError as exc:
+        return _error_response(exc)
+
+
+@router.post("/generate-animated-pptx")
+async def generate_animated_pptx_endpoint(request: Request):
+    """SPEC §5.6a/§6a（v1.11，R-6）：{title?, frames, frame_ms?} → 动效版 .pptx 文件流。"""
+    try:
+        try:
+            body: Any = await request.json()
+        except Exception as exc:  # noqa: BLE001
+            raise PptxValidationError("VALIDATION_FAILED", "请求体不是合法 JSON") from exc
+
+        def _build() -> bytes:
+            return build_animated_pptx(body if isinstance(body, dict) else {})
+
+        try:
+            blob = await anyio.to_thread.run_sync(_build)
+        except ParseError as exc:
+            return _error_response(exc)
+
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        headers = {"Content-Disposition": f'attachment; filename="chart-animated-{stamp}.pptx"'}
         return Response(content=blob, media_type=PPTX_MEDIA_TYPE, headers=headers)
     except ParseError as exc:
         return _error_response(exc)

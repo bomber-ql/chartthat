@@ -968,7 +968,8 @@ body {
 @media (max-width: 1080px) {
   .workspace {
     grid-template-columns: 1fr;
-    overflow-y: auto;
+    /* 自然文档流：整页随 body 滚动，工作区不得内部滚动（否则候选区在移动端显示不完整） */
+    overflow: visible;
   }
   body {
     overflow: auto;
@@ -1035,6 +1036,31 @@ body {
   }
   .blk {
     padding: 14px 14px;
+  }
+
+  /* 预览面板头部：文字占满整行、按钮折行，避免提示文案被挤压成竖长条 */
+  .main-head {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 14px 10px;
+  }
+  .main-head > div:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .main-head .muted {
+    white-space: normal;
+    overflow-wrap: break-word;
+    margin: 3px 0 0;
+  }
+  .main-actions {
+    flex-shrink: 1;
+    flex-wrap: wrap;
+  }
+
+  /* 滚动区与卡片内边距随小屏收紧 */
+  .scroll {
+    padding: 6px 14px 18px;
   }
 
   /* 候选卡片单列全宽，杜绝 minmax(320px) 在窄屏横向溢出 */

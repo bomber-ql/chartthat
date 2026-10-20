@@ -10,7 +10,8 @@
 - 全程 None 空点（C-3），line/slope 显式 dispBlanksAs=gap；
 - 副轴 0.0%、主轴带单位（yi -> 0.0"亿"）（§5.1 / C-4）；
 - 保存前断所有外部数据链接（C-2 等价实现，R-2）；
-- v1.7：请求带 ``animate=true`` 时注入 p:timing 放映进入动画（§6 M4 规则 8，R-6）。
+- v1.11：标准导出恒为纯静态原生图表；动效版改由独立 GIF 端点提供
+  （gif_builder.py，SPEC §5.6a/§6a，R-6）。
 """
 from __future__ import annotations
 
@@ -28,7 +29,6 @@ from pptx.util import Inches
 import ablechart
 
 from app.modules.parser import ParseError
-from app.modules.pptx_animation import inject_chart_animation
 
 C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 NSMAP = {"c": C_NS}
@@ -434,18 +434,6 @@ def build_pptx(request: dict[str, Any]) -> bytes:
         _build_category_chart(prs, spec, spec["chart_type"])
 
     break_external_chart_links(prs)
-
-    # v1.9 规则 8：animate=true 时注入 p:timing 进入动画（标准版不含 <p:timing>，R-6）。
-    if request.get("animate") is True:
-        slide = prs.slides[0]
-        for shape in slide.shapes:
-            if shape.has_chart:
-                inject_chart_animation(
-                    slide, shape.shape_id, spec["chart_type"],
-                    n_categories=len(spec.get("categories") or []),
-                    n_series=len(spec.get("series") or []),
-                )
-                break
 
     buf = io.BytesIO()
     prs.save(buf)

@@ -4,6 +4,7 @@ import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
 import { useTheme } from './theme';
 import { useI18n } from './i18n';
+import { captureChartFrames } from './utils/captureFrames';
 
 /** M4 支持导出的图型（SPEC v1.6 起十三型全覆盖；waterfall 透明底座等价、sunburst 降级圆环，见 §11 R-5） */
 const EXPORTABLE = new Set([
@@ -86,26 +87,36 @@ export default function App() {
     setExportMsg(null);
     try {
       for (const s of targets) {
-        const res = await fetch('/api/generate-pptx', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chart_type: s.chart_type,
-            title: s.title,
-            animate,
-            config: { dimension: s.dimension_column },
-            data: {
-              categories: s.categories,
-              series: s.series.map((x) => ({
-                name: x.name,
-                kind: x.kind,
-                axis: x.axis,
-                unit: x.unit,
-                data: x.data,
-              })),
-            },
-          }),
-        });
+        let res: Response;
+        if (animate) {
+          // v1.11 动效版（GIF 路线，SPEC §5.6a）：离屏采帧 → 后端合成 GIF 嵌入 pptx
+          const { frames, frameMs } = await captureChartFrames(s, theme);
+          res = await fetch('/api/generate-animated-pptx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: s.title, frames, frame_ms: frameMs }),
+          });
+        } else {
+          res = await fetch('/api/generate-pptx', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chart_type: s.chart_type,
+              title: s.title,
+              config: { dimension: s.dimension_column },
+              data: {
+                categories: s.categories,
+                series: s.series.map((x) => ({
+                  name: x.name,
+                  kind: x.kind,
+                  axis: x.axis,
+                  unit: x.unit,
+                  data: x.data,
+                })),
+              },
+            }),
+          });
+        }
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { message?: string } | null;
           throw new Error(body?.message ?? `${t('exportFailed')}（HTTP ${res.status}）`);
