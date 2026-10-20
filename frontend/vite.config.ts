@@ -8,6 +8,10 @@ const backendPort = process.env.BACKEND_PORT ?? '8000';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // echarts 全量引入体积较大，属预期；提高告警阈值避免误报。
+    chunkSizeWarningLimit: 2048,
+  },
   server: {
     host: '0.0.0.0',
     port: Number(process.env.DEPLOY_RUN_PORT ?? 5000),

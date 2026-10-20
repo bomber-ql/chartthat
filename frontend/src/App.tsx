@@ -1,59 +1,91 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
+import InputStep from './components/InputStep';
+import PreviewStep from './components/PreviewStep';
+import ExportStep from './components/ExportStep';
 
-type HealthState =
-  | { status: 'checking' }
-  | { status: 'ok' }
-  | { status: 'error'; message: string };
+type Step = 1 | 2 | 3;
 
 export default function App() {
-  const [health, setHealth] = useState<HealthState>({ status: 'checking' });
+  const [step, setStep] = useState<Step>(1);
+  const [table, setTable] = useState<SemanticTable | null>(null);
+  const [initialText, setInitialText] = useState('');
+  const [recs, setRecs] = useState<ChartSpec[] | null>(null);
+  const [degraded, setDegraded] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // 全局选中态（按点击顺序维护，供导出端使用）
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/health')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.json() as Promise<{ status: string }>;
-      })
-      .then((data) => {
-        if (!cancelled) {
-          setHealth(data.status === 'ok' ? { status: 'ok' } : { status: 'error', message: 'unexpected payload' });
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setHealth({ status: 'error', message: err instanceof Error ? err.message : String(err) });
-        }
+  const recById = new Map((recs ?? []).map((r) => [r.id, r]));
+  const selectedSpecs = selectedIds
+    .map((id) => recById.get(id))
+    .filter((s): s is ChartSpec => Boolean(s));
+
+  const handleParsed = (t: SemanticTable) => {
+    setTable(t);
+    setRecs(null);
+    setSelectedIds([]);
+    setError(null);
+    setStep(2);
+  };
+
+  const generateRecs = async () => {
+    if (!table) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(table),
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? `推荐失败（HTTP ${res.status}）`);
+      }
+      const data = (await res.json()) as RecommendResponse;
+      setRecs(data.recommendations);
+      setDegraded(data.degraded);
+      setSelectedIds((prev) => prev.filter((id) => data.recommendations.some((r) => r.id === id)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   return (
-    <main className="page">
-      <section className="card">
-        <p className="badge">SPEC v1.0 · 骨架已就绪</p>
+    <main className="page flow">
+      <header className="app-head">
         <h1>智能数据图表 PPT 生成器</h1>
-        <p className="desc">
-          输入不规整数据（文本 / CSV / Excel），自动分析语义并推荐图表，
-          导出含原生可编辑 Chart 对象的 .pptx。
-        </p>
-        <div className={`health health-${health.status}`}>
-          后端连通性：
-          {health.status === 'checking' && <span>检测中…</span>}
-          {health.status === 'ok' && <span>正常（/api/health → ok）</span>}
-          {health.status === 'error' && <span>异常（{health.message}）</span>}
-        </div>
-        <ol className="steps">
-          <li>数据输入与语义解析（M1 parser / M2 semantic）</li>
-          <li>LLM 图表推荐与 ECharts 候选预览（M3 recommender）</li>
-          <li>导出原生图表 PPTX（M4 pptx_builder）</li>
-        </ol>
-        <p className="notice">业务模块将在 SPEC.md 评审确认后按规格实现。</p>
-      </section>
+        <p className="muted">输入 → 候选图表预览 → 导出原生可编辑 Chart 对象的 .pptx</p>
+      </header>
+
+      {error && <p className="error banner">{error}</p>}
+
+      {step === 1 && (
+        <InputStep onParsed={handleParsed} initialText={initialText} onInitialText={setInitialText} />
+      )}
+      {step === 2 && (
+        <PreviewStep
+          recs={recs}
+          degraded={degraded}
+          generating={generating}
+          selectedIds={selectedIds}
+          onToggle={toggleSelect}
+          onGenerate={() => void generateRecs()}
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
+        />
+      )}
+      {step === 3 && (
+        <ExportStep selectedSpecs={selectedSpecs} onBack={() => setStep(2)} />
+      )}
     </main>
   );
 }
