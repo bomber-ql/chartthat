@@ -4,7 +4,15 @@ import type { EChartsOption } from 'echarts';
 import type { AxisSpec, ChartSpec, ChartSeries } from '../types';
 
 const GRID = { left: 8, right: 12, top: 28, bottom: 8, containLabel: true };
-const PALETTE = ['#3E7BFA', '#2FC25B', '#F5A623', '#E15C4A', '#8A63D2', '#10A6A0'];
+// 深色科技感色板：青蓝为主，辅以对比亮色（DESIGN.md）
+const PALETTE = ['#22d3ee', '#3b82f6', '#34d399', '#fbbf24', '#fb7185', '#a78bfa'];
+const TEXT_DIM = '#8ea2c0';
+const AXIS_LINE = 'rgba(56,189,248,.18)';
+const TOOLTIP = {
+  backgroundColor: 'rgba(10,16,30,.92)',
+  borderColor: 'rgba(56,189,248,.3)',
+  textStyle: { color: '#e2e8f0', fontSize: 11 },
+};
 
 const pct = (v: number): string => `${(v * 100).toFixed(1)}%`;
 
@@ -31,7 +39,7 @@ function axisFormatter(unit: string): (v: number) => string {
 
 function legend(series: ChartSeries[]) {
   return series.length > 1
-    ? { top: 0, left: 0, itemWidth: 12, itemHeight: 8, icon: 'roundRect', textStyle: { fontSize: 10 } }
+    ? { top: 0, left: 0, itemWidth: 12, itemHeight: 8, icon: 'roundRect', textStyle: { fontSize: 10, color: TEXT_DIM } }
     : undefined;
 }
 
@@ -53,19 +61,20 @@ function singleAxisOption(spec: ChartSpec, type: ChartSeries['kind']): EChartsOp
     animation: false,
     color: PALETTE,
     grid: GRID,
-    tooltip: { trigger: 'axis' },
+    tooltip: { trigger: 'axis', ...TOOLTIP },
     legend: legend(spec.series),
     xAxis: {
       type: 'category',
       data: spec.categories,
-      axisLabel: { fontSize: 10 },
+      axisLabel: { fontSize: 10, color: TEXT_DIM },
       axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } },
     },
     yAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, formatter: axisFormatter(primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', opacity: 0.4 } },
+      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
     },
     series: cartesianSeries(spec, type),
   };
@@ -86,15 +95,15 @@ function comboOption(spec: ChartSpec): EChartsOption {
     {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, formatter: axisFormatter(spec.axes.primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', opacity: 0.4 } },
+      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(spec.axes.primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
     },
     ...(hasSecondary
       ? [
           {
             type: 'value',
             scale: true,
-            axisLabel: { fontSize: 9, formatter: axisFormatter('percent') },
+            axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter('percent') },
             splitLine: { show: false },
           },
         ]
@@ -104,13 +113,14 @@ function comboOption(spec: ChartSpec): EChartsOption {
     animation: false,
     color: PALETTE,
     grid: GRID,
-    tooltip: { trigger: 'axis' },
+    tooltip: { trigger: 'axis', ...TOOLTIP },
     legend: legend(spec.series),
     xAxis: {
       type: 'category',
       data: spec.categories,
-      axisLabel: { fontSize: 10 },
+      axisLabel: { fontSize: 10, color: TEXT_DIM },
       axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } },
     },
     yAxis,
     series,
@@ -131,6 +141,7 @@ function scatterOption(spec: ChartSpec): EChartsOption {
     grid: GRID,
     tooltip: {
       trigger: 'item',
+      ...TOOLTIP,
       formatter: (params: unknown) => {
         const p = params as { name?: string; value?: [number, number] };
         const v = p.value ?? [0, 0];
@@ -139,8 +150,22 @@ function scatterOption(spec: ChartSpec): EChartsOption {
         }: ${valueFormatter(ys?.unit ?? 'count')(v[1])}`;
       },
     },
-    xAxis: { type: 'value', scale: true, axisLabel: { fontSize: 9 }, name: xs?.name, nameTextStyle: { fontSize: 10 } },
-    yAxis: { type: 'value', scale: true, axisLabel: { fontSize: 9 }, name: ys?.name, nameTextStyle: { fontSize: 10 } },
+    xAxis: {
+      type: 'value',
+      scale: true,
+      axisLabel: { fontSize: 9, color: TEXT_DIM },
+      name: xs?.name,
+      nameTextStyle: { fontSize: 10, color: TEXT_DIM },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+      axisLabel: { fontSize: 9, color: TEXT_DIM },
+      name: ys?.name,
+      nameTextStyle: { fontSize: 10, color: TEXT_DIM },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+    },
     series: [{ type: 'scatter', data, symbolSize: 7 }],
   } as EChartsOption;
 }
@@ -155,14 +180,15 @@ function pieOption(spec: ChartSpec): EChartsOption {
     animation: false,
     color: PALETTE,
     grid: { top: 8, bottom: 8, left: 8, right: 8 },
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    tooltip: { trigger: 'item', ...TOOLTIP, formatter: '{b}: {c} ({d}%)' },
     series: [
       {
         type: 'pie',
         radius: ['32%', '64%'],
         center: ['50%', '50%'],
         data,
-        label: { fontSize: 9 },
+        label: { fontSize: 9, color: TEXT_DIM },
+        labelLine: { lineStyle: { color: AXIS_LINE } },
         valueFormatter: valueFormatter(s.unit),
       },
     ],

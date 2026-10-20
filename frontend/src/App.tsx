@@ -1,33 +1,34 @@
 import { useState } from 'react';
 import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
-import InputStep from './components/InputStep';
-import PreviewStep from './components/PreviewStep';
-import ExportStep from './components/ExportStep';
+import ControlPanel from './components/ControlPanel';
+import PreviewPanel from './components/PreviewPanel';
 
-type Step = 1 | 2 | 3;
+/** M4 当前支持导出的图型（slope/scatter/pie 按 SPEC v1.4 暂返回 400） */
+const EXPORTABLE = new Set(['line', 'bar', 'combo']);
 
 export default function App() {
-  const [step, setStep] = useState<Step>(1);
   const [table, setTable] = useState<SemanticTable | null>(null);
   const [initialText, setInitialText] = useState('');
   const [recs, setRecs] = useState<ChartSpec[] | null>(null);
   const [degraded, setDegraded] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 全局选中态（按点击顺序维护，供导出端使用）
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const recById = new Map((recs ?? []).map((r) => [r.id, r]));
   const selectedSpecs = selectedIds
     .map((id) => recById.get(id))
     .filter((s): s is ChartSpec => Boolean(s));
+  const exportableCount = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type)).length;
 
   const handleParsed = (t: SemanticTable) => {
     setTable(t);
     setRecs(null);
     setSelectedIds([]);
     setError(null);
-    setStep(2);
+    setExportMsg(null);
   };
 
   const generateRecs = async () => {
@@ -57,35 +58,111 @@ export default function App() {
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setExportMsg(null);
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const exportPptx = async () => {
+    const targets = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type));
+    if (!targets.length) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      for (const s of targets) {
+        const res = await fetch('/api/generate-pptx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chart_type: s.chart_type,
+            title: s.title,
+            config: { dimension: s.dimension_column },
+            data: {
+              categories: s.categories,
+              series: s.series.map((x) => ({
+                name: x.name,
+                kind: x.kind,
+                axis: x.axis,
+                unit: x.unit,
+                data: x.data,
+              })),
+            },
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(body?.message ?? `导出失败（HTTP ${res.status}）`);
+        }
+        const blob = await res.blob();
+        const safe = (s.title || s.chart_type).replace(/[\\/:*?"<>|]/g, '_');
+        downloadBlob(blob, `${safe}.pptx`);
+      }
+      const skipped = selectedSpecs.length - targets.length;
+      setExportMsg(
+        skipped > 0
+          ? `已下载 ${targets.length} 个 .pptx；${skipped} 张图（slope/scatter/pie）按 SPEC 暂不支持导出。`
+          : `已下载 ${targets.length} 个 .pptx 文件。`,
+      );
+    } catch (e) {
+      setExportMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
-    <main className="page flow">
-      <header className="app-head">
-        <h1>智能数据图表 PPT 生成器</h1>
-        <p className="muted">输入 → 候选图表预览 → 导出原生可编辑 Chart 对象的 .pptx</p>
+    <div className="shell">
+      <div className="bg-grid" aria-hidden />
+      <span className="corner tl" aria-hidden />
+      <span className="corner tr" aria-hidden />
+      <span className="corner bl" aria-hidden />
+      <span className="corner br" aria-hidden />
+
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark" aria-hidden />
+          <div>
+            <h1>DATA CHART PPTX</h1>
+            <p className="brand-sub">智能数据图表 PPT 生成器</p>
+          </div>
+        </div>
+        <div className="status">
+          <span className={`dot ${recs ? 'dot-on' : ''}`} aria-hidden />
+          <span className="status-text">{recs ? `已生成 ${recs.length} 张候选` : '待命'}</span>
+        </div>
       </header>
 
-      {error && <p className="error banner">{error}</p>}
-
-      {step === 1 && (
-        <InputStep onParsed={handleParsed} initialText={initialText} onInitialText={setInitialText} />
-      )}
-      {step === 2 && (
-        <PreviewStep
+      <main className="workspace">
+        <ControlPanel
+          table={table}
+          initialText={initialText}
+          onInitialText={setInitialText}
+          onParsed={handleParsed}
+          selectedSpecs={selectedSpecs}
+          exportableCount={exportableCount}
+          exporting={exporting}
+          exportMsg={exportMsg}
+          onExport={() => void exportPptx()}
+          onRemove={toggleSelect}
+        />
+        <PreviewPanel
+          table={table}
           recs={recs}
           degraded={degraded}
           generating={generating}
           selectedIds={selectedIds}
+          error={error}
           onToggle={toggleSelect}
           onGenerate={() => void generateRecs()}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1)}
         />
-      )}
-      {step === 3 && (
-        <ExportStep selectedSpecs={selectedSpecs} onBack={() => setStep(2)} />
-      )}
-    </main>
+      </main>
+    </div>
   );
 }

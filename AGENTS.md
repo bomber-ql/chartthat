@@ -8,7 +8,7 @@
 ## 架构
 - `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder，契约见 SPEC §5/§6。
 - `frontend/`：React 18 + TypeScript + Vite 5 + ECharts 5；`ChartSpec` 是前后端共享的唯一图表事实源，映射层为 `src/utils/specToOption.ts`。
-  - 已实现三步流程：`InputStep`（文本/文件→/api/parse）→ `PreviewStep`（/api/recommend → `ChartCard` 卡片网格，ECharts 缩略图 + reasoning，点击选中全局 state）→ `ExportStep`（已能展示选中图表；下载按钮尚未接 /api/generate-pptx）。
+  - 已实现**左右分布单工作区**（深色科技感，DESIGN.md）：左 `ControlPanel`（输入→/api/parse、解析摘要、已选清单、导出）+ 右 `PreviewPanel`（/api/recommend → `ChartCard` 卡片网格，ECharts 缩略图 + reasoning，点击选中全局 state）；导出已接 /api/generate-pptx（line/bar/combo 逐张下载 .pptx，slope/scatter/pie 跳过并提示）。无页签三步流已废弃。
   - `ChartSpec` → ECharts option 的唯一映射层为 `src/utils/specToOption.ts`（line/bar/combo/slope/scatter/pie；combo 柱主轴 + percent 折线副轴，tooltip/label 层 ×100 显示百分比；`connectNulls:false` 断线）。
 - dev：Vite 监听对外端口 `${DEPLOY_RUN_PORT}`（主仓 5000），`/api` 代理到 FastAPI 127.0.0.1:8000。
 - prod：`pnpm build` 产出 `frontend/dist`，FastAPI 监听 `${DEPLOY_RUN_PORT}` 并托管 dist（SPA fallback 已在 `main.py` 实现）。
