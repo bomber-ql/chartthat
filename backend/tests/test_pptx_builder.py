@@ -177,8 +177,9 @@ def test_bar_uses_native_chart():
 # ---------- 校验 ----------
 
 def test_rejects_unknown_chart_type():
+    # v1.6 起 radar 已是合法类型，未知类型用 funnel 代表
     with pytest.raises(PptxValidationError):
-        build_pptx({"chart_type": "radar", "data": COMBO_REQUEST["data"]})
+        build_pptx({"chart_type": "funnel", "data": COMBO_REQUEST["data"]})
 
 
 def test_rejects_combo_without_secondary():
@@ -210,7 +211,7 @@ def test_generate_pptx_endpoint_returns_file():
 def test_generate_pptx_endpoint_bad_request():
     client = TestClient(app)
     # 完全未知的图型 → VALIDATION_FAILED/400
-    resp2 = client.post("/api/generate-pptx", json={"chart_type": "radar", "data": {}})
+    resp2 = client.post("/api/generate-pptx", json={"chart_type": "funnel", "data": {}})
     assert resp2.status_code == 400
     assert resp2.json()["code"] == "VALIDATION_FAILED"
     # 结构非法（缺 data）→ VALIDATION_FAILED/400
@@ -290,3 +291,137 @@ def test_rejects_new_type_shape_violations():
         build_pptx({"chart_type": "slope", "data": {
             "categories": ["a", "b"],
             "series": [{"name": "p", "unit": "percent", "data": [0.1, 0.2]}]}})
+
+
+# ---------- v1.6 新增七图型（hbar / area / stacked / waterfall / radar / donut / sunburst） ----------
+
+def _series(name: str, data: list, unit: str = "yi") -> dict:
+    return {"name": name, "unit": unit, "data": data}
+
+
+def test_hbar_builds_bar_dir_bar():
+    blob = build_pptx({"chart_type": "hbar", "data": {
+        "categories": ["微信", "抖音"],
+        "series": [_series("2025 MAU", [14.2, 11.7])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:barChart>" in xml
+    assert '<c:barDir val="bar"/>' in xml  # 横向条形
+    assert _external_link_targets(blob) == []
+
+
+def test_area_builds_area_chart():
+    blob = build_pptx({"chart_type": "area", "data": {
+        "categories": ["Q1", "Q2", "Q3"],
+        "series": [_series("营收", [1.0, None, 3.0])],  # null 空点保留（C-3）
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:areaChart>" in xml
+    _, _, charts = _charts(blob)
+    values = list(charts[0].series[0].values)
+    assert values[1] is None  # 未转 0
+    assert _external_link_targets(blob) == []
+
+
+def test_stacked_builds_stacked_grouping():
+    blob = build_pptx({"chart_type": "stacked", "data": {
+        "categories": ["Q1", "Q2"],
+        "series": [_series("移动", [3.0, 4.0]), _series("PC", [1.5, 2.0])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:barChart>" in xml
+    assert '<c:grouping val="stacked"/>' in xml
+    _, _, charts = _charts(blob)
+    assert len(charts[0].series) == 2
+    assert _external_link_targets(blob) == []
+
+
+def test_waterfall_builds_transparent_base():
+    blob = build_pptx({"chart_type": "waterfall", "data": {
+        "categories": ["期初", "迁移", "流失", "期末调整"],
+        "series": [_series("规模变化", [10.0, None, -3.0, 1.0])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:barChart>" in xml
+    assert '<c:grouping val="stacked"/>' in xml  # R-5：COLUMN_STACKED 等价
+    assert "<a:noFill/>" in xml  # 底座系列透明
+    _, _, charts = _charts(blob)
+    chart = charts[0]
+    assert len(chart.series) == 2  # 底座 + 增量
+    # 底座 = min(前值累计, 后值累计)（§6 M4 映射表口径）：[0, 0(None占位), min(10,7), min(7,8)]
+    assert list(chart.series[0].values) == [0.0, 0.0, 7.0, 7.0]
+    # 增量取绝对值（负值翻转防回落零轴）；None 空点保留不转 0（C-3）
+    assert list(chart.series[1].values) == [10.0, None, 3.0, 1.0]
+    assert _external_link_targets(blob) == []
+
+
+def test_radar_builds_radar_markers():
+    blob = build_pptx({"chart_type": "radar", "data": {
+        "categories": ["增长", "留存", "变现", "传播"],
+        "series": [
+            _series("产品A", [8.0, 6.5, 7.0, 5.0], unit="count"),
+            _series("产品B", [6.0, 7.5, 5.5, 8.0], unit="count"),
+            _series("产品C", [7.0, 7.0, 6.0, 6.5], unit="count"),
+        ],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:radarChart>" in xml
+    _, _, charts = _charts(blob)
+    assert len(charts[0].series) == 3
+    assert _external_link_targets(blob) == []
+
+
+def test_donut_builds_doughnut_chart():
+    blob = build_pptx({"chart_type": "donut", "data": {
+        "categories": ["微信", "抖音", "快手"],
+        "series": [_series("时长占比", [5.0, 4.0, 1.0])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:doughnutChart>" in xml
+    assert _external_link_targets(blob) == []
+
+
+def test_sunburst_degrades_to_doughnut_and_drops_null():
+    # R-5：python-pptx 无 sunburst 类型，导出降级为 DOUGHNUT 近似；null 扇区剔除（C-3）
+    blob = build_pptx({"chart_type": "sunburst", "data": {
+        "categories": ["微信", "抖音", "快手"],
+        "series": [_series("份额", [5.0, None, 3.0])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:doughnutChart>" in xml
+    assert "抖音" not in xml
+    assert _external_link_targets(blob) == []
+
+
+def test_rejects_v16_shape_and_percent_violations():
+    # donut/sunburst/waterfall 系列数 ≠ 1
+    for t in ("donut", "sunburst", "waterfall"):
+        with pytest.raises(PptxValidationError):
+            build_pptx({"chart_type": t, "data": {
+                "categories": ["a", "b"],
+                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}})
+    # stacked 系列数 < 2 / 单位不一致
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "stacked", "data": {
+            "categories": ["a"], "series": [_series("x", [1.0])]}})
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "stacked", "data": {
+            "categories": ["a"],
+            "series": [_series("x", [1.0]), _series("y", [2.0], unit="wan")]}})
+    # radar 系列数 < 3 / 单位不一致
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "radar", "data": {
+            "categories": ["a"],
+            "series": [_series("x", [1.0]), _series("y", [2.0])]}})
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "radar", "data": {
+            "categories": ["a"],
+            "series": [_series("x", [1.0]), _series("y", [2.0]), _series("z", [3.0], unit="wan")]}})
+    # 新类型（除 hbar/area 外）禁 percent：radar / stacked / waterfall 各验一例
+    for t, series in (
+        ("radar", [_series("a", [0.1], "percent"), _series("b", [0.2], "percent"), _series("c", [0.3], "percent")]),
+        ("stacked", [_series("a", [0.1], "percent"), _series("b", [0.2], "percent")]),
+        ("waterfall", [_series("a", [0.1], "percent")]),
+    ):
+        with pytest.raises(PptxValidationError):
+            build_pptx({"chart_type": t, "data": {"categories": ["x"], "series": series}})

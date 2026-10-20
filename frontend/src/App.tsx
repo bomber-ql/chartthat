@@ -3,8 +3,11 @@ import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
 import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
 
-/** M4 支持导出的图型（SPEC v1.5 起六型全覆盖） */
-const EXPORTABLE = new Set(['line', 'bar', 'combo', 'slope', 'scatter', 'pie']);
+/** M4 支持导出的图型（SPEC v1.6 起十三型全覆盖；waterfall 透明底座等价、sunburst 降级圆环，见 §11 R-5） */
+const EXPORTABLE = new Set([
+  'line', 'bar', 'hbar', 'area', 'combo', 'stacked', 'slope',
+  'scatter', 'waterfall', 'radar', 'pie', 'donut', 'sunburst',
+]);
 
 export default function App() {
   const [table, setTable] = useState<SemanticTable | null>(null);

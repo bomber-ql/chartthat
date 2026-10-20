@@ -4,6 +4,7 @@
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.6：图表类型从六种扩展为**十三种**——新增 `hbar`（水平条形）、`stacked`（堆叠柱）、`donut`（圆环）、`area`（面积）、`waterfall`（瀑布）、`radar`（雷达）、`sunburst`（旭日）；C-5 枚举、§5.4 Schema、V-2、§5.5 LLM 契约、§6 M4 映射表同步扩展，并新增不变式 V-9~V-12。导出等价说明：**瀑布图无 python-pptx 原生枚举，以 `COLUMN_STACKED`（透明底座系列 + 增量系列）等价实现**，仍为原生可编辑 Chart（C-1 不违反）；**旭日图 python-pptx 无对应类型，导出降级为 `DOUGHNUT`**（近似表达，R-5）；圆环=`DOUGHNUT`、面积=`AREA`、雷达=`RADAR_MARKERS`、水平条形=`BAR_CLUSTERED`、堆叠=`COLUMN_STACKED`（均原生）。新不变式：V-9（stacked ≥2 个同单位 measure 序列）、V-10（waterfall 恰好 1 个 measure 序列）、V-11（radar ≥3 个同单位 measure 序列、禁 percent）、V-12（donut/sunburst 同 V-8 pie 口径）。新类型 percent 口径：`stacked`/`waterfall`/`radar`/`donut`/`sunburst` 禁 percent；percent 仅允许 `bar`/`hbar`/`line`/`area`/`combo`。
 - v1.5：M4 导出能力从「bar / line / combo」扩展为**六种图型全覆盖**——`slope` 按两期 `LINE_MARKERS`（含 gap 断线）实现，`scatter` 用 `XyChartData`（无效点剔除），`pie` 用 `PIE`（null 扇区剔除）（R-4 落定）；`UNSUPPORTED_CHART` 错误码随之移除（未知类型仍走 `VALIDATION_FAILED`）；新增入参校验：scatter 恰好 2 系列、pie 恰好 1 系列、slope/scatter/pie 禁止 percent 系列（V-9/V-10 与 M3 口径一致）。产品行为变更：前端「解析数据」与「生成候选图表」合并为一次点击（解析成功后自动调用推荐），导出不再跳过任何已选图型。
 - v1.4：M4 落地为**单图导出端点 `POST /api/generate-pptx`**（入参 `{chart_type, config, data}`，出参 `.pptx` 文件流，见 §5.6）；原多图 deck 端点 `/api/generate`（GenerateRequest，含 table/charts/options）降级为后续里程碑（MVP 之后），契约保留在 §5.6b 暂不实现。M0 门禁已通过（`backend/spikes/ablechart_spike.py`）：ablechart 0.2.0 `create_combo_chart(slide, df, categories_col, series_config=[{key,name,type,axis}], polish=False)` 产出原生 barChart+lineChart+双 valAx，内嵌 workbook 为内部 `package` 关系（`TargetMode` 非 External），**无外部数据链接**；python-pptx 1.0.2 无公共 BreakLink API（R-2），C-2 以「遍历 chart part relationships，删除所有 is_external 关系 + 移除 `<c:externalData>` 空引用」等价实现；python-pptx 生成的 line 图 `dispBlanksAs` 默认即 `gap`（空点断线，C-3），builder 仍显式置 `gap` 兜底；次轴数字格式 `0.0%`、主轴 tick label 格式 `0.0"亿"`（yi）通过 chart XML 设置；combo 的 `chart.chart_type` 读回为 COLUMN_CLUSTERED（多 plot 混合图无独立枚举），验收以 chart XML 同时含 `barChart`+`lineChart` 且 valAx=2 为准。
 - v1.3：图表类型恢复为六种（bar / line / combo / slope / scatter / pie，v1.1 的 MVP 三类型收窄撤销）；LLM 原始输出契约改为**裸 JSON 数组**，每项字段为 `chart_type` / `title` / `config` / `reasoning`（§5.5）；ChartSpec 的推荐理由字段 `rationale` 统一改名 `reasoning`，新增 `semantic_layer` 字段；M3 新增「趋势 / 体量对比 / 变化率」三语义层覆盖要求（含降级补齐）；明确缺失系列由后端确定性追加「该系列数据不完整，建议不纳入」；LLM 容错重试措辞明确为「最多调用 2 次（失败后重试 1 次）」；恢复 V-5~V-8（scatter/slope/pie）不变式与 §8 对应前端映射。
@@ -24,7 +25,7 @@
 4. 用户选定后导出 `.pptx`，其中所有图表为 **原生 Chart 对象**，可在 WPS / PowerPoint 中**双击编辑数据**。
 
 ### 1.2 范围说明（MVP）
-- **支持六种图表类型：`bar`、`line`、`combo`、`slope`、`scatter`、`pie`。** 其中 bar / line / combo 为 M4 PPT 导出的首要路径（M0 门禁保证）；slope / scatter / pie 同样参与推荐与预览，M4 映射规则见 §6（M4 实现时若某类型不满足产物要求，必须先回写 SPEC 再降级处理）。
+- **支持十三种图表类型（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。** 全部参与推荐、预览与 M4 PPT 导出；瀑布/旭日的导出等价与降级规则见 §6（M4 映射表）与 R-5，任何进一步降级必须先回写 SPEC。
 - M3 每次推荐**至少覆盖三个语义层**：趋势（trend）、体量对比（comparison）、变化率（rate），见 §6 M3 规则 4。
 
 ### 1.3 非目标（Out of Scope）
@@ -69,7 +70,7 @@
 - **验证**：M2 输出中「同比」列 `unit=percent` 且解析值为 `0.112`（非 `"11.2%"` 字符串、非 `11.2`）；M3 输出的所有 ChartSpec 通过不变式校验 V-3（见 §5.4）；M4 产物中该序列写入值与 JSON 一致（`0.112`）且轴格式含 `%`。
 
 ### C-5 LLM 推荐输出强约束
-- **要求**：LLM 推荐的图表类型限定在 `bar`、`line`、`combo`、`slope`、`scatter`、`pie` 六种。输出必须是**严格 JSON 数组**（裸数组文本，无 Markdown 代码围栏、无解释性前后缀；元素结构见 §5.5：`chart_type` / `title` / `config` / `reasoning`）。LLM **只输出列引用与图表配置，不输出数据值**——数据由后端从 SemanticTable 投影填充，防止 LLM 编造数字。
+- **要求**：LLM 推荐的图表类型限定在十三种（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。输出必须是**严格 JSON 数组**（裸数组文本，无 Markdown 代码围栏、无解释性前后缀；元素结构见 §5.5：`chart_type` / `title` / `config` / `reasoning`）。LLM **只输出列引用与图表配置，不输出数据值**——数据由后端从 SemanticTable 投影填充，防止 LLM 编造数字。
 - **验证**：LLM 原始响应先做容错 JSON parse（先直接 parse；失败则剥离 Markdown 代码围栏后再 parse），再过 §5.5 Schema 校验与引用完整性校验（列名必须存在）；parse 或校验失败时携带错误反馈**重试 1 次**（即最多调用 2 次），仍失败走降级策略（见 §6 M3）。
 
 ---
@@ -289,7 +290,7 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
   "required": ["id", "chart_type", "title", "categories", "series"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
-    "chart_type": { "type": "string", "enum": ["bar", "line", "combo", "slope", "scatter", "pie"] },
+    "chart_type": { "type": "string", "enum": ["bar", "hbar", "line", "area", "combo", "stacked", "slope", "scatter", "waterfall", "radar", "pie", "donut", "sunburst"] },
     "title": { "type": "string", "minLength": 1 },
     "subtitle": { "type": ["string", "null"], "default": null },
     "reasoning": { "type": "string", "default": "", "description": "推荐理由，UI 展示用；系列不完整时必须追加规定提示语（见 §6 M3 规则 5）" },
@@ -298,7 +299,7 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
     "categories": {
       "type": "array", "minItems": 1,
       "items": { "type": "string" },
-      "description": "分类轴标签（dimension 列投影值）；slope 为实体（如平台），scatter 存放行标签用于 tooltip，pie 为扇区名"
+      "description": "分类轴标签（dimension 列投影值）；slope 为实体（如平台），scatter 存放行标签用于 tooltip，pie/donut/sunburst 为扇区名，waterfall 为阶段名；radar 为指标名（其 series 为各实体，M3 投影时维度/序列互换）"
     },
     "series": {
       "type": "array",
@@ -346,13 +347,18 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
 
 **不变式（validators 必须实现，M3/M4 入口均执行）：**
 - **V-1** 非 scatter 图：所有 `series[i].data.length === categories.length`。
-- **V-2** `chart_type ∈ {bar, line, combo, slope, scatter, pie}`（C-5）。
+- **V-2** `chart_type ∈ {bar, hbar, line, area, combo, stacked, slope, scatter, waterfall, radar, pie, donut, sunburst}`（C-5，v1.6）。
 - **V-3** `unit=percent` 的序列：当同图存在非 percent 序列时，必须 `axis=secondary`；主副轴 unit 不得相同。（C-4）
 - **V-4** `combo`：序列数 ≥ 2 且至少包含两种不同 `kind`；percent 序列 `kind` 必须为 `line` 并挂副轴。
 - **V-5** 所有 `series[i].source_column` 必须存在于 SemanticTable.columns，且其 role 与 `unit` 必须和源列一致（禁止前端/LLM 篡改单位）。
 - **V-6** `slope`：序列 ≥ 2 且全部同 unit（measure）；`categories` 为实体集合（series 为各期快照，每条序列画为一条两点连线；line 图的特例约定）。
 - **V-7** `scatter`：恰好 2 个 measure 序列（`kind=scatter`，分别为 X/Y）；任一坐标为 null 的点整点剔除。
 - **V-8** `pie`：恰好 1 个 measure 序列；null 数据点对应扇区剔除（不按 0 绘制）。
+- **V-9** `stacked`：≥ 2 个同单位 measure 序列（非 percent），堆叠才有意义。
+- **V-10** `waterfall`：恰好 1 个 measure 序列（非 percent）；数值为各阶段增量（首项为基数）。
+- **V-11** `radar`：≥ 3 个同单位 measure 序列（非 percent）；`categories` 为指标名，`series` 为各实体（M3 投影时维度/系列互换）。
+- **V-12** `donut` / `sunburst`：同 V-8 pie 口径——恰好 1 个 measure 序列（非 percent），null 扇区剔除。
+- **新类型 percent 口径**：`stacked`、`waterfall`、`radar`、`donut`、`sunburst` 一律禁止 percent 序列（同 slope/scatter/pie）；percent 仅允许出现在 `bar`、`hbar`、`line`、`area`、`combo`。
 
 ### 5.5 LLM 内部输出契约（M3 与 LLM 之间）
 
@@ -367,7 +373,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
   "required": ["chart_type", "title", "config", "reasoning"],
   "additionalProperties": false,
   "properties": {
-    "chart_type": { "type": "string", "enum": ["bar", "line", "combo", "slope", "scatter", "pie"] },
+    "chart_type": { "type": "string", "enum": ["bar", "hbar", "line", "area", "combo", "stacked", "slope", "scatter", "waterfall", "radar", "pie", "donut", "sunburst"] },
     "title": { "type": "string", "minLength": 1, "maxLength": 60 },
     "reasoning": { "type": "string", "maxLength": 200, "description": "推荐理由（不得编造数据值）" },
     "config": {
@@ -434,7 +440,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
   "properties": {
     "chart_type": {
       "type": "string",
-      "enum": ["bar", "line", "combo", "slope", "scatter", "pie"],
+      "enum": ["bar", "hbar", "line", "area", "combo", "stacked", "slope", "scatter", "waterfall", "radar", "pie", "donut", "sunburst"],
       "description": "六种图型全部支持导出（v1.5 起）；未知类型返回 400 VALIDATION_FAILED"
     },
     "config": {
@@ -632,15 +638,22 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 **处理规则：**
 1. 入口按 §5.6「入参校验规则」校验（不信任前端）：长度一致、combo 的 kind/axis/unit 约束、percent 形态、scatter/pie 系列数约束、slope/scatter/pie 禁 percent；非法返回 `VALIDATION_FAILED`。
-2. 图表类型映射（v1.5 起六型全覆盖）：
+2. 图表类型映射（v1.6 起十三型全覆盖）：
    | chart_type | 实现方式 |
    |---|---|
    | `bar` | python-pptx `add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, ...)` + `CategoryChartData` |
+   | `hbar` | python-pptx `add_chart(XL_CHART_TYPE.BAR_CLUSTERED, ...)` + `CategoryChartData`（水平条形） |
    | `line` | python-pptx `add_chart(XL_CHART_TYPE.LINE_MARKERS, ...)` + `CategoryChartData`，显式置 `c:dispBlanksAs val="gap"`（空点断线，不把空值当 0 连接，C-3） |
+   | `area` | python-pptx `add_chart(XL_CHART_TYPE.AREA, ...)` + `CategoryChartData` |
+   | `combo` | **`ablechart.create_combo_chart`**（M0 已验证）：构造 `DataFrame`（分类列 + 各系列列，None 保留为 NaN），`series_config=[{key,name,type,axis}]`，bar 主轴 + percent line 副轴，`polish=False`；之后对两个 `c:valAx` 设置数字格式 |
+   | `stacked` | python-pptx `add_chart(XL_CHART_TYPE.COLUMN_STACKED, ...)` + `CategoryChartData`（V-9：≥2 同单位序列） |
    | `slope` | 同 line 的 `LINE_MARKERS` + `CategoryChartData` + `dispBlanksAs=gap`（系列为两期快照，R-4） |
    | `scatter` | python-pptx `add_chart(XL_CHART_TYPE.XY_SCATTER, ...)` + `XyChartData`，任一坐标为 None 的点整体剔除（C-3）；x/y 轴按对应系列 unit 设数字格式 |
+   | `waterfall` | **等价实现（无原生枚举，R-5）**：python-pptx `COLUMN_STACKED` + 两个系列——「底座」系列（`format.fill.background()` 置透明）+「增量」系列；取值口径：**底座 = min（前值累计， 后值累计），增量 = |原始增量|**——堆叠图中负值会回落零轴下方独立渲染，负增量必须翻转为正值段并以下界垫高，否则瀑布形态断裂；None 增量保持空点（C-3，底座对应位补 0 高度即不可见）；原生可编辑 Chart，C-1 不违反 |
+   | `radar` | python-pptx `add_chart(XL_CHART_TYPE.RADAR_MARKERS, ...)` + `CategoryChartData`（categories=指标名，系列=各实体，V-11） |
    | `pie` | python-pptx `add_chart(XL_CHART_TYPE.PIE, ...)` + `CategoryChartData`，值为 None 的扇区整体剔除（C-3） |
-   | `combo` | **`ablechart.create_combo_chart`**（M0 已验证）：构造 `DataFrame`（分类列 + 各系列列，None 保留为 NaN），`series_config=[{key,name,type,axis}]`，bar 主轴 + percent line 副轴，`polish=False`；之后对两个 `c:valAx` 设置数字格式 |
+   | `donut` | python-pptx `add_chart(XL_CHART_TYPE.DOUGHNUT, ...)` + `CategoryChartData`，None 扇区剔除（V-12） |
+   | `sunburst` | **降级近似（R-5）**：python-pptx 无旭日类型，导出为 `DOUGHNUT`（环图近似，None 扇区剔除）；前端预览仍为真旭日效果，PPT 侧以圆环表达占比 |
 3. 数据写入：缺失值以 `None` 写入（line 断线、bar 缺柱，C-3），任何环节禁止转 0；combo 经 pandas 时 None→NaN，ablechart 同样写为空点。
 4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），**副轴 tick label 数字格式 `0.0%`**；`yi` 序列原值写入，**主轴 tick label 数字格式 `0.0"亿"`**（`wan` 类推 `0.0"万"`，`count` 用 `General`）。格式作用于对应 `c:valAx/c:numFmt`。
 5. **BreakLink 收尾（C-2，等价 XML 实现，R-2）**：save 之前遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，对 `chart.part.rels.values()` 中 `is_external=True` 的关系删除；随后移除 `c:chartSpace/c:chart` 下已无有效引用的 `<c:externalData r:id=.../>` 元素（仅删空引用，内部嵌入 workbook 的 `package` 关系保留，以保证双击可编辑）。语义等价于「`IsLinked` 为 True 则 `BreakLink()`」：python-pptx 1.0.2 无公共 IsLinked/BreakLink API，外部关系是否存在即 IsLinked 的判据。
@@ -869,6 +882,7 @@ project-root/
 | R-2 | python-pptx 公共 BreakLink API 可用性 | 锁定版本若无公共 API，则实现等价的 XML/relationship 操作函数 `break_chart_links(prs)`，对外行为以 C-2 的验证方式为准（zip 解压断言外部链接不存在）；M0 顺带在真实 ablechart 产物上验证 |
 | R-3 | LLM 的严格 JSON 数组能力差异 | 不依赖 `response_format`（OpenAI 的 json_object 只保证对象、不保证裸数组）：prompt 强约束裸数组 + 解析层容错（直接 parse → 剥围栏 → 兼容 `{"recommendations":[...]}` 包装）+ 失败重试 1 次；行为以 A-3.x 为准 |
 | R-4 | slope/scatter/pie 的 pptx 呈现 | slope 按「两期 LINE_MARKERS + 端点标签」实现；scatter 用 XyChartData；pie 用 PIE；M4 实现时若与 ablechart 产物冲突，先回写 SPEC |
+| R-5 | 瀑布/旭日无 python-pptx 原生类型 | waterfall 以 `COLUMN_STACKED`（透明底座 + 增量）等价实现，仍为原生可编辑 Chart（C-1 不违反）；sunburst 降级导出为 `DOUGHNUT` 近似，前端预览保留真旭日效果；若后续 python-pptx/ablechart 支持原生类型，先回写 SPEC 再升级 |
 
 ---
 

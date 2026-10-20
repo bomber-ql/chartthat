@@ -182,8 +182,192 @@ function scatterOption(spec: ChartSpec): EChartsOption {
   } as EChartsOption;
 }
 
+// hbar（条形图）：类目轴/数值轴互换，类目从顶部开始。
+function hbarOption(spec: ChartSpec): EChartsOption {
+  const primary: AxisSpec = spec.axes.primary;
+  return {
+    ...ANIM,
+    color: PALETTE,
+    grid: GRID,
+    tooltip: { trigger: 'axis', ...TOOLTIP },
+    legend: legend(spec.series),
+    xAxis: {
+      type: 'value',
+      scale: true,
+      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+    },
+    yAxis: {
+      type: 'category',
+      data: spec.categories,
+      inverse: true,
+      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } },
+    },
+    series: cartesianSeries(spec, 'bar'),
+  };
+}
+
+// area（面积图）：折线 + 半透明面积填充。
+function areaOption(spec: ChartSpec): EChartsOption {
+  const base = singleAxisOption(spec, 'line');
+  const series = ((base.series ?? []) as Array<Record<string, unknown>>).map((s) => ({
+    ...s,
+    areaStyle: { opacity: 0.16 },
+    smooth: true,
+  }));
+  return { ...base, series } as EChartsOption;
+}
+
+// stacked（堆叠图，V-9 ≥2 序列同单位）：柱体共用 stack 叠加。
+function stackedOption(spec: ChartSpec): EChartsOption {
+  const base = singleAxisOption(spec, 'bar');
+  const series = ((base.series ?? []) as Array<Record<string, unknown>>).map((s) => ({
+    ...s,
+    stack: 'total',
+    barMaxWidth: 26,
+  }));
+  return { ...base, series } as EChartsOption;
+}
+
+// waterfall（瀑布图，V-10 恰好 1 序列）：透明底座（前值累计）+ 增量柱，同 stack 等价表达（SPEC §11 R-5）。
+// null 保持空点不补 0（C-3）：底座与增量同位置都置 null。
+function waterfallOption(spec: ChartSpec): EChartsOption {
+  const s: ChartSeries = spec.series[0] ?? { name: '', source_column: '', unit: '', axis: 'primary', data: [] };
+  const base: Array<number | null> = [];
+  const delta: Array<number | null> = [];
+  let cumulative = 0;
+  s.data.forEach((v) => {
+    if (typeof v !== 'number' || Number.isNaN(v)) {
+      base.push(null);
+      delta.push(null);
+      return;
+    }
+    if (v >= 0) {
+      base.push(cumulative);
+      delta.push(v);
+    } else {
+      base.push(cumulative + v);
+      delta.push(-v);
+    }
+    cumulative += v;
+  });
+  const fmt = valueFormatter(s.unit);
+  return {
+    ...ANIM,
+    color: PALETTE,
+    grid: GRID,
+    tooltip: {
+      trigger: 'axis',
+      ...TOOLTIP,
+      formatter: (params: unknown) => {
+        const list = params as Array<{ name?: string; dataIndex?: number }>;
+        const idx = list[0]?.dataIndex ?? 0;
+        return `${list[0]?.name ?? ''}<br/>${s.name}: ${fmt(s.data[idx])}`;
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: spec.categories,
+      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } },
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(spec.axes.primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+    },
+    series: [
+      {
+        name: '__base__',
+        type: 'bar',
+        stack: 'wf',
+        data: base,
+        silent: true,
+        itemStyle: { color: 'transparent' },
+        emphasis: { itemStyle: { color: 'transparent' } },
+        tooltip: { show: false },
+      },
+      { name: s.name, type: 'bar', stack: 'wf', data: delta, barMaxWidth: 26 },
+    ],
+  } as EChartsOption;
+}
+
+// radar（雷达图，V-11 ≥3 序列同单位禁 percent）：类目为维度指标，多序列互比。
+function radarOption(spec: ChartSpec): EChartsOption {
+  const maxVal = Math.max(
+    0,
+    ...spec.series.flatMap((s) => s.data.filter((v): v is number => typeof v === 'number')),
+  );
+  const top = maxVal > 0 ? maxVal * 1.2 : 1;
+  const indicator = spec.categories.map((c) => ({ name: c, max: top }));
+  return {
+    ...ANIM,
+    color: PALETTE,
+    tooltip: {
+      trigger: 'item',
+      ...TOOLTIP,
+      formatter: (params: unknown) => {
+        const p = params as { name?: string; value?: Array<number | null> };
+        const rows = (p.value ?? [])
+          .map((v, i) => `${spec.categories[i] ?? ''}: ${v == null || typeof v !== 'number' ? '-' : valueFormatter(spec.axes.primary.unit)(v)}`)
+          .join('<br/>');
+        return `${p.name ?? ''}<br/>${rows}`;
+      },
+    },
+    legend: legend(spec.series),
+    radar: {
+      indicator,
+      radius: '60%',
+      center: ['50%', '54%'],
+      axisName: { color: TEXT_DIM, fontSize: 9 },
+      splitLine: { lineStyle: { color: AXIS_LINE } },
+      splitArea: { show: false },
+      axisLine: { lineStyle: { color: AXIS_LINE } },
+    },
+    series: [
+      {
+        type: 'radar',
+        symbolSize: 4,
+        data: spec.series.map((s) => ({
+          name: s.name,
+          value: s.data,
+          areaStyle: { opacity: 0.12 },
+        })),
+      },
+    ],
+  } as EChartsOption;
+}
+
+// sunburst（旭日图）：契约数据为单 measure 平铺序列（V-12），预览用单层旭日表达；导出降级为圆环（R-5）。
+function sunburstOption(spec: ChartSpec): EChartsOption {
+  const s = spec.series[0];
+  const data = spec.categories
+    .map((c, i) => ({ name: c, value: s?.data[i] }))
+    .filter((d) => typeof d.value === 'number');
+  return {
+    ...ANIM,
+    color: PALETTE,
+    tooltip: { trigger: 'item', ...TOOLTIP, formatter: '{b}: {c}' },
+    series: [
+      {
+        type: 'sunburst',
+        radius: ['16%', '78%'],
+        center: ['50%', '50%'],
+        data,
+        label: { fontSize: 9, color: TEXT_DIM, rotate: 'radial' },
+        itemStyle: { borderColor: 'rgba(6,10,19,.9)', borderWidth: 1 },
+      },
+    ],
+  } as EChartsOption;
+}
+
 // pie：单 measure 序列；null 扇区剔除（V-8）。
-function pieOption(spec: ChartSpec): EChartsOption {
+// pie / donut：单 measure 序列；null 扇区剔除（V-8 / V-12）。donut 加大空心半径。
+function pieOption(spec: ChartSpec, hollow = false): EChartsOption {
   const s = spec.series[0];
   const data = spec.categories
     .map((c, i) => ({ name: c, value: s.data[i] }))
@@ -196,7 +380,7 @@ function pieOption(spec: ChartSpec): EChartsOption {
     series: [
       {
         type: 'pie',
-        radius: ['32%', '64%'],
+        radius: hollow ? ['42%', '68%'] : ['0%', '64%'],
         center: ['50%', '50%'],
         data,
         label: { fontSize: 9, color: TEXT_DIM },
@@ -215,6 +399,20 @@ export function specToOption(spec: ChartSpec): EChartsOption {
       return scatterOption(spec);
     case 'pie':
       return pieOption(spec);
+    case 'donut':
+      return pieOption(spec, true);
+    case 'sunburst':
+      return sunburstOption(spec);
+    case 'hbar':
+      return hbarOption(spec);
+    case 'area':
+      return areaOption(spec);
+    case 'stacked':
+      return stackedOption(spec);
+    case 'waterfall':
+      return waterfallOption(spec);
+    case 'radar':
+      return radarOption(spec);
     case 'bar':
       return singleAxisOption(spec, 'bar');
     case 'line':

@@ -1,7 +1,9 @@
 // 前后端共享的契约类型（与 SPEC §5.3 / §5.4 对齐）。
 
 export type ColumnRole = 'dimension' | 'measure' | 'percent' | 'meta';
-export type ChartType = 'bar' | 'line' | 'combo' | 'slope' | 'scatter' | 'pie';
+export type ChartType =
+  | 'bar' | 'hbar' | 'line' | 'area' | 'combo' | 'stacked' | 'slope'
+  | 'scatter' | 'waterfall' | 'radar' | 'pie' | 'donut' | 'sunburst';
 export type SemanticLayer = 'trend' | 'comparison' | 'rate';
 export type SeriesKind = 'line' | 'bar' | 'scatter';
 export type AxisSide = 'primary' | 'secondary';
@@ -68,10 +70,17 @@ export const SEMANTIC_LAYER_LABEL: Record<SemanticLayer, string> = {
 export const CHART_TYPE_LABEL: Record<ChartType, string> = {
   line: '折线图',
   bar: '柱状图',
+  hbar: '条形图',
+  area: '面积图',
   combo: '组合图',
+  stacked: '堆叠图',
   slope: '斜率图',
   scatter: '散点图',
+  waterfall: '瀑布图',
+  radar: '雷达图',
   pie: '饼图',
+  donut: '圆环图',
+  sunburst: '旭日图',
 };
 
 export const INCOMPLETE_TAIL = '该系列数据不完整，建议不纳入';

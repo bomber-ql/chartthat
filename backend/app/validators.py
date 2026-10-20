@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
-CHART_TYPES = {"bar", "line", "combo", "slope", "scatter", "pie"}
+CHART_TYPES = {
+    "bar", "hbar", "line", "area", "combo", "stacked", "slope",
+    "scatter", "waterfall", "radar", "pie", "donut", "sunburst",
+}
+# percent 序列允许出现的图型（其余一律禁止，SPEC §5.4「新类型 percent 口径」）
+PERCENT_ALLOWED_TYPES = {"bar", "hbar", "line", "area", "combo"}
 SERIES_KINDS = {"line", "bar", "scatter"}
 AXES = {"primary", "secondary"}
 NUMERIC_UNITS = {"count", "yi", "wan", "percent"}
@@ -135,5 +140,39 @@ def validate_chart_spec(spec: dict[str, Any], table: dict[str, Any]) -> list[str
             errors.append("V-8: pie 必须恰好 1 个序列")
         elif seen_columns.get(series[0].get("source_column"), {}).get("role") != "measure":
             errors.append("V-8: pie 序列必须来自 measure 列")
+
+    # v1.6：新类型 percent 口径——除 bar/hbar/line/area/combo 外一律禁止 percent 序列
+    if percent_series and chart_type not in PERCENT_ALLOWED_TYPES:
+        errors.append(f"V-2: chart_type={chart_type} 不允许 percent 序列（仅 bar/hbar/line/area/combo 可含）")
+
+    # V-9：stacked —— ≥2 个同单位 measure 序列（非 percent）
+    if chart_type == "stacked":
+        if len(series) < 2:
+            errors.append("V-9: stacked 至少需要 2 个序列")
+        units = {s.get("unit") for s in series}
+        if len(units) != 1 or "percent" in units:
+            errors.append("V-9: stacked 所有序列必须为同一非 percent 单位")
+
+    # V-10：waterfall —— 恰好 1 个 measure 序列（非 percent）
+    if chart_type == "waterfall":
+        if len(series) != 1:
+            errors.append("V-10: waterfall 必须恰好 1 个序列（各阶段增量）")
+        elif series[0].get("unit") == "percent":
+            errors.append("V-10: waterfall 不允许 percent 序列")
+
+    # V-11：radar —— ≥3 个同单位 measure 序列（非 percent）
+    if chart_type == "radar":
+        if len(series) < 3:
+            errors.append("V-11: radar 至少需要 3 个序列（指标 ≥3 才有雷达意义）")
+        units = {s.get("unit") for s in series}
+        if len(units) != 1 or "percent" in units:
+            errors.append("V-11: radar 所有序列必须为同一非 percent 单位")
+
+    # V-12：donut/sunburst —— 同 V-8 pie 口径，恰好 1 个 measure 序列
+    if chart_type in ("donut", "sunburst"):
+        if len(series) != 1:
+            errors.append(f"V-12: {chart_type} 必须恰好 1 个序列")
+        elif seen_columns.get(series[0].get("source_column"), {}).get("role") != "measure":
+            errors.append(f"V-12: {chart_type} 序列必须来自 measure 列")
 
     return errors

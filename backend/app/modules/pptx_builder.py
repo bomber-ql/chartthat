@@ -1,9 +1,11 @@
-"""M4 PPT 生成模块（SPEC §6 M4，v1.5 单图导出契约，六图型全覆盖）。
+"""M4 PPT 生成模块（SPEC §6 M4，v1.6 单图导出契约，十三图型全覆盖）。
 
 入口：build_pptx(request: dict) -> bytes
 - 接收自描述单图请求 {chart_type, config?, data:{categories, series[]}}（§5.6）；
-- bar/line/slope 走 python-pptx add_chart + CategoryChartData（slope 按两期 LINE_MARKERS，R-4）；
-- scatter 走 XyChartData（无效点剔除）；pie 走 PIE（null 扇区剔除）；
+- bar/hbar/line/area/stacked/slope/radar 走 python-pptx add_chart + CategoryChartData
+  （slope 按两期 LINE_MARKERS，R-4；hbar=BAR_CLUSTERED、stacked=COLUMN_STACKED、radar=RADAR_MARKERS）；
+- scatter 走 XyChartData（无效点剔除）；pie/donut/sunburst 走 PIE/DOUGHNUT（null 扇区剔除，
+  sunburst 降级 DOUGHNUT，R-5）；waterfall 走 COLUMN_STACKED 透明底座等价（R-5）；
 - combo 走 ablechart.create_combo_chart（bar 主轴 + percent line 副轴）；
 - 全程 None 空点（C-3），line/slope 显式 dispBlanksAs=gap；
 - 副轴 0.0%、主轴带单位（yi -> 0.0"亿"）（§5.1 / C-4）；
@@ -29,7 +31,12 @@ from app.modules.parser import ParseError
 C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 NSMAP = {"c": C_NS}
 
-SUPPORTED_TYPES = {"bar", "line", "combo", "slope", "scatter", "pie"}  # v1.5 六型全覆盖
+SUPPORTED_TYPES = {
+    "bar", "hbar", "line", "area", "combo", "stacked", "slope",
+    "scatter", "waterfall", "radar", "pie", "donut", "sunburst",
+}  # v1.6 十三型全覆盖
+# percent 序列禁止出现的图型（与 M3/validators 口径一致）
+_NO_PERCENT_TYPES = {"slope", "scatter", "pie", "donut", "sunburst", "stacked", "waterfall", "radar"}
 SERIES_UNITS = {"count", "yi", "wan", "percent"}
 SERIES_KINDS = {"line", "bar", "scatter"}
 AXES = {"primary", "secondary"}
@@ -123,12 +130,24 @@ def _validate_request(req: Any) -> dict[str, Any]:
         if primary_units & secondary_units:
             raise PptxValidationError("VALIDATION_FAILED", "主、副轴 unit 不得相同（V-3 / C-4）")
 
-    # scatter/pie/slope 形态约束（§5.6 入参校验规则，v1.5）
+    # 形态约束（§5.6 入参校验规则 + V-9~V-12，v1.6）
     if chart_type == "scatter" and len(norm) != 2:
         raise PptxValidationError("VALIDATION_FAILED", "scatter 需恰好 2 个系列（x、y）")
     if chart_type == "pie" and len(norm) != 1:
         raise PptxValidationError("VALIDATION_FAILED", "pie 需恰好 1 个系列")
-    if chart_type in {"slope", "scatter", "pie"}:
+    if chart_type in {"donut", "sunburst", "waterfall"} and len(norm) != 1:
+        raise PptxValidationError("VALIDATION_FAILED", f"{chart_type} 需恰好 1 个系列")
+    if chart_type == "stacked":
+        if len(norm) < 2:
+            raise PptxValidationError("VALIDATION_FAILED", "stacked 至少需 2 个系列")
+        if len({s["unit"] for s in norm}) != 1:
+            raise PptxValidationError("VALIDATION_FAILED", "stacked 所有系列单位必须一致")
+    if chart_type == "radar":
+        if len(norm) < 3:
+            raise PptxValidationError("VALIDATION_FAILED", "radar 至少需 3 个系列（指标 ≥3）")
+        if len({s["unit"] for s in norm}) != 1:
+            raise PptxValidationError("VALIDATION_FAILED", "radar 所有系列单位必须一致")
+    if chart_type in _NO_PERCENT_TYPES:
         for i, s in enumerate(norm):
             if s["unit"] == "percent":
                 raise PptxValidationError(
@@ -235,7 +254,16 @@ def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: s
         chart_data.add_series(s["name"], tuple(s["data"]))
 
     # slope 按两期 LINE_MARKERS 实现（R-4）；line 同型。
-    xl_type = XL_CHART_TYPE.LINE_MARKERS if chart_type in {"line", "slope"} else XL_CHART_TYPE.COLUMN_CLUSTERED
+    _XL = {
+        "line": XL_CHART_TYPE.LINE_MARKERS,
+        "slope": XL_CHART_TYPE.LINE_MARKERS,
+        "bar": XL_CHART_TYPE.COLUMN_CLUSTERED,
+        "hbar": XL_CHART_TYPE.BAR_CLUSTERED,
+        "area": XL_CHART_TYPE.AREA,
+        "stacked": XL_CHART_TYPE.COLUMN_STACKED,
+        "radar": XL_CHART_TYPE.RADAR_MARKERS,
+    }
+    xl_type = _XL[chart_type]
     top = Inches(1.2) if spec["title"] else Inches(0.5)
     graphic = slide.shapes.add_chart(
         xl_type, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
@@ -246,6 +274,44 @@ def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: s
     _set_axis_numfmt(chart, 0, _AXIS_FORMAT[primary_unit])
     if chart_type in {"line", "slope"}:
         _set_gap_for_nulls(chart)
+    return chart
+
+
+def _build_waterfall(prs: Presentation, spec: dict[str, Any]) -> Chart:
+    """waterfall 等价实现（R-5）：COLUMN_STACKED，底座系列透明 + 增量系列。
+
+    取值口径（§6 M4 映射表）：底座 = min(前值累计, 后值累计)，增量 = |原始增量|。
+    堆叠图负值会回落零轴下方独立渲染，负增量必须翻转为正值段并以下界垫高，
+    否则瀑布形态断裂。None 增量保持空点（C-3），底座对应位补 0（透明不可见）。
+    """
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_title(slide, spec["title"] or "")
+
+    s = spec["series"][0]
+    base: list[float] = []
+    delta: list[float | None] = []
+    run = 0.0
+    for v in s["data"]:
+        if v is None:
+            base.append(0.0)
+            delta.append(None)
+            continue
+        base.append(min(run, run + v))
+        delta.append(abs(v))
+        run += v
+
+    chart_data = CategoryChartData()
+    chart_data.categories = spec["categories"]
+    chart_data.add_series("底座", tuple(base))
+    chart_data.add_series(s["name"], tuple(delta))
+
+    top = Inches(1.2) if spec["title"] else Inches(0.5)
+    graphic = slide.shapes.add_chart(
+        XL_CHART_TYPE.COLUMN_STACKED, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
+    )
+    chart = graphic.chart
+    chart.series[0].format.fill.background()  # 底座透明，仅起垫高作用
+    _set_axis_numfmt(chart, 0, _AXIS_FORMAT[s["unit"]])
     return chart
 
 
@@ -279,23 +345,27 @@ def _build_scatter(prs: Presentation, spec: dict[str, Any]) -> Chart:
     return chart
 
 
-def _build_pie(prs: Presentation, spec: dict[str, Any]) -> Chart:
-    """pie：CategoryChartData，值为 None 的扇区整体剔除（C-3）。"""
+def _build_pie(prs: Presentation, spec: dict[str, Any], chart_type: str = "pie") -> Chart:
+    """pie/donut/sunburst：CategoryChartData，值为 None 的扇区整体剔除（C-3）。
+
+    sunburst 按 R-5 降级为 DOUGHNUT 近似导出。
+    """
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_title(slide, spec["title"] or "")
 
     s = spec["series"][0]
     pairs = [(c, v) for c, v in zip(spec["categories"], s["data"]) if v is not None]
     if not pairs:
-        raise PptxValidationError("VALIDATION_FAILED", "pie 有效扇区为空（全部数值缺失）")
+        raise PptxValidationError("VALIDATION_FAILED", f"{chart_type} 有效扇区为空（全部数值缺失）")
 
     chart_data = CategoryChartData()
     chart_data.categories = [c for c, _ in pairs]
     chart_data.add_series(s["name"], tuple(v for _, v in pairs))
 
+    xl_type = XL_CHART_TYPE.PIE if chart_type == "pie" else XL_CHART_TYPE.DOUGHNUT
     top = Inches(1.2) if spec["title"] else Inches(0.5)
     graphic = slide.shapes.add_chart(
-        XL_CHART_TYPE.PIE, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
+        xl_type, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
     )
     return graphic.chart
 
@@ -354,9 +424,11 @@ def build_pptx(request: dict[str, Any]) -> bytes:
         _build_combo(prs, spec)
     elif spec["chart_type"] == "scatter":
         _build_scatter(prs, spec)
-    elif spec["chart_type"] == "pie":
-        _build_pie(prs, spec)
-    else:  # bar / line / slope
+    elif spec["chart_type"] == "waterfall":
+        _build_waterfall(prs, spec)
+    elif spec["chart_type"] in {"pie", "donut", "sunburst"}:
+        _build_pie(prs, spec, spec["chart_type"])
+    else:  # bar / hbar / line / area / stacked / slope / radar
         _build_category_chart(prs, spec, spec["chart_type"])
 
     break_external_chart_links(prs)

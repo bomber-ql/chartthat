@@ -17,11 +17,9 @@ from typing import Any, Callable
 import httpx
 
 from app.config import settings
-from app.validators import validate_chart_spec
-
-CHART_TYPES = {"bar", "line", "combo", "slope", "scatter", "pie"}
+from app.validators import CHART_TYPES, PERCENT_ALLOWED_TYPES, validate_chart_spec
 LAYERS = {"trend", "comparison", "rate"}
-MAX_RECOMMENDATIONS = 6
+MAX_RECOMMENDATIONS = 8
 INCOMPLETE_NOTE = "该系列数据不完整，建议不纳入"
 
 # LLM 可调用签名：(messages) -> 文本。测试通过注入 mock 替换。
@@ -63,14 +61,15 @@ SYSTEM_PROMPT = """你是数据图表推荐引擎。根据用户给出的表结�
 硬性规则：
 1. 只输出严格 JSON 数组，顶层必须是 [ ... ]，禁止 Markdown 代码围栏、禁止任何解释文字。
 2. 每个元素形如 {"chart_type","title","reasoning","config"}，字段缺一不可，不得额外加字段。
-3. chart_type 只能取：bar、line、combo、slope、scatter、pie。
+3. chart_type 只能取：bar、hbar、line、area、combo、stacked、slope、scatter、waterfall、radar、pie、donut、sunburst。
 4. config = {"dimension": 维度列名, "semantic_layer": "trend"|"comparison"|"rate", "series":[{"column": 数值列名, "kind"?: "line"|"bar"|"scatter", "axis"?: "primary"|"secondary"}]}。
 5. 你只能引用表中真实存在的列，且禁止输出任何数据值；数据由系统投影。
-6. 百分比列（unit=percent）只能出现在含非百分比序列的 combo 中，作为副轴折线（kind=line）；
-   slope/scatter/pie 不得使用百分比列。
-7. 推荐必须尽量覆盖三个语义层：trend（趋势，如多期折线/斜率）、comparison（体量对比，柱/饼/散点）、
+6. 百分比列（unit=percent）只能出现在 bar、hbar、line、area、combo 中；combo 中须作副轴折线（kind=line）；
+   stacked、waterfall、radar、slope、scatter、pie、donut、sunburst 不得使用百分比列。
+7. 推荐必须尽量覆盖三个语义层：trend（趋势，如多期折线/面积/斜率）、comparison（体量对比，柱/条/堆叠/饼/圆环/雷达/散点/旭日）、
    rate（变化率，百分比副轴组合图）。null_count>0 的列可以使用，但要在 reasoning 中提示数据不完整。
-8. title 不超过 60 字，reasoning 不超过 200 字，均使用中文。"""
+8. title 不超过 60 字，reasoning 不超过 200 字，均使用中文。
+9. 形态约束：combo ≥2 列；stacked ≥2 个同单位列；scatter 恰好 2 列；pie/donut/sunburst/waterfall 恰好 1 列；radar ≥3 个同单位列。"""
 
 
 def _build_user_prompt(table: dict[str, Any]) -> str:
@@ -194,13 +193,13 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict
         used.add(name)
 
         is_percent = src["unit"] == "percent"
-        # 类型-单位硬约束（SPEC §5.5 prompt 规则 6）
-        if is_percent and chart_type in ("slope", "scatter", "pie"):
+        # 类型-单位硬约束（SPEC §5.4 新类型 percent 口径）
+        if is_percent and chart_type not in PERCENT_ALLOWED_TYPES:
             return None
 
         if chart_type == "scatter":
             kind, axis = "scatter", "primary"
-        elif chart_type == "pie":
+        elif chart_type in ("pie", "donut", "sunburst"):
             kind, axis = "bar", "primary"
         elif is_percent:
             kind = "line"                       # percent 强制副轴折线
@@ -209,7 +208,7 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict
             kind = ref.get("kind") if ref.get("kind") in ("line", "bar") else "bar"
             axis = "primary"
         else:
-            kind = "line" if chart_type in ("line", "slope") else "bar"
+            kind = "line" if chart_type in ("line", "slope", "area") else "bar"
             axis = "primary"
 
         projected.append({
@@ -224,7 +223,11 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict
     # 类型形态约束
     if chart_type == "scatter" and len(projected) != 2:
         return None
-    if chart_type == "pie" and len(projected) != 1:
+    if chart_type in ("pie", "donut", "sunburst", "waterfall") and len(projected) != 1:
+        return None
+    if chart_type == "stacked" and len(projected) < 2:
+        return None
+    if chart_type == "radar" and len(projected) < 3:
         return None
 
     categories = [str(v) for v in _column_values(table, dimension)]
@@ -255,7 +258,7 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict
 def _infer_layer(chart_type: str, series: list[dict[str, Any]]) -> str:
     if any(s["unit"] == "percent" for s in series):
         return "rate"
-    if chart_type in ("line", "slope"):
+    if chart_type in ("line", "slope", "area"):
         return "trend"
     return "comparison"
 
@@ -347,20 +350,25 @@ def _fallback_specs(table: dict[str, Any]) -> list[dict[str, Any]]:
         out.append(make("combo", f"{dim}{measures[0]}规模与{percents[0]}",
                         [*measures[:2], percents[0]], "rate"))
 
-    # trend：≥2 同单位 measure → line；恰两期补 slope
+    # trend：≥2 同单位 measure → line；恰两期补 slope；再补 area 变体
     unit_groups: dict[str, list[str]] = {}
     for name in measures:
         unit_groups.setdefault(_columns_by_name(table)[name]["unit"], []).append(name)
     for unit, names in unit_groups.items():
         if len(names) >= 2:
             out.append(make("line", f"{dim}各期{unit}指标趋势", names[:4], "trend"))
+            out.append(make("area", f"{dim}各期{unit}指标面积", names[:2], "trend"))
+            out.append(make("stacked", f"各{dim}{unit}指标堆叠构成", names[:3], "comparison"))
             if len(names) == 2:
                 out.append(make("slope", f"{dim}两期{unit}变化斜率", names, "trend"))
+            if len(names) >= 3:
+                out.append(make("radar", f"{dim}{unit}指标雷达", names[:5], "comparison"))
             break
 
-    # comparison：bar（每实体一个 measure）
+    # comparison：bar（每实体一个 measure）+ 占比类
     if measures:
         out.append(make("bar", f"各{dim}{measures[0]}对比", [measures[0]], "comparison"))
+        out.append(make("donut", f"各{dim}{measures[0]}占比构成", [measures[0]], "comparison"))
         if len(measures) >= 2:
             out.append(make("scatter", f"{measures[0]}与{measures[1]}相关性",
                             measures[:2], "comparison"))
