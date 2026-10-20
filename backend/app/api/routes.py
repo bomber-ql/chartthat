@@ -135,7 +135,9 @@ async def generate_pptx_endpoint(request: Request):
             return _error_response(exc)
 
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        headers = {"Content-Disposition": f'attachment; filename="chart-{stamp}.pptx"'}
+        # v1.7：动效版导出（animate=true）文件名与标准版区分（§5.6 GenerateResult）。
+        prefix = "chart-animated" if isinstance(body, dict) and body.get("animate") is True else "chart"
+        headers = {"Content-Disposition": f'attachment; filename="{prefix}-{stamp}.pptx"'}
         return Response(content=blob, media_type=PPTX_MEDIA_TYPE, headers=headers)
     except ParseError as exc:
         return _error_response(exc)

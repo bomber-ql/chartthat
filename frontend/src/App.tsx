@@ -79,7 +79,7 @@ export default function App() {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportPptx = async () => {
+  const exportPptx = async (animate = false) => {
     const targets = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type));
     if (!targets.length) return;
     setExporting(true);
@@ -92,6 +92,7 @@ export default function App() {
           body: JSON.stringify({
             chart_type: s.chart_type,
             title: s.title,
+            animate,
             config: { dimension: s.dimension_column },
             data: {
               categories: s.categories,
@@ -111,7 +112,7 @@ export default function App() {
         }
         const blob = await res.blob();
         const safe = (s.title || s.chart_type).replace(/[\\/:*?"<>|]/g, '_');
-        downloadBlob(blob, `${safe}.pptx`);
+        downloadBlob(blob, `${safe}${animate ? '-animated' : ''}.pptx`);
       }
       setExportMsg(t('exportDone', { n: targets.length }));
     } catch (e) {
@@ -183,6 +184,7 @@ export default function App() {
           exporting={exporting}
           exportMsg={exportMsg}
           onExport={() => void exportPptx()}
+          onExportAnimated={() => void exportPptx(true)}
           onRemove={toggleSelect}
         />
         <PreviewPanel

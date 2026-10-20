@@ -425,3 +425,80 @@ def test_rejects_v16_shape_and_percent_violations():
     ):
         with pytest.raises(PptxValidationError):
             build_pptx({"chart_type": t, "data": {"categories": ["x"], "series": series}})
+
+
+# ---------- v1.7 放映动效版（SPEC §6 M4 规则 8 / R-6，验收 A-4.10） ----------
+
+def _slide_xml(blob: bytes) -> str:
+    with zipfile.ZipFile(io.BytesIO(blob)) as zf:
+        return zf.read("ppt/slides/slide1.xml").decode("utf-8")
+
+
+# chart_type -> (最小合法请求, 期望 animEffect filter, 期望 bldChart bld)（§6 M4 规则 8 映射）
+_ANIM_CASES = {
+    "bar": ({"chart_type": "bar", "data": {"categories": ["a", "b"],
+            "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "bySeries"),
+    "hbar": ({"chart_type": "hbar", "data": {"categories": ["a", "b"],
+             "series": [_series("x", [1.0, 2.0])]}}, "wipe(r)", "bySeries"),
+    "line": ({"chart_type": "line", "data": {"categories": ["a", "b"],
+             "series": [_series("x", [1.0, None])]}}, "wipe(r)", "bySeries"),
+    "area": ({"chart_type": "area", "data": {"categories": ["a", "b"],
+             "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "bySeries"),
+    "combo": (COMBO_REQUEST, "wipe(up)", "bySeries"),
+    "stacked": ({"chart_type": "stacked", "data": {"categories": ["a", "b"],
+                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "wipe(up)", "bySeries"),
+    "slope": ({"chart_type": "slope", "data": {"categories": ["a", "b"],
+              "series": [_series("x", [1.0, 2.0]), _series("y", [2.0, 3.0])]}}, "wipe(r)", "bySeries"),
+    "scatter": ({"chart_type": "scatter", "data": {"categories": ["a", "b"],
+                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "fade", "bySeries"),
+    "waterfall": ({"chart_type": "waterfall", "data": {"categories": ["a", "b", "c"],
+                  "series": [_series("x", [10.0, -3.0, 1.0])]}}, "wipe(up)", "byCategory"),
+    "radar": ({"chart_type": "radar", "data": {"categories": ["a", "b", "c"],
+              "series": [_series("x", [1.0, 2.0, 3.0], "count"), _series("y", [2.0, 3.0, 1.0], "count"),
+                         _series("z", [3.0, 1.0, 2.0], "count")]}}, "fade", "bySeries"),
+    "pie": ({"chart_type": "pie", "data": {"categories": ["a", "b"],
+            "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "byPtInSeries"),
+    "donut": ({"chart_type": "donut", "data": {"categories": ["a", "b"],
+              "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "byPtInSeries"),
+    "sunburst": ({"chart_type": "sunburst", "data": {"categories": ["a", "b"],
+                 "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "byPtInSeries"),
+}
+
+
+@pytest.mark.parametrize("chart_type", sorted(_ANIM_CASES))
+def test_animate_injects_timing_per_type(chart_type: str):
+    req, effect, build = _ANIM_CASES[chart_type]
+    blob = build_pptx({**req, "animate": True})
+    xml = _slide_xml(blob)
+    # timing 骨架 + 进入动画效果 + 分段构建维度
+    assert "<p:timing" in xml
+    assert f'<p:animEffect transition="in" filter="{effect}">' in xml
+    assert f'<a:bldChart bld="{build}"' in xml
+    # target 是图表 graphicFrame 的 spid
+    prs = Presentation(io.BytesIO(blob))
+    frames = [sh for sh in prs.slides[0].shapes if sh.has_chart]
+    assert len(frames) == 1
+    assert f'<p:bldGraphic spid="{frames[0].shape_id}" grpId="0">' in xml
+    # 动画不破坏 C-1/C-2：图表仍是原生可编辑对象且无外部链接
+    assert _external_link_targets(blob) == []
+
+
+def test_default_export_has_no_timing():
+    # animate 缺省 / false：slide 不得出现 <p:timing>（行为与 v1.6 完全一致）
+    for req in (COMBO_REQUEST, {**COMBO_REQUEST, "animate": False}):
+        xml = _slide_xml(build_pptx(req))
+        assert "<p:timing" not in xml
+        assert "<p:bldLst>" not in xml
+
+
+def test_generate_pptx_endpoint_animated_filename():
+    client = TestClient(app)
+    resp = client.post("/api/generate-pptx", json={**COMBO_REQUEST, "animate": True})
+    assert resp.status_code == 200
+    disposition = resp.headers.get("content-disposition", "")
+    assert "chart-animated" in disposition and disposition.endswith('.pptx"')
+    assert "<p:timing" in _slide_xml(resp.content)
+    # 标准版文件名不变
+    resp2 = client.post("/api/generate-pptx", json=COMBO_REQUEST)
+    disposition2 = resp2.headers.get("content-disposition", "")
+    assert "chart-2" in disposition2 and "animated" not in disposition2

@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.5 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（六图型全覆盖）
+> 版本：v1.7 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（十三图型全覆盖 + 放映动效版导出）
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.7：新增**放映动效版导出**（独立功能，标准导出行为不变）：GeneratePptxRequest 新增可选 `animate`（默认 false）；为 true 时在 slide XML 注入 `<p:timing>` 进入动画 + `<p:bldLst>` 的 `<a:bldChart>` 分段构建定义，放映时图表按图型映射逐系列/逐类别/逐扇区出现（wipe / wheel / fade，R-6）。动画只是附加的 timing 层，不改写 chart part，图表仍为原生可编辑 Chart（C-1 不违反）；动效版文件名 `chart-animated-{ts}.pptx` 与标准版区分；前端导出区新增「导出动效版」独立按钮（不混入标准导出）。python-pptx 无动画 API，采用 ECMA-376 标准 XML 模板注入（R-6），WPS/Office 双端人工验证列入 A-4.11。
 - v1.6：图表类型从六种扩展为**十三种**——新增 `hbar`（水平条形）、`stacked`（堆叠柱）、`donut`（圆环）、`area`（面积）、`waterfall`（瀑布）、`radar`（雷达）、`sunburst`（旭日）；C-5 枚举、§5.4 Schema、V-2、§5.5 LLM 契约、§6 M4 映射表同步扩展，并新增不变式 V-9~V-12。导出等价说明：**瀑布图无 python-pptx 原生枚举，以 `COLUMN_STACKED`（透明底座系列 + 增量系列）等价实现**，仍为原生可编辑 Chart（C-1 不违反）；**旭日图 python-pptx 无对应类型，导出降级为 `DOUGHNUT`**（近似表达，R-5）；圆环=`DOUGHNUT`、面积=`AREA`、雷达=`RADAR_MARKERS`、水平条形=`BAR_CLUSTERED`、堆叠=`COLUMN_STACKED`（均原生）。新不变式：V-9（stacked ≥2 个同单位 measure 序列）、V-10（waterfall 恰好 1 个 measure 序列）、V-11（radar ≥3 个同单位 measure 序列、禁 percent）、V-12（donut/sunburst 同 V-8 pie 口径）。新类型 percent 口径：`stacked`/`waterfall`/`radar`/`donut`/`sunburst` 禁 percent；percent 仅允许 `bar`/`hbar`/`line`/`area`/`combo`。
 - v1.5：M4 导出能力从「bar / line / combo」扩展为**六种图型全覆盖**——`slope` 按两期 `LINE_MARKERS`（含 gap 断线）实现，`scatter` 用 `XyChartData`（无效点剔除），`pie` 用 `PIE`（null 扇区剔除）（R-4 落定）；`UNSUPPORTED_CHART` 错误码随之移除（未知类型仍走 `VALIDATION_FAILED`）；新增入参校验：scatter 恰好 2 系列、pie 恰好 1 系列、slope/scatter/pie 禁止 percent 系列（V-9/V-10 与 M3 口径一致）。产品行为变更：前端「解析数据」与「生成候选图表」合并为一次点击（解析成功后自动调用推荐），导出不再跳过任何已选图型。
 - v1.4：M4 落地为**单图导出端点 `POST /api/generate-pptx`**（入参 `{chart_type, config, data}`，出参 `.pptx` 文件流，见 §5.6）；原多图 deck 端点 `/api/generate`（GenerateRequest，含 table/charts/options）降级为后续里程碑（MVP 之后），契约保留在 §5.6b 暂不实现。M0 门禁已通过（`backend/spikes/ablechart_spike.py`）：ablechart 0.2.0 `create_combo_chart(slide, df, categories_col, series_config=[{key,name,type,axis}], polish=False)` 产出原生 barChart+lineChart+双 valAx，内嵌 workbook 为内部 `package` 关系（`TargetMode` 非 External），**无外部数据链接**；python-pptx 1.0.2 无公共 BreakLink API（R-2），C-2 以「遍历 chart part relationships，删除所有 is_external 关系 + 移除 `<c:externalData>` 空引用」等价实现；python-pptx 生成的 line 图 `dispBlanksAs` 默认即 `gap`（空点断线，C-3），builder 仍显式置 `gap` 兜底；次轴数字格式 `0.0%`、主轴 tick label 格式 `0.0"亿"`（yi）通过 chart XML 设置；combo 的 `chart.chart_type` 读回为 COLUMN_CLUSTERED（多 plot 混合图无独立枚举），验收以 chart XML 同时含 `barChart`+`lineChart` 且 valAx=2 为准。
@@ -25,7 +26,7 @@
 4. 用户选定后导出 `.pptx`，其中所有图表为 **原生 Chart 对象**，可在 WPS / PowerPoint 中**双击编辑数据**。
 
 ### 1.2 范围说明（MVP）
-- **支持十三种图表类型（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。** 全部参与推荐、预览与 M4 PPT 导出；瀑布/旭日的导出等价与降级规则见 §6（M4 映射表）与 R-5，任何进一步降级必须先回写 SPEC。
+- **支持十三种图表类型（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。** 全部参与推荐、预览与 M4 PPT 导出；瀑布/旭日的导出等价与降级规则见 §6（M4 映射表）与 R-5，任何进一步降级必须先回写 SPEC。另提供独立的**放映动效版导出**（`animate=true`，v1.7，见 §5.6/§6 M4 规则 8）。
 - M3 每次推荐**至少覆盖三个语义层**：趋势（trend）、体量对比（comparison）、变化率（rate），见 §6 M3 规则 4。
 
 ### 1.3 非目标（Out of Scope）
@@ -451,6 +452,11 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
         "dimension_column": { "type": ["string", "null"], "default": null, "description": "分类轴列名，仅用于缺省标题，不参与取数" }
       }
     },
+    "animate": {
+      "type": "boolean",
+      "default": false,
+      "description": "v1.7：true 时注入 p:timing 进入动画（逐系列/逐类别/逐扇区出现，§6 M4 规则 8 / R-6），图表仍为原生可编辑 Chart；false 或缺省为标准静态版"
+    },
     "data": {
       "type": "object",
       "required": ["categories", "series"],
@@ -486,7 +492,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 **GenerateResult**：HTTP 层直接返回 `.pptx` 文件流（见 §7）：
 `Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`
-`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`。
+`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`；`animate=true` 时文件名为 `chart-animated-{yyyyMMdd-HHmmss}.pptx`。
 错误时返回 §5.7 ApiError（构建失败 `PPTX_BUILD_FAILED`，HTTP 500）。
 
 ### 5.6b GenerateRequest（多图 deck 契约，后续里程碑，MVP 不实现）
@@ -658,7 +664,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），**副轴 tick label 数字格式 `0.0%`**；`yi` 序列原值写入，**主轴 tick label 数字格式 `0.0"亿"`**（`wan` 类推 `0.0"万"`，`count` 用 `General`）。格式作用于对应 `c:valAx/c:numFmt`。
 5. **BreakLink 收尾（C-2，等价 XML 实现，R-2）**：save 之前遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，对 `chart.part.rels.values()` 中 `is_external=True` 的关系删除；随后移除 `c:chartSpace/c:chart` 下已无有效引用的 `<c:externalData r:id=.../>` 元素（仅删空引用，内部嵌入 workbook 的 `package` 关系保留，以保证双击可编辑）。语义等价于「`IsLinked` 为 True 则 `BreakLink()`」：python-pptx 1.0.2 无公共 IsLinked/BreakLink API，外部关系是否存在即 IsLinked 的判据。
 6. 页面结构：单页 16:9 空白版式，图表铺满大部分版面；若给 `config.title`，加文本框页标题。
-7. 输出：`Response`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`。
+7. 输出：`Response`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`；`animate=true` 时文件名 `chart-animated-{yyyyMMdd-HHmmss}.pptx`。
+8. **放映动效注入（v1.7，仅 `animate=true` 时，R-6）**：save 之前向 slide XML 追加 `<p:timing>`（单个 clickEffect 进入动画：`<p:set>` 置可见 + `<p:animEffect transition="in" filter="...">`，dur=750ms，target 为图表 graphicFrame 的 `spid`）+ `<p:bldLst>` 中的 `<p:bldGraphic><p:bldSub><a:bldChart bld="..."/></p:bldSub></p:bldGraphic>` 分段构建定义。图型映射：`bar`/`stacked`/`area`/`combo` → `wipe(up)` + `bySeries`；`hbar`/`line`/`slope` → `wipe(r)` + `bySeries`；`waterfall` → `wipe(up)` + `byCategory`；`radar`/`scatter` → `fade` + `bySeries`；`pie`/`donut`/`sunburst` → `wheel(1)` + `byPtInSeries`。动画只是附加 timing 层，不改写 chart part，C-1/C-2/C-3/C-4 全部不受影响；`animate` 缺省/false 时 slide 不得出现 `<p:timing>`（行为与 v1.6 完全一致）。
 
 **输入**：GeneratePptxRequest（§5.6）。 **输出**：`.pptx` 二进制流 / ApiError。
 
@@ -672,6 +679,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 - A-4.7：非法入参（percent 挂主轴 / data 长度不齐 / chart_type=radar / scatter 系列数≠2 / pie 系列数≠1 / slope、scatter、pie 含 percent）→ HTTP 400 `VALIDATION_FAILED`，不产出文件。
 - A-4.9（v1.5 六型覆盖）：slope 产物含 `dispBlanksAs=gap` 且可重开；scatter 产物 plot 为 `scatterChart` 且无效（含 null）点已剔除；pie 产物 plot 为 `pieChart` 且 null 扇区已剔除；三者均无外部关系（C-2 同其他类型）。
 - A-4.8（人工，延后）：WPS 与 PowerPoint 打开产物，双击图表可编辑数据，无「链接文件不可用」提示。
+- A-4.10（v1.7 动效版）：`animate=true` 时十三型逐一构建——slide XML 含 `<p:timing>` 与 `<p:bldLst>`，`<a:bldChart>` 的 `bld` 值与 `<p:animEffect>` 的 `filter` 符合规则 8 映射；产物可重开、图表仍 `has_chart` 且无 External rels（动画不破坏 C-1/C-2）；`animate` 缺省/false 时 slide XML 不含 `<p:timing>`。
+- A-4.11（人工，延后）：WPS 与 PowerPoint 打开放映动效版，放映时图表按映射逐段出现，双击图表仍可编辑数据。
 
 ---
 
@@ -883,6 +892,7 @@ project-root/
 | R-3 | LLM 的严格 JSON 数组能力差异 | 不依赖 `response_format`（OpenAI 的 json_object 只保证对象、不保证裸数组）：prompt 强约束裸数组 + 解析层容错（直接 parse → 剥围栏 → 兼容 `{"recommendations":[...]}` 包装）+ 失败重试 1 次；行为以 A-3.x 为准 |
 | R-4 | slope/scatter/pie 的 pptx 呈现 | slope 按「两期 LINE_MARKERS + 端点标签」实现；scatter 用 XyChartData；pie 用 PIE；M4 实现时若与 ablechart 产物冲突，先回写 SPEC |
 | R-5 | 瀑布/旭日无 python-pptx 原生类型 | waterfall 以 `COLUMN_STACKED`（透明底座 + 增量）等价实现，仍为原生可编辑 Chart（C-1 不违反）；sunburst 降级导出为 `DOUGHNUT` 近似，前端预览保留真旭日效果；若后续 python-pptx/ablechart 支持原生类型，先回写 SPEC 再升级 |
+| R-6 | p:timing 动画 XML 注入的播放器兼容性 | python-pptx 无动画 API，采用 ECMA-376 标准 `<p:timing>` + `<a:bldChart>` 模板注入；`presetID/presetSubtype` 仅影响动画窗格显示名，播放行为以 `filter`/`bld` 为准；WPS 旧版若忽略 `bldChart` 则退化为整图单次出现（可接受降级）；双端验证列入 A-4.11，若 WPS 完全不识别则回写 SPEC 调整模板（如拆为每系列独立 clickEffect 序列） |
 
 ---
 

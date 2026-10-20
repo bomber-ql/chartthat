@@ -12,6 +12,7 @@ interface ControlPanelProps {
   exporting: boolean;
   exportMsg: string | null;
   onExport: () => void;
+  onExportAnimated: () => void;
   onRemove: (id: string) => void;
 }
 
@@ -57,6 +58,7 @@ export default function ControlPanel({
   exporting,
   exportMsg,
   onExport,
+  onExportAnimated,
   onRemove,
 }: ControlPanelProps) {
   const { t, chartLabel } = useI18n();
@@ -193,8 +195,16 @@ export default function ControlPanel({
         >
           {exporting ? t('exporting') : t('exportBtn', { n: exportableCount })}
         </button>
+        <button
+          className="btn btn-block"
+          disabled={exporting || exportableCount === 0}
+          onClick={onExportAnimated}
+        >
+          {exporting ? t('exporting') : t('exportAnimatedBtn', { n: exportableCount })}
+        </button>
         {exportMsg && <p className="notice">{exportMsg}</p>}
         <p className="muted tiny">{t('exportHint')}</p>
+        <p className="muted tiny">{t('exportAnimatedHint')}</p>
       </section>
     </aside>
   );
