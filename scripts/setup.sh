@@ -8,6 +8,10 @@ echo "[setup] installing backend dependencies..."
 python3 -m pip install -r "$ROOT/backend/requirements.txt" \
   || python3 -m pip install --break-system-packages -r "$ROOT/backend/requirements.txt"
 
+echo "[setup] installing backend dev dependencies (pytest)..."
+python3 -m pip install -r "$ROOT/backend/requirements-dev.txt" \
+  || python3 -m pip install --break-system-packages -r "$ROOT/backend/requirements-dev.txt"
+
 echo "[setup] installing frontend dependencies..."
 cd "$ROOT/frontend"
 pnpm install

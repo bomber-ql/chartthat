@@ -33,6 +33,8 @@
 - C-5 LLM 仅输出列引用（六种 chart_type 枚举、严格 JSON），数据由后端投影填充。
 
 ## 测试说明
-- 后端测试位于 `backend/tests/`，夹具 `sample.md/csv/xlsx` 内容见 SPEC §12；LLM 测试一律 mock。
+- 后端测试位于 `backend/tests/`，夹具 `sample.md` 内容见 SPEC §12（csv/xlsx 变体由测试动态生成，.gitignore 忽略不落盘）；LLM 测试一律 mock。
+- 运行后端测试需先装 dev 依赖：`python3 -m pip install -r backend/requirements-dev.txt`（`scripts/setup.sh` 已包含），然后 `cd backend && python3 -m pytest`。
+- M1/M2 已实现：`backend/app/modules/parser.py`（文本/CSV/Excel → RawTable）、`semantic.py`（→ SemanticTable），入口 `parse_input`；percent 为小数形态（11.2% → 0.112，SPEC §5.1 v1.2）。
 - M4 验收需解压 pptx 断言 `ppt/charts/chartN.xml` 存在且无外部数据链接（SPEC A-4.x）。
-- 交付前用 test_run 跑静态检查 + 接口冒烟（当前仅 `/api/health` 已实现，业务接口随 SPEC 确认后补齐）。
+- 交付前用 test_run 跑静态检查 + 接口冒烟（当前已实现 `/api/health`、`/api/parse`；`/api/recommend`、`/api/generate` 随里程碑补齐）。

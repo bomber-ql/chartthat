@@ -12,7 +12,7 @@ export DEPLOY_RUN_PORT="${DEPLOY_RUN_PORT:-5000}"
 echo "[dev] starting FastAPI on 127.0.0.1:${BACKEND_PORT}"
 cd "$ROOT/backend"
 (
-  uvicorn app.main:app --host 127.0.0.1 --port "${BACKEND_PORT}" \
+  uvicorn app.main:app --host 127.0.0.1 --port "${BACKEND_PORT}" --reload \
     > "$LOG_DIR/app.log" 2>&1
 ) &
 

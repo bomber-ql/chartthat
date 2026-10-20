@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.1 ｜ 状态：待评审
+> 版本：v1.2 ｜ 状态：M1/M2 已实现
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.2：percent 数值形态统一为小数（解析阶段 `+11.2% → 0.112`，M2/M3/ECharts/pptx 全链路一致，M4 不再换算）；缺失标记词表新增「无」；percent 判定新增「列名含 %」规则；M1 parser / M2 semantic 与 `/api/parse` 落地；勘误 §5.3 期望输出（梯队 distinct_count 4→3、平台态势 6→5）。
 - v1.1：MVP 范围收窄（chart_type 仅保留 bar / line / combo，删除 slope / scatter / pie）；新增 §5.1 百分比数值转换表；同列混合单位改为不自动折算（MVP 已知限制）；测试夹具扩为 6 行（含负同比 / DAU 全缺失 / DAU 完整 / MAU 下降）；实施顺序新增 M0 ablechart 可行性验证。
 - v1.0：初版。
 
@@ -56,12 +57,12 @@
 - **验证**：解压产物，所有 `chartN.xml` 中的 `c:externalData` 要么不存在，要么其 relationship 指向包内嵌入的工作簿（internal part），**不得**存在指向外部文件路径的 relationship。人工验收：WPS 双击图表直接打开内嵌数据表。
 
 ### C-3 缺失值语义保留
-- **要求**：缺失值（如「未披露」「—」「N/A」、空串，以及 §5.0 混合单位规则下未折算的单元格）在解析阶段（M2）映射为 Python `None`，API 序列化为 JSON `null`，写入图表时留空（空数据点：line 断线、bar 缺柱）。**全链路任何环节不得将其转为 0。**
+- **要求**：缺失值（如「未披露」「无」「—」「N/A」、空串，以及 §5.0 混合单位规则下未折算的单元格）在解析阶段（M2）映射为 Python `None`，API 序列化为 JSON `null`，写入图表时留空（空数据点：line 断线、bar 缺柱）。**全链路任何环节不得将其转为 0。**
 - **验证**：单元测试断言样例数据中微信 / 小红书 DAU 为 `null`；解压产物检查对应图表 XML 中该数据点的 `c:v` 为空/缺失，而非 `0`。
 
 ### C-4 百分比列独立识别
-- **要求**：百分比列（同比、增速等带 `%` 的列）单独识别，`role=percent`、`unit=percent`，**不得**与亿级数值（`unit=yi`）混用同一主轴。组合图中 percent 序列必须挂副轴（`axis=secondary`）。各层数值形态严格遵循 §5.1 百分比数值转换表。
-- **验证**：M2 输出中「同比」列 `unit=percent` 且解析值为 `11.2`（非 `"11.2%"` 字符串、非 0.112）；M3 输出的所有 ChartSpec 通过不变式校验 V-3（见 §5.4）；M4 产物中该序列写入值为 `0.112` 且轴格式含 `%`。
+- **要求**：百分比列（同比、增速等带 `%` 的列，或列名含 `%` 的数值列）单独识别，`role=percent`、`unit=percent`，**不得**与亿级数值（`unit=yi`）混用同一主轴。组合图中 percent 序列必须挂副轴（`axis=secondary`）。各层数值形态严格遵循 §5.1 百分比数值转换表。
+- **验证**：M2 输出中「同比」列 `unit=percent` 且解析值为 `0.112`（非 `"11.2%"` 字符串、非 `11.2`）；M3 输出的所有 ChartSpec 通过不变式校验 V-3（见 §5.4）；M4 产物中该序列写入值与 JSON 一致（`0.112`）且轴格式含 `%`。
 
 ### C-5 LLM 推荐输出强约束
 - **要求**：MVP 内 LLM 推荐的图表类型限定在 `bar`、`line`、`combo` 三种。输出必须是严格 JSON（纯 JSON 文本，无 Markdown 代码围栏、无解释性前后缀）。LLM **只输出列引用与图表配置，不输出数据值**——数据由后端从 SemanticTable 投影填充，防止 LLM 编造数字。
@@ -107,20 +108,20 @@
 |---|---|---|---|
 | `13.9亿` | `13.9` | `yi` | 保留显示量级，不展开为 1390000000 |
 | `7000万` | `7000` | `wan` | 整列单位统一为 `万` 时直接保留数值 |
-| `+11.2%` | `11.2` | `percent` | 去 `%`、去前导 `+`；负数保留符号（`-3.9%` → `-3.9`） |
+| `+11.2%` | `0.112` | `percent` | 去 `%`、去前导 `+` 后除以 100（小数形态）；负数保留符号（`-3.9%` → `-0.039`） |
 | `7` / `7.0` | `7.0` | `count` | 无单位纯数值 |
-| `未披露`/`未公布`/`—`/`-`/`N/A`/`n/a`/`NA`/空串 | `null` | 继承列 unit | 仅在数值类列（measure/percent）中识别为缺失；维度列保留原字符串 |
+| `未披露`/`无`/`—`/`-`/`N/A`/`n/a`/`NA`/空串 | `null` | 继承列 unit | 仅在数值类列（measure/percent）中识别为缺失；维度列保留原字符串 |
 | `微信` | `"微信"` | `text` | 维度/备注原样保留 |
 
 **默认缺失标记词表**（须在 M2 配置中显式列出，允许扩展）：
-`["未披露", "未公布", "暂无", "—", "--", "-", "N/A", "n/a", "NA", "null", ""]`
+`["未披露", "未公布", "暂无", "无", "—", "--", "-", "N/A", "n/a", "NA", "null", ""]`
 
 **NaN/Inf 处理**：pandas 产生的 `NaN`/`inf` 在 M2 出口必须全部转为 `None`（JSON 无法表达 NaN），不允许泄漏到后续模块。
 
 **混合单位（MVP 已知限制，不自动折算）**：
 同一数值列出现混合量级（如多数单元格为 `亿`、个别为 `万`）时：
-1. 按非空单元格中占比最高的量级确定**列主单位**（unit）；
-2. 与列主单位不一致的单元格，**MVP 不做自动折算**，其值置为 `null`，并在该列的 `warnings` 中记录原始值与原因，例如：`列 "2024 MAU" 主单位为 yi，单元格 "7000万" 未自动折算，已置空`；
+1. 按非空单元格中占比最高的量级确定**列主单位**（unit）；裸数值（无后缀）单元格视为与列主单位一致；
+2. 与列主单位不一致的带后缀单元格，**MVP 不做自动折算**，其值置为 `null`，并在该列的 `warnings` 中记录原始值与原因，例如：`列 "2024 MAU" 主单位为 yi，单元格 "7000万" 未自动折算，已置空`；
 3. 这是 **MVP 已知限制**（避免量级误算导致数据失真）；后续版本再引入自动折算或交互式单位确认。
 
 ### 5.1 百分比数值转换表（percent 值在各层的唯一权威形态）
@@ -129,12 +130,12 @@
 
 | 层 / 载体 | 数值 | 呈现或写入方式 | 禁止事项 |
 |---|---|---|---|
-| **M2 SemanticTable**（JSON） | `11.2`（number） | `role="percent"`、`unit="percent"`；负数为 `-3.9` | 禁止存 `0.112`、禁止存 `"11.2%"` 字符串 |
-| **M3 LLM 契约 / ChartSpec**（JSON） | `11.2`（number） | LLM 只引用列；投影填充的 `series.data` 为 `11.2`，`axis="secondary"` | 禁止 LLM 给数；禁止任何倍率换算 |
-| **前端 ECharts 预览** | 数据仍是 `11.2` | tooltip / label / 副轴通过 formatter 追加 `%`，用户看到 `11.2%`、`-3.9%` | 禁止在前端除以 100 |
-| **M4 写入 pptx** | `0.112`（写入前 `value / 100`，负例 `-0.039`） | 副轴 / 数据标签数字格式设为 `0.0%`；轴标题如「同比」 | 除法只允许发生在 M4 写入前的最后一步；`null` 仍写 `None`，不参与除法 |
+| **M2 SemanticTable**（JSON） | `0.112`（number） | `role="percent"`、`unit="percent"`；负数为 `-0.039`；解析阶段（÷100）是全链路唯一的数值转换点 | 禁止存 `11.2`、禁止存 `"11.2%"` 字符串 |
+| **M3 LLM 契约 / ChartSpec**（JSON） | `0.112`（number） | LLM 只引用列；投影填充的 `series.data` 为 `0.112`，`axis="secondary"` | 禁止 LLM 给数；禁止任何倍率换算 |
+| **前端 ECharts 预览** | 数据仍是 `0.112` | tooltip / label / 副轴通过 formatter（`(v*100).toFixed(1) + "%"`）呈现，用户看到 `11.2%`、`-3.9%` | 禁止在前端修改数据值本身 |
+| **M4 写入 pptx** | `0.112`（与 JSON 值一致，直接写入；负例 `-0.039`） | 副轴 / 数据标签数字格式设为 `0.0%`；轴标题如「同比」 | 写入前不得再除 100（M2 已完成转换）；`null` 仍写 `None` |
 
-**边界规则**：`null` 在任何层都保持 `null/None`，不做转换；除 M4 外的任何模块对 percent 做乘除 100 均视为缺陷。
+**边界规则**：`null` 在任何层都保持 `null/None`，不做转换；M2 之外的任何模块对 percent 做乘除 100 均视为缺陷。
 
 ### 5.2 RawTable（M1 输出）
 
@@ -240,36 +241,36 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
 **不变式**：
 - `rows[i].length === columns.length`；
 - measure/percent 列的单元格只能是 `number | null`；dimension/meta 列只能是 `string | null`；
-- percent 列值域为规范化后的数值（`11.2` 表示 11.2%，允许负数），不含 `%` 字符（§5.1）。
+- percent 列值域为小数形态（`0.112` 表示 11.2%，允许负数），不含 `%` 字符（§5.1）。
 
 **§12 测试夹具（6 行）经 M2 后的期望输出（验收基准，须逐字段一致）：**
 
 ```json
 {
   "columns": [
-    { "name": "平台",      "role": "dimension", "unit": "text",    "nullable": false, "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 6 } },
-    { "name": "2024 MAU",  "role": "measure",   "unit": "yi",      "nullable": false, "stats": { "min": 3.2,  "max": 13.9, "null_count": 0, "distinct_count": 6 } },
-    { "name": "2025 MAU",  "role": "measure",   "unit": "yi",      "nullable": false, "stats": { "min": 3.5,  "max": 14.2, "null_count": 0, "distinct_count": 6 } },
-    { "name": "同比",       "role": "percent",   "unit": "percent", "nullable": false, "stats": { "min": -3.9, "max": 11.2, "null_count": 0, "distinct_count": 6 } },
-    { "name": "2024 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "stats": { "min": 1.0, "max": 7.0, "null_count": 2, "distinct_count": 4 } },
-    { "name": "2025 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "stats": { "min": 1.1, "max": 7.6, "null_count": 2, "distinct_count": 4 } },
-    { "name": "梯队",       "role": "dimension", "unit": "text",    "nullable": false, "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 4 } },
-    { "name": "平台态势",   "role": "meta",      "unit": "text",    "nullable": false, "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 6 } }
+    { "name": "平台",      "role": "dimension", "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 6 } },
+    { "name": "2024 MAU",  "role": "measure",   "unit": "yi",      "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": 3.2,  "max": 13.9, "null_count": 0, "distinct_count": 6 } },
+    { "name": "2025 MAU",  "role": "measure",   "unit": "yi",      "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": 3.5,  "max": 14.2, "null_count": 0, "distinct_count": 6 } },
+    { "name": "同比",       "role": "percent",   "unit": "percent", "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": -0.039, "max": 0.112, "null_count": 0, "distinct_count": 6 } },
+    { "name": "2024 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "warnings": [], "stats": { "min": 1.0, "max": 7.0, "null_count": 2, "distinct_count": 4 } },
+    { "name": "2025 DAU",  "role": "measure",   "unit": "yi",      "nullable": true,  "missing_tokens_hit": ["未披露"], "warnings": [], "stats": { "min": 1.1, "max": 7.6, "null_count": 2, "distinct_count": 4 } },
+    { "name": "梯队",       "role": "dimension", "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 3 } },
+    { "name": "平台态势",   "role": "meta",      "unit": "text",    "nullable": false, "missing_tokens_hit": [], "warnings": [], "stats": { "min": null, "max": null, "null_count": 0, "distinct_count": 5 } }
   ],
   "rows": [
-    ["微信",   13.9, 14.2,   2.4, null, null, "第二梯队", "稳健"],
-    ["抖音",   10.5, 11.7,  11.2, 7.0,  7.6,  "第一梯队", "高增长"],
-    ["快手",    7.2,  7.0,  -2.8, 4.1,  4.0,  "第三梯队", "存量承压"],
-    ["微博",    5.9,  5.7,  -3.9, 2.6,  2.5,  "第三梯队", "收缩"],
-    ["B站",     3.4,  3.7,   8.8, 1.0,  1.1,  "第四梯队", "社区增长"],
-    ["小红书",  3.2,  3.5,   9.4, null, null, "第四梯队", "种草扩张"]
+    ["微信",   13.9, 14.2,  0.024, null, null, "第二梯队", "稳健"],
+    ["抖音",   10.5, 11.7,  0.112, 7.0,  7.6,  "第一梯队", "高增长"],
+    ["快手",    7.2,  7.0, -0.028, 4.1,  4.0,  "第三梯队", "存量承压"],
+    ["微博",    5.9,  5.7, -0.039, 2.6,  2.5,  "第三梯队", "收缩"],
+    ["B站",     3.4,  3.7,  0.088, 1.0,  1.1,  "第四梯队", "社区增长"],
+    ["小红书",  3.2,  3.5,  0.094, null, null, "第四梯队", "种草扩张"]
   ]
 }
 ```
 
 **role 判定规则（启发式，M2 内部实现）：**
-- 含 `%` 单元格占比 ≥ 60% 的数值列 → `percent`；
-- 纯数值列 → `measure`（再按单位后缀占比确定 `yi`/`wan`/`count`）；
+- **列名含 `%`**，或含 `%` 单元格占非空单元格比例 ≥ 60% 的数值列 → `percent`（解析值 = 数值部分 ÷ 100）；
+- 其余纯数值列 → `measure`（再按单位后缀占比确定 `yi`/`wan`/`count`）；
 - 文本列：`distinct_count / row_count ≤ 0.8` 且最大单元格长度 ≤ 20 字符 → `dimension`，否则 → `meta`；
 - 首列若为文本，强制为 `dimension` 并作为 `primary_dimension` 候选。
 
@@ -311,7 +312,7 @@ M1 只做「切分」，不做数值规范化，单元格保持原始字符串�
           "axis": { "type": "string", "enum": ["primary", "secondary"] },
           "data": {
             "type": "array", "minItems": 1,
-            "items": { "type": ["number", "null"], "description": "null=缺失留空（C-3），禁止填 0" }
+            "items": { "type": ["number", "null"], "description": "null=缺失留空（C-3），禁止填 0；percent 为小数形态 0.112（§5.1）" }
           }
         }
       }
@@ -462,7 +463,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 3. **副轴 percent 生效**：解压产出的 pptx，检查对应 `ppt/charts/chart1.xml`：
    - 存在两个数值轴（primary / secondary），percent 序列引用副轴；
    - 副轴或该序列数字格式包含 `%`；
-   - percent 数据点写入值为除以 100 后的 `0.024`、`0.112`、`-0.039` 等（§5.1）。
+   - percent 数据点写入值与 JSON 一致（`0.024`、`0.112`、`-0.039`，§5.1 小数形态，写入前不再换算）。
 4. **原生图表与断链**：产物中存在 `ppt/charts/chart1.xml`（C-1），且不存在指向外部文件的数据 relationship（C-2 的断链处理在真实 ablechart 产物上验证可行）。
 5. 产物可被 python-pptx 重新打开，WPS 双击可编辑（至少完成自动化断言；人工双击可延后到 M4 验收）。
 
@@ -489,21 +490,24 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 
 ### M2 语义分析模块（`semantic`）
 
-**职责**：RawTable → SemanticTable。执行 §5.0 全部规范化规则、role/unit 判定、stats 统计。
+**职责**：RawTable → SemanticTable。执行 §5.0 全部规范化规则、role/unit 判定、stats 统计。对外门面入口：`parse_input(raw_text: str) -> dict`（M1+M2 串联，返回 SemanticTable）。
 
 **处理规则：**
-- 按 §5.0 词表将缺失标记映射为 `None`（C-3）；记录 `missing_tokens_hit`。
+- 按 §5.0 词表将缺失标记映射为 `None`（C-3）；记录 `missing_tokens_hit`（空串命中不计入）。
 - 数值正则：`^[+-]?\d+(\.\d+)?\s*(亿|万|%)?$`；带单位的列要求 ≥60% 非空单元格命中同一模式，否则整列降级为 `meta` 并记 warning。
+- **percent 判定与转换**：列名含 `%`，或 ≥60% 非空单元格带 `%` 后缀 → `role=percent`；解析值 = 数值部分 ÷ 100（`+11.2% → 0.112`，负号保留），保留至 10 位小数内；percent 是全链路唯一的数值转换点（§5.1）。
 - pandas `NaN`/`inf` → `None`（出口强制清洗）。
-- 同列混合 `亿`/`万`：**不自动折算**——按占比高者定列 unit，异类单元格置 `null` 并写入列级 `warnings`（§5.0，MVP 已知限制）。
+- 同列混合 `亿`/`万`：**不自动折算**——按占比高者定列 unit，裸数值视为同单位，其余异类单元格置 `null` 并写入列级 `warnings`（§5.0，MVP 已知限制）。
+- 数值类列中无法按数值解析的非缺失单元格：置 `null` 并记 warning。
 
 **输入**：RawTable。 **输出**：SemanticTable（§5.3）。
 
 **验收标准：**
-- A-2.1：样例数据输出与 §5.3「期望输出」完全一致（8 列 × 6 行；微博同比 `-3.9`；微信与小红书 4 个 DAU 单元格为 `null`；DAU 完整平台抖音/快手/微博/B站数值保留）。
+- A-2.1：样例数据输出与 §5.3「期望输出」完全一致（8 列 × 6 行；同比为 `[0.024, 0.112, -0.028, -0.039, 0.088, 0.094]`；微信与小红书 4 个 DAU 单元格为 `null`；抖音 DAU 完整为 `7.0`/`7.6`）。
 - A-2.2：序列化后的 JSON 中不存在 `NaN`/`Infinity` 字面量；缺失单元格为 `null`。
 - A-2.3：`同比` 列 role=percent；`平台态势` 列 role=meta；`平台`/`梯队` 列 role=dimension。
 - A-2.4：构造一列含 `13.9亿` 与 `7000万` 混合单位的数据：列 unit 为 `yi`，`7000万` 单元格输出 `null`，且列 `warnings` 含未折算说明；不得输出 `0.7`。
+- A-2.5：缺失标记「无」「—」在数值列中映射为 `null`（C-3）；列名含 `%` 而单元格为裸数字（如 `11.2`）时，列仍识别为 percent 且值解析为 `0.112`。
 
 ### M3 图表推荐模块（`recommender`）
 
@@ -526,7 +530,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 - A-3.1：mock LLM 返回合法 JSON 时，输出 ChartSpec 通过 §5.4 Schema 与 V-1~V-5。
 - A-3.2：mock LLM 返回非 JSON / 含围栏 JSON / 引用不存在列 / chart_type 为 `slope` 等越界值，分别触发重试或丢弃，最终不产出非法 ChartSpec。
 - A-3.3：mock LLM 持续失败时，`degraded=true` 且至少返回 1 条合法推荐；对 §12 夹具必须能产出 combo（含同比副轴）。
-- A-3.4：所有输出中 percent 序列均为 secondary、`kind=line`（C-4）；data 中的 null 未被改写（C-3），值保持 `11.2` 形态（§5.1，不出现 `0.112`）。
+- A-3.4：所有输出中 percent 序列均为 secondary、`kind=line`（C-4）；data 中的 null 未被改写（C-3），值保持 `0.112` 小数形态（§5.1，不出现 `11.2`）。
 - A-3.5：LLM 输出中的任何数值字段不影响最终 data——data 全部来自 SemanticTable 投影（抽查断言）。
 
 ### M4 PPT 生成模块（`pptx_builder`）
@@ -542,7 +546,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
    | `line` | python-pptx `add_chart(LINE_MARKERS, ...)`，`connectNulls` 语义（空点断线） |
    | `combo` | **`ablechart.create_combo_chart`**（M0 验证通过后）：bar 主轴 + line 副轴 |
 3. 数据写入：`CategoryChartData` 中缺失值以 `None` 写入（line 断线、bar 缺柱，C-3）。
-4. 数字格式（严格按 §5.1）：percent 序列写入值为 `原值/100`（`11.2 → 0.112`，负例 `-3.9 → -0.039`），副轴与数据标签数字格式 `0.0%`；`yi` 序列原值写入，轴标题标注单位（如「MAU（亿）」）。
+4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），副轴与数据标签数字格式 `0.0%`；`yi` 序列原值写入，轴标题标注单位（如「MAU（亿）」）。
 5. **BreakLink 收尾（C-2）**：全部 slide 构建完成后、save 之前，遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，检查 chart_data `IsLinked`，为 True 则 `BreakLink()`；无公共 API 时以等价 XML/relationship 操作实现（R-2）。
 6. 页面结构：可选标题页 → 每个图表一页（图表 + 可选数据表）→ 可选完整数据表页；16:9 默认。
 7. 输出：`FileResponse`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，文件名 `chart-report-{yyyyMMdd-HHmmss}.pptx`。
@@ -553,7 +557,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 - A-4.1：产物可被 python-pptx 重新打开，图表数量与请求一致。
 - A-4.2：解压产物——每图存在 `ppt/charts/chartN.xml`；`ppt/media/` 无图表图片（C-1）。
 - A-4.3：解压产物——所有 chart 无指向外部文件的数据 relationship（C-2）。
-- A-4.4：以含 `2024 DAU` 的 bar 图生成产物：微信 / 小红书对应数据点在 XML 中为空点而非 `0`（C-3）；以含「同比」的 combo 图生成产物：percent 数据点为 `0.024`/`0.112`/`-0.039` 形态且副轴格式含 `%`（§5.1 / C-4）。
+- A-4.4：以含 `2024 DAU` 的 bar 图生成产物：微信 / 小红书对应数据点在 XML 中为空点而非 `0`（C-3）；以含「同比」的 combo 图生成产物：percent 数据点与 JSON 值一致（`0.024`/`0.112`/`-0.039`）且副轴格式含 `%`（§5.1 / C-4）。
 - A-4.5：构造非法 GenerateRequest（percent 挂主轴 / data 长度不齐 / 未知列 / chart_type=pie）→ 返回 `VALIDATION_FAILED`，不产出文件。
 - A-4.6（人工）：WPS 与 PowerPoint 打开产物，双击每个图表可编辑数据，无「链接文件不可用」提示。
 
@@ -564,7 +568,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 | 方法 | 路径 | 请求 | 响应 | 说明 |
 |---|---|---|---|---|
 | GET | `/api/health` | - | `{"status":"ok"}` | 健康检查 |
-| POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用 |
+| POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用（已实现） |
 | POST | `/api/recommend` | SemanticTable | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3 |
 | POST | `/api/generate` | GenerateRequest（§5.6） | `.pptx` 文件流 | M4；错误返回 ApiError + 4xx/5xx |
 
@@ -589,7 +593,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
       "series": [
         { "name": "2024 MAU", "source_column": "2024 MAU", "kind": "bar",  "unit": "yi",      "axis": "primary",   "data": [13.9, 10.5, 7.2, 5.9, 3.4, 3.2] },
         { "name": "2025 MAU", "source_column": "2025 MAU", "kind": "bar",  "unit": "yi",      "axis": "primary",   "data": [14.2, 11.7, 7.0, 5.7, 3.7, 3.5] },
-        { "name": "同比",      "source_column": "同比",      "kind": "line", "unit": "percent", "axis": "secondary", "data": [2.4, 11.2, -2.8, -3.9, 8.8, 9.4] }
+        { "name": "同比",      "source_column": "同比",      "kind": "line", "unit": "percent", "axis": "secondary", "data": [0.024, 0.112, -0.028, -0.039, 0.088, 0.094] }
       ],
       "axes": {
         "primary":   { "unit": "yi",      "title": "MAU（亿）" },
@@ -600,7 +604,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 }
 ```
 
-> ChartSpec JSON 中 percent 值保持 `11.2` / `-3.9`（§5.1）；除以 100 仅发生在 M4 写入 pptx 时。
+> ChartSpec JSON 中 percent 值为小数形态（`0.112` / `-0.039`，§5.1），M4 写入 pptx 时直接使用该值、不再换算。
 
 ---
 
@@ -615,7 +619,7 @@ LLM 只引用列、不给数据（C-5）。后端按此 Schema 校验原始响�
 - `line`：类目轴折线图，`connectNulls: false`（null 断线，C-3 的可视化表达）。
 - `bar`：类目轴分组柱；null 位置缺柱，不渲染为 0。
 - `combo`：bar 系列 `yAxisIndex:0`，percent line 系列 `yAxisIndex:1`；双 y 轴。
-- tooltip/label 按 `unit` 追加后缀：`yi→" 亿"`、`wan→" 万"`、`percent→"%"`；percent 副轴 `axisLabel.formatter = "{value}%"`。前端使用的数据值恒为 `11.2` 形态，**不做除以 100**（§5.1）。
+- tooltip/label 按 `unit` 追加后缀：`yi→" 亿"`、`wan→" 万"`；percent 用 formatter 呈现（数据为小数形态 `0.112`，显示 `(v*100).toFixed(1) + "%"`；副轴 `axisLabel.formatter` 同规则）。前端使用的数据值恒为 `0.112` 形态，**不改数据值**（§5.1）。
 
 **下载约束**：跨域/同源一律 `fetch → blob → a[download]`，不直接用 `<a href>` 触发下载。
 
@@ -628,6 +632,8 @@ project-root/
 ├── SPEC.md                          # 本文档（唯一规格来源）
 ├── backend/
 │   ├── requirements.txt             # 精确版本锁定
+│   ├── requirements-dev.txt         # dev 依赖（pytest 等）
+│   ├── pytest.ini                   # pythonpath=.，testpaths=tests
 │   ├── .env.example                 # LLM_API_KEY / LLM_BASE_URL / LLM_MODEL / CORS_ORIGINS
 │   ├── app/
 │   │   ├── main.py                  # FastAPI 入口、CORS、路由注册
@@ -635,8 +641,8 @@ project-root/
 │   │   ├── api/
 │   │   │   └── routes.py            # /api/parse /api/recommend /api/generate /api/health
 │   │   ├── modules/
-│   │   │   ├── parser.py            # M1
-│   │   │   ├── semantic.py          # M2
+│   │   │   ├── parser.py            # M1（已实现）
+│   │   │   ├── semantic.py          # M2（已实现）
 │   │   │   ├── recommender.py       # M3：LLM client + 校验链 + 数据投影 + 降级
 │   │   │   └── pptx_builder.py      # M4：python-pptx + ablechart + BreakLink 收尾
 │   │   ├── schemas/                 # §5 全部 JSON Schema 文件（唯一事实源）
@@ -651,8 +657,8 @@ project-root/
 │   └── tests/
 │       ├── fixtures/
 │       │   ├── sample.md            # §12 样例 Markdown 表格（6 行）
-│       │   ├── sample.csv
-│       │   └── sample.xlsx
+│       │   ├── sample.csv           # 测试时由 fixture 动态生成（避免二进制/编码文件入库）
+│       │   └── sample.xlsx          # 同上
 │       ├── test_parser.py           # A-1.x
 │       ├── test_semantic.py         # A-2.x
 │       ├── test_recommender.py      # A-3.x（LLM 全部 mock）
@@ -683,14 +689,14 @@ project-root/
 | fastapi | `>=0.115,<1.0` | Web 框架 |
 | uvicorn[standard] | `>=0.30,<1.0` | ASGI 服务 |
 | pydantic | `>=2.7,<3.0` | 请求/响应模型 |
-| pandas | `>=2.2,<3.0` | 数据解析 |
+| pandas | `>=2.2,<3.0` | 数据解析（Excel 路径） |
 | openpyxl | `>=3.1,<4.0` | xlsx 读写 |
 | python-pptx | `>=1.0.2,<2.0` | 原生图表 PPT 生成（C-1） |
 | ablechart | `==0.2.0` | 组合图 `create_combo_chart`（M0 已初步确认可安装、函数存在；双轴/percent 能力待 M0 门禁验证） |
 | jsonschema | `>=4.22,<5.0` | LLM 输出与契约校验 |
 | httpx | `>=0.27,<1.0` | LLM API 异步调用 |
 | python-multipart | `>=0.0.9` | 文件上传 |
-| pytest | `>=8.2,<9.0` | 测试（dev 依赖） |
+| pytest | `>=8.2,<9.0` | 测试（dev 依赖，`requirements-dev.txt`） |
 
 ### 前端（`package.json`）
 
@@ -717,7 +723,7 @@ project-root/
 |---|---|---|
 | `PARSE_EMPTY` | 输入为空/无法识别表格 | 400 |
 | `PARSE_TOO_LARGE` | 超 10MB / 超 10000 行 | 413 |
-| `PARSE_UNSUPPORTED` | 不支持的文件类型 | 400 |
+| `PARSE_UNSUPPORTED` | 不支持的文件类型/编码 | 400 |
 | `LLM_INVALID_JSON` | LLM 输出非严格 JSON（重试耗尽） | 502（伴随降级结果时不报错） |
 | `LLM_UNAVAILABLE` | LLM 服务不可达且降级失败 | 502 |
 | `VALIDATION_FAILED` | ChartSpec/GenerateRequest 违反 Schema 或 V-1~V-5；或表中无可绘图数值列 | 400 |
@@ -727,7 +733,7 @@ project-root/
 
 ## 12. 测试夹具（样例数据，6 行）
 
-以下 Markdown 表格为 `tests/fixtures/sample.md` 的标准内容（同内容另有 csv/xlsx 版本）。覆盖：负同比（微博 -3.9%）、DAU 全缺失平台（微信、小红书）、DAU 完整平台（抖音等）、MAU 下降平台（快手、微博）。
+以下 Markdown 表格为 `tests/fixtures/sample.md` 的标准内容（同内容的 csv/xlsx 版本由测试 fixture 动态生成）。覆盖：负同比（微博 -3.9%）、DAU 全缺失平台（微信、小红书）、DAU 完整平台（抖音等）、MAU 下降平台（快手、微博）。
 
 ```markdown
 | 平台 | 2024 MAU | 2025 MAU | 同比 | 2024 DAU | 2025 DAU | 梯队 | 平台态势 |
@@ -744,7 +750,7 @@ project-root/
 - [ ] 粘贴样例文本 → 8 列 × 6 行正确展示，微信 / 小红书 DAU 高亮「缺失」
 - [ ] 推荐列表 ≥2 条且含 combo；ECharts 预览中 percent 走副轴、显示 `%`，微博 / 快手同比呈现负值
 - [ ] bar / line 图中微信 / 小红书 DAU 位置为空（缺柱 / 断线），不是 0
-- [ ] 导出 pptx；解压校验通过（C-1/C-2/C-3/C-4，含 percent 写入值为 /100 形态）
+- [ ] 导出 pptx；解压校验通过（C-1/C-2/C-3/C-4，percent 写入值与 JSON 一致）
 - [ ] WPS 打开，双击图表可编辑数据，无「链接文件不可用」
 - [ ] 断开 LLM（改错 BASE_URL）→ 降级推荐仍可用（含 combo），导出正常
 
@@ -754,7 +760,7 @@ project-root/
 
 | 编号 | 事项 | 说明与预案 |
 |---|---|---|
-| R-1 | ablechart 的 `create_combo_chart` 双轴与 percent 能力 | **M0 门禁（§6 M0）必须先验证**：双轴 combo、副轴 percent 格式、写入值 /100。若不满足，预案为 python-pptx 原生 XML 扩展实现副轴，仍保证 C-1（禁止图片化），并回写本 SPEC |
+| R-1 | ablechart 的 `create_combo_chart` 双轴与 percent 能力 | **M0 门禁（§6 M0）必须先验证**：双轴 combo、副轴 percent 格式、写入值与 JSON 一致。若不满足，预案为 python-pptx 原生 XML 扩展实现副轴，仍保证 C-1（禁止图片化），并回写本 SPEC |
 | R-2 | python-pptx 公共 BreakLink API 可用性 | 锁定版本若无公共 API，则实现等价的 XML/relationship 操作函数 `break_chart_links(prs)`，对外行为以 C-2 的验证方式为准（zip 解压断言外部链接不存在）；M0 顺带在真实 ablechart 产物上验证 |
 | R-3 | LLM 的 strict JSON 能力差异 | 优先 `response_format=json_object`；模型不支持时回退为 prompt 强约束 + 围栏剥离 + 重试，行为不变（A-3.x 不变） |
 
@@ -763,7 +769,7 @@ project-root/
 ## 14. 实施顺序（里程碑，无时间预估）
 
 0. **M0 ablechart 可行性验证**：运行 `backend/spikes/ablechart_spike.py`，达成 §6 M0 的五项目标（能装、能生成双轴 combo、副轴 percent 生效、原生图表且无外部链接、产物可重开）。**验证通过并回写结果后，才允许进入 M1。**
-1. **M1 + M2 + validators**：schemas 落地、6 行样例夹具、A-1.x/A-2.x 测试通过。
+1. **M1 + M2 + validators**（本轮已落地 parser/semantic 与 `/api/parse`）：schemas 落地、6 行样例夹具、A-1.x/A-2.x 测试通过。
 2. **M3**：mock LLM 先行（A-3.x 全绿）→ 接入真实 LLM。
 3. **前端三步页面**：`/api/parse`、`/api/recommend` 联调，ECharts 预览走通。
 4. **M4 + 端到端**：A-4.x 自动化断言 + WPS 人工验收（§12 checklist）。
