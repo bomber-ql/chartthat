@@ -242,11 +242,12 @@ function hbarOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   };
 }
 
-// area（面积图）：折线 + 半透明面积填充。
+// area（面积图）：强制折线 + 半透明面积填充（kind 异常时也不退化为柱，SPEC §8 映射层兜底）。
 function areaOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const base = singleAxisOption(spec, 'line', T);
   const series = ((base.series ?? []) as Array<Record<string, unknown>>).map((s) => ({
     ...s,
+    type: 'line',
     areaStyle: { opacity: 0.16 },
     smooth: true,
   }));

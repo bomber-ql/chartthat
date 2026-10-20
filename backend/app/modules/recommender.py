@@ -312,7 +312,7 @@ def _fallback_specs(table: dict[str, Any]) -> list[dict[str, Any]]:
                 default_kind = kinds[name]
             elif chart_type == "scatter":
                 default_kind = "scatter"
-            elif is_pct or chart_type in ("line", "slope"):
+            elif is_pct or chart_type in ("line", "slope", "area"):
                 default_kind = "line"
             else:
                 default_kind = "bar"

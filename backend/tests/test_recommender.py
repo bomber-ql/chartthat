@@ -159,6 +159,9 @@ def test_fallback_covers_three_layers(table: dict[str, Any]) -> None:
     combo = next(s for s in specs if s["chart_type"] == "combo")
     pct = next(s for s in combo["series"] if s["source_column"] == "同比")
     assert pct["axis"] == "secondary" and pct["kind"] == "line"
+    # 面积图序列 kind 恒为 line（v1.8 修复：降级路径曾误置 bar，前端渲染成柱状图）
+    area = next(s for s in specs if s["chart_type"] == "area")
+    assert all(s["kind"] == "line" for s in area["series"])
     for spec in specs:
         assert validate_chart_spec(spec, table) == []
 
