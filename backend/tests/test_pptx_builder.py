@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import io
+import re
 import zipfile
 
 import pytest
@@ -434,46 +435,64 @@ def _slide_xml(blob: bytes) -> str:
         return zf.read("ppt/slides/slide1.xml").decode("utf-8")
 
 
-# chart_type -> (最小合法请求, 期望 animEffect filter, 期望 bldChart bld)（§6 M4 规则 8 映射）
+# chart_type -> (最小合法请求, 期望 animEffect filter, 期望 bldChart bld,
+#               oleChartEl type 或 None(整图), 期望动画段数)（§6 M4 规则 8 v1.9 映射）
 _ANIM_CASES = {
     "bar": ({"chart_type": "bar", "data": {"categories": ["a", "b"],
-            "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "ptInCategory"),
+            "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "category", "category", 2),
     "hbar": ({"chart_type": "hbar", "data": {"categories": ["a", "b"],
-             "series": [_series("x", [1.0, 2.0])]}}, "wipe(r)", "ptInCategory"),
+             "series": [_series("x", [1.0, 2.0])]}}, "wipe(r)", "category", "category", 2),
     "line": ({"chart_type": "line", "data": {"categories": ["a", "b"],
-             "series": [_series("x", [1.0, None])]}}, "wipe(r)", "ptInSeries"),
+             "series": [_series("x", [1.0, None])]}}, "wipe(r)", "series", "series", 1),
     "area": ({"chart_type": "area", "data": {"categories": ["a", "b"],
-             "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "ptInCategory"),
-    "combo": (COMBO_REQUEST, "wipe(up)", "ptInCategory"),
+             "series": [_series("x", [1.0, 2.0])]}}, "wipe(up)", "category", "category", 2),
+    "combo": (COMBO_REQUEST, "wipe(up)", "category", "category", 4),
     "stacked": ({"chart_type": "stacked", "data": {"categories": ["a", "b"],
-                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "wipe(up)", "ptInCategory"),
+                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "wipe(up)", "category", "category", 2),
     "slope": ({"chart_type": "slope", "data": {"categories": ["a", "b"],
-              "series": [_series("x", [1.0, 2.0]), _series("y", [2.0, 3.0])]}}, "wipe(r)", "ptInSeries"),
+              "series": [_series("x", [1.0, 2.0]), _series("y", [2.0, 3.0])]}}, "wipe(r)", "series", "series", 2),
     "scatter": ({"chart_type": "scatter", "data": {"categories": ["a", "b"],
-                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "fade", "ptInSeries"),
+                "series": [_series("x", [1.0, 2.0]), _series("y", [3.0, 4.0])]}}, "fade", "series", "series", 2),
     "waterfall": ({"chart_type": "waterfall", "data": {"categories": ["a", "b", "c"],
-                  "series": [_series("x", [10.0, -3.0, 1.0])]}}, "wipe(up)", "ptInCategory"),
+                  "series": [_series("x", [10.0, -3.0, 1.0])]}}, "wipe(up)", "category", "category", 3),
     "radar": ({"chart_type": "radar", "data": {"categories": ["a", "b", "c"],
               "series": [_series("x", [1.0, 2.0, 3.0], "count"), _series("y", [2.0, 3.0, 1.0], "count"),
-                         _series("z", [3.0, 1.0, 2.0], "count")]}}, "fade", "ptInSeries"),
+                         _series("z", [3.0, 1.0, 2.0], "count")]}}, "fade", "category", "category", 3),
     "pie": ({"chart_type": "pie", "data": {"categories": ["a", "b"],
-            "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "ptInSeries"),
+            "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "series", None, 1),
     "donut": ({"chart_type": "donut", "data": {"categories": ["a", "b"],
-              "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "ptInSeries"),
+              "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "series", None, 1),
     "sunburst": ({"chart_type": "sunburst", "data": {"categories": ["a", "b"],
-                 "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "ptInSeries"),
+                 "series": [_series("x", [1.0, 2.0])]}}, "wheel(1)", "series", None, 1),
 }
 
 
 @pytest.mark.parametrize("chart_type", sorted(_ANIM_CASES))
 def test_animate_injects_timing_per_type(chart_type: str):
-    req, effect, build = _ANIM_CASES[chart_type]
+    req, effect, build, ole_type, n_steps = _ANIM_CASES[chart_type]
     blob = build_pptx({**req, "animate": True})
     xml = _slide_xml(blob)
     # timing 骨架 + 进入动画效果 + 分段构建维度
     assert "<p:timing" in xml
     assert f'<p:animEffect transition="in" filter="{effect}">' in xml
     assert f'<a:bldChart bld="{build}"' in xml
+    # v1.9：播放分段由每段 target 内的 oleChartEl 决定
+    assert xml.count('<p:animEffect transition="in"') == n_steps
+    if ole_type is not None:
+        # 每段 animEffect 都有 oleChartEl，lvl 覆盖 0..n_steps-1
+        # （同段的 set 也带一份同样的 oleChartEl，故全文出现 2*n_steps 次；
+        # 这里只统计 animEffect 块内的目标）
+        ole_tags = re.findall(
+            r'<p:animEffect[^>]*>.*?<p:oleChartEl type="(%s)" lvl="(\d+)"/>' % ole_type,
+            xml, flags=re.S)
+        assert len(ole_tags) == n_steps
+        assert [int(lvl) for _, lvl in ole_tags] == list(range(n_steps))
+    else:
+        # 整图轮扫（饼/环/旭日）：目标是纯 spTgt，不带 oleChartEl
+        assert "<p:oleChartEl" not in xml
+    # 首段点击、其余段自动接续（一次点击后逐段铺开，无需逐段点击）
+    assert xml.count('nodeType="clickEffect"') == 1
+    assert xml.count('nodeType="afterEffect"') == n_steps - 1
     # target 是图表 graphicFrame 的 spid
     prs = Presentation(io.BytesIO(blob))
     frames = [sh for sh in prs.slides[0].shapes if sh.has_chart]

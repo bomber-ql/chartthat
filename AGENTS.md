@@ -3,7 +3,7 @@
 ## 项目概览
 智能数据图表 PPT 生成器：用户输入文本/CSV/Excel，后端解析数据语义，LLM 推荐图表（十三种：bar/hbar/line/area/combo/stacked/slope/scatter/waterfall/radar/pie/donut/sunburst），前端 ECharts 预览，最终由 python-pptx + ablechart 生成含**原生可编辑 Chart 对象**的 .pptx。
 
-**唯一规格来源：`SPEC.md`（v1.6）。任何代码实现必须先与 SPEC 对齐，冲突时先回写 SPEC。**
+**唯一规格来源：`SPEC.md`（v1.9）。任何代码实现必须先与 SPEC 对齐，冲突时先回写 SPEC。**
 
 ## 架构
 - `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder，契约见 SPEC §5/§6。
@@ -41,7 +41,7 @@
 - M1/M2 已实现：`backend/app/modules/parser.py`（文本/CSV/Excel → RawTable）、`semantic.py`（→ SemanticTable），入口 `parse_input`；percent 为小数形态（11.2% → 0.112，SPEC §5.1 v1.2）。
 - M3 已实现：`backend/app/modules/recommender.py`（OpenAI 兼容调用、裸 JSON 数组容错解析+失败重试 1 次、列引用投影填充、三语义层 trend/comparison/rate 覆盖、缺失系列追加固定提示语、LLM 不可用/产出为空时启发式降级 `degraded=true`）；校验在 `backend/app/validators.py`（V-1~V-12：V-9 stacked ≥2 同单位、V-10 waterfall 恰好 1 系列、V-11 radar ≥3 同单位、V-12 donut/sunburst 同 pie 口径；percent 仅允许 bar/hbar/line/area/combo）。MAX_RECOMMENDATIONS=8，降级变体含 area/stacked/radar/donut。LLM 测试全部注入 `llm_call` mock，禁止真实网络调用。
 - M4 已实现（`backend/app/modules/pptx_builder.py`，SPEC v1.4 §5.6/§6）：端点 `POST /api/generate-pptx`，入参自描述 `{chart_type, config?, animate?, data:{categories, series:[{name,kind,axis,unit,data}]}}`，返回 `attachment; filename=chart-<ts>.pptx`（PK 魔数、正确 MIME）。
-  - **v1.7/v1.8 放映动效版导出**（SPEC §6 M4 规则 8 / R-6）：请求带 `animate:true` 时由 `backend/app/modules/pptx_animation.py` 向 slide XML 注入 `<p:timing>` 进入动画（wipe/wheel/fade，500ms clickEffect）+ `<p:bldLst>/<a:bldChart>` 分段构建。`bld` 必须是 ECMA-376 `ST_ChartBuildStep` 合法枚举（v1.7 误用的 `bySeries` 等非法值会被播放器忽略→整图进入，v1.8 已修正）；v1.8 起**按数据点构建**：bar/stacked/area/combo/waterfall=wipe(up)+`ptInCategory`、hbar=wipe(r)+`ptInCategory`、line/slope=wipe(r)+`ptInSeries`、radar/scatter=fade+`ptInSeries`、pie/donut/sunburst=wheel(1)+`ptInSeries`。动画只是附加层不改写 chart part，C-1~C-4 不受影响；动效版文件名 `chart-animated-<ts>.pptx`；WPS/Office 双端人工验收 A-4.11 待做。前端导出区有「导出 PPTX / 导出动效版」两个独立按钮（互不影响）。
+  - **v1.7~v1.9 放映动效版导出**（SPEC §6 M4 规则 8 / R-6）：请求带 `animate:true` 时由 `backend/app/modules/pptx_animation.py` 向 slide XML 注入 `<p:timing>` 进入动画（wipe/wheel/fade，500ms）+ `<p:bldLst>/<a:bldChart>` 构建声明。**v1.9 关键结论（WPS 实测）**：`bldChart bld` 只是动画窗格的构建声明，**真正决定播放分段的是 mainSeq 中每个动画 effect target 里的 `<p:oleChartEl type="category|series" lvl="N"/>`**（v1.7/v1.8 缺它，目标恒为整图 → WPS 整图进入）。v1.9 结构：mainSeq 单触发组（顶层 par id=3 delay=indefinite > 容器 par id=4 delay=0）内并排 N 个动画段 par，首段 `clickEffect`（点击触发）、其余 `afterEffect`+`beginCond prevNode delay=0`（一次点击后自动接续，无需逐段点击），每段 set+animEffect 的 target 都挂 oleChartEl。图型映射：bar/hbar/stacked/area/combo/waterfall/radar 按类别（oleChartEl type=category、bld=category，bar/stacked/area/combo/waterfall/radar=wipe(up)、hbar=wipe(r)）；line/slope/scatter 按系列（type=series、bld=series，line/slope=wipe(r)、scatter=fade）；pie/donut/sunburst 整图 wheel(1)+bld=series。粒度取 category/series（ptIn* 逐点对多系列柱段结构要求更高、WPS 兼容更差，弃用）。动画只是附加层不改写 chart part，C-1~C-4 不受影响；动效版文件名 `chart-animated-<ts>.pptx`；WPS/Office 双端人工验收 A-4.11 待用户确认。前端导出区有「导出 PPTX / 导出动效版」两个独立按钮（互不影响）。
   - **v1.8 面积图 kind 修复**：降级路径曾把 area 序列 `kind` 误置 `bar`（前端 `cartesianSeries` 用 `s.kind` 渲染 → 面积图显示成柱状），已修为恒 `line`；前端 `areaOption` 同步强制 `type:'line'` 兜底。
   - line/bar 走 python-pptx `add_chart + CategoryChartData`；combo 走 `ablechart.create_combo_chart`（bar 主轴 + line 副轴）；None 原样传入（CategoryChartData 空点 / DataFrame NaN），禁 0。
   - 格式：折线显式写 `<c:dispBlanksAs val="gap"/>`；副轴 `numFmt=0.0%`（percent 数据恒为小数，不换算），主轴 `0.0"亿"` / `0.0"万"`（数值是换算后的绝对值）。

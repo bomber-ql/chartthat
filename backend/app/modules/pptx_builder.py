@@ -435,12 +435,16 @@ def build_pptx(request: dict[str, Any]) -> bytes:
 
     break_external_chart_links(prs)
 
-    # v1.7 规则 8：animate=true 时注入 p:timing 进入动画（标准版不含 <p:timing>，R-6）。
+    # v1.9 规则 8：animate=true 时注入 p:timing 进入动画（标准版不含 <p:timing>，R-6）。
     if request.get("animate") is True:
         slide = prs.slides[0]
         for shape in slide.shapes:
             if shape.has_chart:
-                inject_chart_animation(slide, shape.shape_id, spec["chart_type"])
+                inject_chart_animation(
+                    slide, shape.shape_id, spec["chart_type"],
+                    n_categories=len(spec.get("categories") or []),
+                    n_series=len(spec.get("series") or []),
+                )
                 break
 
     buf = io.BytesIO()

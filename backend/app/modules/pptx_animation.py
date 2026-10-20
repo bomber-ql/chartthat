@@ -1,116 +1,172 @@
-"""M4 放映动效注入（SPEC §6 M4 规则 8，v1.7 引入 / v1.8 修正枚举与粒度 / R-6）。
+"""M4 v1.9 放映动效注入：在 slide XML 中插入 <p:timing>。
 
-python-pptx 无动画 API，采用 ECMA-376 标准 ``<p:timing>`` + ``<a:bldChart>`` XML 模板注入：
+v1.9 关键修正（经 WPS 实测 + OpenXML 文档核实）：
+- ``<a:bldChart bld="...">`` 只是动画窗格里的「构建声明」，不决定播放分段。
+- 真正决定播放时图表按类别/系列逐段出现的，是 mainSeq 里**每个动画 effect 的
+  target**：``<p:spTgt spid="..."><p:oleChartEl type="category|series" lvl="N"/>``。
+  没有 oleChartEl 时（v1.7/v1.8），动画目标恒为整图，播放器（含 WPS）只能整图进入。
+- 时序树结构（ECMA-376）：mainSeq 下只有**一个触发组顶层 par**（id=3，
+  delay=indefinite），其 childTnLst 内一个容器 par（id=4，delay=0），再里面并排放
+  所有动画段 par：首段 nodeType=``clickEffect``（点击触发），其余段
+  nodeType=``afterEffect`` 且 beginCond 指向前一段（``<p:tn val="prevNode"/>``，
+  delay=0）——一次点击后各段自动接续播放，无需逐段点击。每段的 set / animEffect
+  target 都挂对应类别的 oleChartEl（lvl=类别下标）。
 
-- 单个 clickEffect 进入动画（``<p:set>`` 置可见 + ``<p:animEffect transition="in">``，dur=500ms）；
-- ``<p:bldLst>/<p:bldGraphic>/<p:bldSub>/<a:bldChart bld="...">`` 定义分段构建维度，由播放器展开为
-  逐数据点出现；``bld`` 必须是 ST_ChartBuildStep 合法枚举（category/ptInCategory/series/ptInSeries/
-  allPts/gridLegend）——v1.7 误用的 bySeries 等非法值会被播放器忽略而整图进入（v1.8 修正）；
-- v1.8 起一律按数据点构建（柱族 ptInCategory、线/饼族 ptInSeries），放映时「图表本身」逐点变化；
-- 动画只是附加的 timing 层，不改写 chart part，C-1/C-2/C-3/C-4 全部不受影响；
-- 仅在请求 ``animate=true`` 时注入；缺省/false 时 slide 不出现 ``<p:timing>``（行为同 v1.6）。
+参考：
+- ECMA-376 / ISO-IEC 29500-1 §19.5.52 ``oleChartEl``（type: ST_TLChartSubelementType）
+- DocumentFormat.OpenXml.Presentation.OleChartElement 官方示例。
 """
 from __future__ import annotations
 
-from lxml import etree
-from pptx.slide import Slide
-
-# chart_type -> (animEffect filter, bldChart bld, presetID)
-# bld 为 ECMA-376 ST_ChartBuildStep 合法枚举；presetID 仅影响动画窗格显示名（R-6）。
-# v1.8：一律按数据点构建（ptInCategory=逐类各点 / ptInSeries=逐系列逐点），单步 500ms。
-_ANIM_MAP: dict[str, tuple[str, str, int]] = {
-    "bar": ("wipe(up)", "ptInCategory", 22),
-    "stacked": ("wipe(up)", "ptInCategory", 22),
-    "area": ("wipe(up)", "ptInCategory", 22),
-    "combo": ("wipe(up)", "ptInCategory", 22),
-    "waterfall": ("wipe(up)", "ptInCategory", 22),
-    "hbar": ("wipe(r)", "ptInCategory", 22),
-    "line": ("wipe(r)", "ptInSeries", 22),
-    "slope": ("wipe(r)", "ptInSeries", 22),
-    "radar": ("fade", "ptInSeries", 10),
-    "scatter": ("fade", "ptInSeries", 10),
-    "pie": ("wheel(1)", "ptInSeries", 21),
-    "donut": ("wheel(1)", "ptInSeries", 21),
-    "sunburst": ("wheel(1)", "ptInSeries", 21),
+# (filter, build target kind, bldChart value)
+#   target_kind: "category" -> 每段作用到一个类别（lvl=类别下标）
+#                "series"   -> 每段作用到一个系列（lvl=系列下标）
+#                "whole"    -> 单系列整图（饼图配合 wheel 轮扫）
+_ANIM_BY_CHART_TYPE: dict[str, tuple[str, str, str]] = {
+    "bar": ("wipe(up)", "category", "category"),
+    "hbar": ("wipe(r)", "category", "category"),
+    "stacked": ("wipe(up)", "category", "category"),
+    "area": ("wipe(up)", "category", "category"),
+    "combo": ("wipe(up)", "category", "category"),
+    "waterfall": ("wipe(up)", "category", "category"),
+    "radar": ("fade", "category", "category"),
+    "line": ("wipe(r)", "series", "series"),
+    "slope": ("wipe(r)", "series", "series"),
+    "scatter": ("fade", "series", "series"),
+    "pie": ("wheel(1)", "whole", "series"),
+    "donut": ("wheel(1)", "whole", "series"),
+    "sunburst": ("wheel(1)", "whole", "series"),
 }
 
-_DURATION_MS = 500
+_STEP_MS = 500
 
-_TEMPLATE = """\
-<p:timing xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-  <p:tnLst>
-    <p:par>
-      <p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">
-        <p:childTnLst>
-          <p:seq concurrent="1" nextAc="seek">
-            <p:cTn id="2" dur="indefinite" nodeType="mainSeq">
-              <p:childTnLst>
-                <p:par>
-                  <p:cTn id="3" fill="hold">
-                    <p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>
-                    <p:childTnLst>
-                      <p:par>
-                        <p:cTn id="4" fill="hold">
-                          <p:stCondLst><p:cond delay="0"/></p:stCondLst>
-                          <p:childTnLst>
-                            <p:par>
-                              <p:cTn id="5" presetID="{preset}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="clickEffect">
-                                <p:stCondLst><p:cond delay="0"/></p:stCondLst>
-                                <p:childTnLst>
-                                  <p:set>
-                                    <p:cBhvr>
-                                      <p:cTn id="6" dur="1" fill="hold">
-                                        <p:stCondLst><p:cond delay="0"/></p:stCondLst>
-                                      </p:cTn>
-                                      <p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>
-                                      <p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>
-                                    </p:cBhvr>
-                                    <p:to><p:strVal val="visible"/></p:to>
-                                  </p:set>
-                                  <p:animEffect transition="in" filter="{filter}">
-                                    <p:cBhvr>
-                                      <p:cTn id="7" dur="{dur}"/>
-                                      <p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>
-                                    </p:cBhvr>
-                                  </p:animEffect>
-                                </p:childTnLst>
-                              </p:cTn>
-                            </p:par>
-                          </p:childTnLst>
-                        </p:cTn>
-                      </p:par>
-                    </p:childTnLst>
-                  </p:cTn>
-                </p:par>
-              </p:childTnLst>
-            </p:cTn>
-            <p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>
-            <p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>
-          </p:seq>
-        </p:childTnLst>
-      </p:cTn>
-    </p:par>
-  </p:tnLst>
-  <p:bldLst>
-    <p:bldGraphic spid="{spid}" grpId="0">
-      <p:bldSub>
-        <a:bldChart bld="{bld}" animBg="1"/>
-      </p:bldSub>
-    </p:bldGraphic>
-  </p:bldLst>
-</p:timing>"""
+_TIMING_HEAD = (
+    '<p:timing xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+    '<p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">'
+    '<p:childTnLst><p:seq concurrent="1" nextAc="seek">'
+    '<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>'
+    # 单个触发组：顶层 par(id=3, indefinite) > 容器 par(id=4, delay=0) > 各动画段
+    '<p:par><p:cTn id="3" fill="hold">'
+    '<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>'
+    '<p:childTnLst><p:par><p:cTn id="4" fill="hold">'
+    '<p:stCondLst><p:cond delay="0"/></p:stCondLst>'
+    '<p:childTnLst>'
+)
+_TIMING_TAIL = (
+    "</p:childTnLst></p:cTn></p:par>"
+    "</p:childTnLst></p:cTn></p:par>"
+    "</p:childTnLst></p:cTn>"
+    '<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>'
+    '<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>'
+    "</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst>"
+)
 
 
-def inject_chart_animation(slide: Slide, spid: int, chart_type: str) -> None:
-    """向 slide 注入图表进入动画（SPEC §6 M4 规则 8）。
+def _sp_target(spid: int, ole_type: str | None, lvl: int) -> str:
+    if ole_type is not None:
+        return (
+            f'<p:tgtEl><p:spTgt spid="{spid}">'
+            f'<p:oleChartEl type="{ole_type}" lvl="{lvl}"/>'
+            f"</p:spTgt></p:tgtEl>"
+        )
+    return f'<p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>'
 
-    - ``spid``：图表 graphicFrame 的 shape_id；
-    - ``chart_type``：决定效果（wipe/fade/wheel）与分段维度（ptInCategory/ptInSeries）；
-    - 未知类型退化为 fade + series（防御性，正常入参已经 §5.6 校验）。
+
+def _segment_par(seg_id: int, set_id: int, beh_id: int, spid: int,
+                 anim_filter: str, *, click: bool,
+                 ole_type: str | None, lvl: int) -> str:
+    """生成容器 par(id=4) 内的单个动画段。
+
+    首段 clickEffect（delay=indefinite，等待点击）；其余 afterEffect，beginCond
+    指向前一段（prevNode，delay=0）——上一段播完立即接续。
+    set 与 animEffect 的 target 都带 oleChartEl（whole 时为纯 spTgt）。
     """
-    effect, build, preset = _ANIM_MAP.get(chart_type, ("fade", "series", 10))
-    xml = _TEMPLATE.format(spid=spid, filter=effect, bld=build, dur=_DURATION_MS, preset=preset)
-    timing = etree.fromstring(xml.encode("utf-8"))
-    # <p:sld> 子元素顺序为 cSld, clrMapOvr, transition?, timing?, extLst?：python-pptx 新建
-    # 页面只有 cSld + clrMapOvr，直接 append 即满足 schema 顺序（R-6）。
-    slide._element.append(timing)  # noqa: SLF001 — python-pptx 无动画 API，按 R-6 注入
+    if click:
+        node_type = "clickEffect"
+        trigger = '<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>'
+    else:
+        node_type = "afterEffect"
+        trigger = (
+            '<p:beginCondLst><p:cond delay="0"><p:tn val="prevNode"/></p:cond>'
+            "</p:beginCondLst>"
+        )
+
+    target = _sp_target(spid, ole_type, lvl)
+
+    return (
+        f'<p:par><p:cTn id="{seg_id}" fill="hold" nodeType="{node_type}">{trigger}'
+        f"<p:childTnLst>"
+        # set visibility visible（作用于本段子元素）
+        f"<p:set><p:cBhvr>"
+        f'<p:cTn id="{set_id}" dur="1" fill="hold"><p:stCondLst>'
+        f'<p:cond delay="0"/></p:stCondLst></p:cTn>'
+        f"{target}"
+        f"<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>"
+        f"</p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>"
+        # 进入动画（作用于本段子元素）
+        f'<p:animEffect transition="in" filter="{anim_filter}"><p:cBhvr>'
+        f'<p:cTn id="{beh_id}" dur="{_STEP_MS}"/>'
+        f"{target}"
+        f"</p:cBhvr></p:animEffect>"
+        f"</p:childTnLst></p:cTn></p:par>"
+    )
+
+
+def _bld_lst(spid: int, bld: str) -> str:
+    return (
+        "<p:bldLst>"
+        f'<p:bldGraphic spid="{spid}" grpId="0">'
+        f'<p:bldSub><a:bldChart bld="{bld}"/></p:bldSub>'
+        "</p:bldGraphic>"
+        "</p:bldLst>"
+    )
+
+
+def build_animation_timing(spid: int, chart_type: str, *,
+                           n_categories: int, n_series: int) -> str:
+    """返回可直接 append 到 slide 元素末尾（clrMapOvr 之后）的 <p:timing> XML。"""
+    anim_filter, target_kind, bld = _ANIM_BY_CHART_TYPE[chart_type]
+
+    if target_kind == "category":
+        n_steps = max(1, n_categories)
+        ole_type: str | None = "category"
+    elif target_kind == "series":
+        n_steps = max(1, n_series)
+        ole_type = "series"
+    else:  # whole（单系列饼/环/旭日）：wheel 轮扫整图
+        n_steps = 1
+        ole_type = None
+
+    segments = []
+    next_id = 5
+    for i in range(n_steps):
+        seg_id, set_id, beh_id = next_id, next_id + 1, next_id + 2
+        next_id += 3
+        segments.append(
+            _segment_par(
+                seg_id, set_id, beh_id, spid, anim_filter,
+                click=(i == 0), ole_type=ole_type, lvl=i,
+            )
+        )
+
+    return (
+        _TIMING_HEAD
+        + "".join(segments)
+        + _TIMING_TAIL
+        + _bld_lst(spid, bld)
+        + "</p:timing>"
+    )
+
+
+def inject_chart_animation(slide, spid: int, chart_type: str, *,
+                           n_categories: int, n_series: int) -> None:
+    """构造 <p:timing> 并挂到 slide 元素末尾（clrMapOvr 之后）。"""
+    from lxml import etree
+
+    timing_xml = build_animation_timing(
+        spid, chart_type,
+        n_categories=n_categories, n_series=n_series,
+    )
+    timing_el = etree.fromstring(timing_xml)
+    slide.element.append(timing_el)
