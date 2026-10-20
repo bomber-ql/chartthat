@@ -1,4 +1,4 @@
-"""M4 v1.9 放映动效注入：在 slide XML 中插入 <p:timing>。
+"""M4 v1.10 放映动效注入：在 slide XML 中插入 <p:timing>。
 
 v1.9 关键修正（经 WPS 实测 + OpenXML 文档核实）：
 - ``<a:bldChart bld="...">`` 只是动画窗格里的「构建声明」，不决定播放分段。
@@ -7,10 +7,15 @@ v1.9 关键修正（经 WPS 实测 + OpenXML 文档核实）：
   没有 oleChartEl 时（v1.7/v1.8），动画目标恒为整图，播放器（含 WPS）只能整图进入。
 - 时序树结构（ECMA-376）：mainSeq 下只有**一个触发组顶层 par**（id=3，
   delay=indefinite），其 childTnLst 内一个容器 par（id=4，delay=0），再里面并排放
-  所有动画段 par：首段 nodeType=``clickEffect``（点击触发），其余段
-  nodeType=``afterEffect`` 且 beginCond 指向前一段（``<p:tn val="prevNode"/>``，
-  delay=0）——一次点击后各段自动接续播放，无需逐段点击。每段的 set / animEffect
+  所有动画段 par：首段 nodeType=``clickEffect``（等待点击），其余段
+  nodeType=``afterEffect`` + ``<p:stCondLst><p:cond delay="0"/></p:stCondLst>``
+  （afterEffect 语义=上一段播完自动接续，无需逐段点击）。每段的 set / animEffect
   target 都挂对应类别的 oleChartEl（lvl=类别下标）。
+
+v1.10 修正（XML 合法性，WPS 实测完全无动画）：
+- v1.9 给 afterEffect 段误用了**不存在的元素 ``<p:beginCondLst>``**（OOXML 时间节点
+  条件列表只有 ``<p:stCondLst>``/``<p:endCondLst>``），WPS 解析到非法节点将整段
+  ``<p:timing>`` 丢弃 → 放映完全无动画。v1.10 改为合法 ``<p:stCondLst>``。
 
 参考：
 - ECMA-376 / ISO-IEC 29500-1 §19.5.52 ``oleChartEl``（type: ST_TLChartSubelementType）
@@ -78,19 +83,19 @@ def _segment_par(seg_id: int, set_id: int, beh_id: int, spid: int,
                  ole_type: str | None, lvl: int) -> str:
     """生成容器 par(id=4) 内的单个动画段。
 
-    首段 clickEffect（delay=indefinite，等待点击）；其余 afterEffect，beginCond
-    指向前一段（prevNode，delay=0）——上一段播完立即接续。
+    首段 clickEffect（delay=indefinite，等待点击）；其余 afterEffect
+    （stCondLst delay=0，上一段播完自动接续）。
     set 与 animEffect 的 target 都带 oleChartEl（whole 时为纯 spTgt）。
     """
     if click:
         node_type = "clickEffect"
         trigger = '<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>'
     else:
+        # afterEffect 语义=「上一动画之后」自动接续；起始条件只需 delay=0。
+        # 注意：合法元素是 <p:stCondLst>（不是 <p:beginCondLst>，OOXML 无此元素，
+        # v1.9 误用导致 WPS 将整段 timing 判非法丢弃 → 完全无动画）。
         node_type = "afterEffect"
-        trigger = (
-            '<p:beginCondLst><p:cond delay="0"><p:tn val="prevNode"/></p:cond>'
-            "</p:beginCondLst>"
-        )
+        trigger = '<p:stCondLst><p:cond delay="0"/></p:stCondLst>'
 
     target = _sp_target(spid, ole_type, lvl)
 

@@ -964,6 +964,7 @@ body {
 }
 
 /* ---- 响应式 ---- */
+/* 平板/小桌面（≤1080px）：左右工作区改为上下单列 */
 @media (max-width: 1080px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -972,10 +973,79 @@ body {
   body {
     overflow: auto;
   }
+  .shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
   .side {
     overflow: visible;
   }
   .main .scroll {
     overflow: visible;
+  }
+  .blk-foot {
+    position: static;
+  }
+}
+
+/* 手机（≤640px）：单列全宽 + 顶栏压缩 + 隐藏装饰 */
+@media (max-width: 640px) {
+  .topbar {
+    padding: 11px 14px;
+    gap: 10px;
+  }
+  .brand {
+    gap: 9px;
+    min-width: 0;
+  }
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    flex: none;
+  }
+  .brand h1 {
+    font-size: 14px;
+    letter-spacing: 0.1em;
+  }
+  .brand-sub {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40vw;
+  }
+  /* 顶栏长文本在手机上只留状态点，避免挤压变形 */
+  .status-text {
+    display: none;
+  }
+  .topbar-actions {
+    gap: 6px;
+    flex: none;
+  }
+
+  /* 四角括号装饰在小屏上制造噪点，隐藏 */
+  .corner {
+    display: none;
+  }
+
+  .workspace {
+    gap: 12px;
+    padding: 12px 12px 20px;
+  }
+  .blk {
+    padding: 14px 14px;
+  }
+
+  /* 候选卡片单列全宽，杜绝 minmax(320px) 在窄屏横向溢出 */
+  .cand-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .stat-grid {
+    gap: 7px;
+  }
+  .stat-num {
+    font-size: 18px;
   }
 }
