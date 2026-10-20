@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.3 ｜ 状态：M1/M2 已实现，M3 已实现
+> 版本：v1.4 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.4：M4 落地为**单图导出端点 `POST /api/generate-pptx`**（入参 `{chart_type, config, data}`，出参 `.pptx` 文件流，见 §5.6）；原多图 deck 端点 `/api/generate`（GenerateRequest，含 table/charts/options）降级为后续里程碑（MVP 之后），契约保留在 §5.6b 暂不实现。M0 门禁已通过（`backend/spikes/ablechart_spike.py`）：ablechart 0.2.0 `create_combo_chart(slide, df, categories_col, series_config=[{key,name,type,axis}], polish=False)` 产出原生 barChart+lineChart+双 valAx，内嵌 workbook 为内部 `package` 关系（`TargetMode` 非 External），**无外部数据链接**；python-pptx 1.0.2 无公共 BreakLink API（R-2），C-2 以「遍历 chart part relationships，删除所有 is_external 关系 + 移除 `<c:externalData>` 空引用」等价实现；python-pptx 生成的 line 图 `dispBlanksAs` 默认即 `gap`（空点断线，C-3），builder 仍显式置 `gap` 兜底；次轴数字格式 `0.0%`、主轴 tick label 格式 `0.0"亿"`（yi）通过 chart XML 设置；combo 的 `chart.chart_type` 读回为 COLUMN_CLUSTERED（多 plot 混合图无独立枚举），验收以 chart XML 同时含 `barChart`+`lineChart` 且 valAx=2 为准。
 - v1.3：图表类型恢复为六种（bar / line / combo / slope / scatter / pie，v1.1 的 MVP 三类型收窄撤销）；LLM 原始输出契约改为**裸 JSON 数组**，每项字段为 `chart_type` / `title` / `config` / `reasoning`（§5.5）；ChartSpec 的推荐理由字段 `rationale` 统一改名 `reasoning`，新增 `semantic_layer` 字段；M3 新增「趋势 / 体量对比 / 变化率」三语义层覆盖要求（含降级补齐）；明确缺失系列由后端确定性追加「该系列数据不完整，建议不纳入」；LLM 容错重试措辞明确为「最多调用 2 次（失败后重试 1 次）」；恢复 V-5~V-8（scatter/slope/pie）不变式与 §8 对应前端映射。
 - v1.2：percent 数值形态统一为小数（解析阶段 `+11.2% → 0.112`，M2/M3/ECharts/pptx 全链路一致，M4 不再换算）；缺失标记词表新增「无」；percent 判定新增「列名含 %」规则；M1 parser / M2 semantic 与 `/api/parse` 落地；勘误 §5.3 期望输出 distinct_count（以 §12 夹具实际值为准：梯队=4、平台态势=6，v1.3 再次校正）。
 - v1.1：MVP 范围收窄（chart_type 仅保留 bar / line / combo，删除 slope / scatter / pie）；新增 §5.1 百分比数值转换表；同列混合单位改为不自动折算（MVP 已知限制）；测试夹具扩为 6 行（含负同比 / DAU 全缺失 / DAU 完整 / MAU 下降）；实施顺序新增 M0 ablechart 可行性验证。
@@ -417,7 +418,70 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 **LLM 调用参数**：`temperature ≤ 0.3`；system prompt 内嵌本节元素 Schema、「输出裸 JSON 数组」要求、C-4/C-5 约束（六种 chart_type 枚举、percent 必须挂副轴、禁止输出数据值）与三语义层覆盖要求（趋势 / 体量对比 / 变化率，至少各 1 条）；user prompt 仅提供 SemanticTable 的列摘要（name/role/unit/stats/null_count）与 ≤10 行抽样数据。为兼容不支持 strict 数组模式的模型，不依赖 `response_format`；解析层负责容错（直接 parse → 剥围栏 parse → 识别为 `{"recommendations":[...]}` 旧形态时取数组）。
 
-### 5.6 GenerateRequest / GenerateResult（M4 输入输出）
+### 5.6 GeneratePptxRequest（M4 单图导出端点，v1.4 现行契约）
+
+`POST /api/generate-pptx` 一次生成一张图表、单页 `.pptx`。入参为 ChartSpec 的**自描述扁平形态**（不依赖上游 SemanticTable，可独立调用，数据自带于 `data`）。
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generate_pptx_request.schema.json",
+  "title": "GeneratePptxRequest",
+  "type": "object",
+  "required": ["chart_type", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "chart_type": {
+      "type": "string",
+      "enum": ["bar", "line", "combo", "slope", "scatter", "pie"],
+      "description": "M4 MVP 必做 bar / line / combo；slope/scatter/pie 可返回 400 UNSUPPORTED_CHART"
+    },
+    "config": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "title": { "type": ["string", "null"], "default": null },
+        "dimension_column": { "type": ["string", "null"], "default": null, "description": "分类轴列名，仅用于缺省标题，不参与取数" }
+      }
+    },
+    "data": {
+      "type": "object",
+      "required": ["categories", "series"],
+      "properties": {
+        "categories": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "series": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "data"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "kind": { "type": "string", "enum": ["line", "bar", "scatter"], "description": "combo 必填，决定 bar/line；纯 line/bar 图可省略" },
+              "axis": { "type": "string", "enum": ["primary", "secondary"], "default": "primary" },
+              "unit": { "type": "string", "enum": ["count", "yi", "wan", "percent"], "default": "count" },
+              "data": { "type": "array", "items": { "type": ["number", "null"] }, "description": "null=缺失（C-3），禁止填 0；percent 为小数形态 0.112（§5.1）" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**入参校验规则（M4 入口，不信任前端）：**
+- 非 scatter/pie 图：每个 `series[i].data.length === data.categories.length`。
+- `combo`：≥2 个系列且至少一个 `kind=bar`、一个 `kind=line`；`unit=percent` 系列必须 `kind=line` 且 `axis=secondary`；主、副轴 unit 不得相同（V-3/V-4，C-4）。
+- percent 值必须是小数形态（绝对值 ≤ 1.5 的宽松容忍，仅用于拦截 `11.2` 这类未转换值；不修改数据）。
+- 非法入参返回 §5.7 ApiError：`VALIDATION_FAILED`（结构/长度问题）、`UNSUPPORTED_CHART`（M4 暂不支持的类型），HTTP 400。
+
+**GenerateResult**：HTTP 层直接返回 `.pptx` 文件流（见 §7）：
+`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`
+`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`。
+错误时返回 §5.7 ApiError（构建失败 `PPTX_BUILD_FAILED`，HTTP 500）。
+
+### 5.6b GenerateRequest（多图 deck 契约，后续里程碑，MVP 不实现）
 
 ```json
 {
@@ -454,7 +518,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 }
 ```
 
-**GenerateResult**：HTTP 层直接返回文件流（见 §7），错误时返回 §5.7 ApiError。
+多图 deck 端点路径预留为 `POST /api/generate`（携带 SemanticTable + ChartSpec 列表 + 分页选项），在单图端点稳定后于后续里程碑实现。
 
 ### 5.7 ApiError（统一错误格式）
 
@@ -562,34 +626,34 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 ### M4 PPT 生成模块（`pptx_builder`）
 
-**职责**：GenerateRequest → `.pptx` 文件流。唯一的产物出口，C-1/C-2/C-3/C-4 的最终落点。
+**职责**：GeneratePptxRequest（§5.6，单图自描述）→ 单页 `.pptx` 文件流。C-1/C-2/C-3/C-4 的最终落点。多图 deck（§5.6b）为后续里程碑。
 
 **处理规则：**
-1. 入口先对 GenerateRequest 重跑 Schema + V-1~V-8 校验（不信任前端）。
+1. 入口按 §5.6「入参校验规则」校验（不信任前端）：长度一致、combo 的 kind/axis/unit 约束、percent 形态、类型支持范围；非法返回 `VALIDATION_FAILED` / `UNSUPPORTED_CHART`。
 2. 图表类型映射：
    | chart_type | 实现方式 |
    |---|---|
-   | `bar` | python-pptx `add_chart(COLUMN_CLUSTERED, ...)` |
-   | `line` | python-pptx `add_chart(LINE_MARKERS, ...)`，空点断线（`connectNulls=false` 语义） |
-   | `combo` | **`ablechart.create_combo_chart`**（M0 验证通过后）：bar 主轴 + line 副轴 |
-   | `slope` | 两期快照：`add_chart(LINE_MARKERS, ...)`，以实体为序列、两期为类目，开启端点数据标签（R-3） |
-   | `scatter` | `add_chart(XY_SCATTER, ...)` + `XyChartData`，含 null 的点整点剔除（V-7） |
-   | `pie` | `add_chart(PIE, ...)`，null 扇区剔除（V-8） |
-3. 数据写入：`CategoryChartData` 中缺失值以 `None` 写入（line 断线、bar 缺柱，C-3）。
-4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），副轴与数据标签数字格式 `0.0%`；`yi` 序列原值写入，轴标题标注单位（如「MAU（亿）」）。
-5. **BreakLink 收尾（C-2）**：全部 slide 构建完成后、save 之前，遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，检查 chart_data `IsLinked`，为 True 则 `BreakLink()`；无公共 API 时以等价 XML/relationship 操作实现（R-2）。
-6. 页面结构：可选标题页 → 每个图表一页（图表 + 可选数据表）→ 可选完整数据表页；16:9 默认。
-7. 输出：`FileResponse`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，文件名 `chart-report-{yyyyMMdd-HHmmss}.pptx`。
+   | `bar` | python-pptx `add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, ...)` + `CategoryChartData` |
+   | `line` | python-pptx `add_chart(XL_CHART_TYPE.LINE_MARKERS, ...)` + `CategoryChartData`，显式置 `c:dispBlanksAs val="gap"`（空点断线，不把空值当 0 连接，C-3） |
+   | `combo` | **`ablechart.create_combo_chart`**（M0 已验证）：构造 `DataFrame`（分类列 + 各系列列，None 保留为 NaN），`series_config=[{key,name,type,axis}]`，bar 主轴 + percent line 副轴，`polish=False`；之后对两个 `c:valAx` 设置数字格式 |
+   | `slope` / `scatter` / `pie` | M4 MVP 暂不导出，返回 400 `UNSUPPORTED_CHART`（推荐与预览仍支持；后续里程碑按 R-4 补齐） |
+3. 数据写入：缺失值以 `None` 写入（line 断线、bar 缺柱，C-3），任何环节禁止转 0；combo 经 pandas 时 None→NaN，ablechart 同样写为空点。
+4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），**副轴 tick label 数字格式 `0.0%`**；`yi` 序列原值写入，**主轴 tick label 数字格式 `0.0"亿"`**（`wan` 类推 `0.0"万"`，`count` 用 `General`）。格式作用于对应 `c:valAx/c:numFmt`。
+5. **BreakLink 收尾（C-2，等价 XML 实现，R-2）**：save 之前遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，对 `chart.part.rels.values()` 中 `is_external=True` 的关系删除；随后移除 `c:chartSpace/c:chart` 下已无有效引用的 `<c:externalData r:id=.../>` 元素（仅删空引用，内部嵌入 workbook 的 `package` 关系保留，以保证双击可编辑）。语义等价于「`IsLinked` 为 True 则 `BreakLink()`」：python-pptx 1.0.2 无公共 IsLinked/BreakLink API，外部关系是否存在即 IsLinked 的判据。
+6. 页面结构：单页 16:9 空白版式，图表铺满大部分版面；若给 `config.title`，加文本框页标题。
+7. 输出：`Response`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`。
 
-**输入**：GenerateRequest（§5.6）。 **输出**：`.pptx` 二进制流 / ApiError。
+**输入**：GeneratePptxRequest（§5.6）。 **输出**：`.pptx` 二进制流 / ApiError。
 
-**验收标准：**
-- A-4.1：产物可被 python-pptx 重新打开，图表数量与请求一致。
-- A-4.2：解压产物——每图存在 `ppt/charts/chartN.xml`；`ppt/media/` 无图表图片（C-1）。
-- A-4.3：解压产物——所有 chart 无指向外部文件的数据 relationship（C-2）。
-- A-4.4：以含 `2024 DAU` 的 bar 图生成产物：微信 / 小红书对应数据点在 XML 中为空点而非 `0`（C-3）；以含「同比」的 combo 图生成产物：percent 数据点与 JSON 值一致（`0.024`/`0.112`/`-0.039`）且副轴格式含 `%`（§5.1 / C-4）。
-- A-4.5：构造非法 GenerateRequest（percent 挂主轴 / data 长度不齐 / 未知列 / chart_type=radar）→ 返回 `VALIDATION_FAILED`，不产出文件。
-- A-4.6（人工）：WPS 与 PowerPoint 打开产物，双击每个图表可编辑数据，无「链接文件不可用」提示。
+**验收标准（test_pptx_builder.py）：**
+- A-4.1：产物可被 python-pptx 重新打开，含 1 个 has_chart shape（combo 请求亦然）。
+- A-4.2：解压产物——存在 `ppt/charts/chart1.xml`；`ppt/media/` 无图表图片（C-1）。
+- A-4.3：遍历所有 has_chart shape，其 `chart.part.rels` 中不存在任何 `is_external=True` 关系；解压产物 `ppt/charts/_rels/*.rels` 无 `TargetMode="External"`（C-2）。
+- A-4.4（combo 必测）：chart XML 同时含 `c:barChart` 与 `c:lineChart`、且有两个 `c:valAx`；副轴 `numFmt` 含 `0.0%`；缓存的 percent 值点（`c:v`）与 JSON 一致（`0.024`/`0.112`/`-0.039`，§5.1 / C-4）；主轴 `numFmt` 含 `亿`。
+- A-4.5：line 图含 null 系列——chart XML 中 `<c:dispBlanksAs val="gap"/>`，且空点缓存不出现 `0`（C-3）。
+- A-4.6（可更新性）：读回产物中的 chart，调用 `chart.replace_data(CategoryChartData)` 改写内嵌数据后重新读回，`series.values` 等于新值（验证是真内嵌、可编辑的原生 Chart，而非图片/死链）。
+- A-4.7：非法入参（percent 挂主轴 / data 长度不齐 / chart_type=radar）→ HTTP 400 `VALIDATION_FAILED`/`UNSUPPORTED_CHART`，不产出文件。
+- A-4.8（人工，延后）：WPS 与 PowerPoint 打开产物，双击图表可编辑数据，无「链接文件不可用」提示。
 
 ---
 
@@ -600,7 +664,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 | GET | `/api/health` | - | `{"status":"ok"}` | 健康检查 |
 | POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用（已实现） |
 | POST | `/api/recommend` | SemanticTable | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3 |
-| POST | `/api/generate` | GenerateRequest（§5.6） | `.pptx` 文件流 | M4；错误返回 ApiError + 4xx/5xx |
+| POST | `/api/generate-pptx` | GeneratePptxRequest（§5.6，单图 `{chart_type, config, data}`） | `.pptx` 文件流 | M4（已实现）；错误返回 ApiError + 4xx/5xx |
+| POST | `/api/generate` | GenerateRequest（§5.6b，多图 deck） | `.pptx` 文件流 | 后续里程碑，MVP 未实现 |
 
 **通用约定：**
 - 所有错误响应统一为 ApiError（§5.7），HTTP 状态码语义化（400 参数/校验错误，413 超限，502 LLM 失败且降级亦失败，500 其他）。
@@ -804,10 +869,10 @@ project-root/
 
 ## 14. 实施顺序（里程碑，无时间预估）
 
-0. **M0 ablechart 可行性验证**：运行 `backend/spikes/ablechart_spike.py`，达成 §6 M0 的五项目标（能装、能生成双轴 combo、副轴 percent 生效、原生图表且无外部链接、产物可重开）。**验证通过并回写结果后，才允许进入 M1。**
-1. **M1 + M2 + validators**（已落地 parser/semantic 与 `/api/parse`；validators 随 M3 落地 V-1~V-8）：6 行样例夹具、A-1.x/A-2.x 测试通过。
-2. **M3**（已落地）：mock LLM（A-3.x 全绿）+ 真实 LLM 接入（OpenAI 兼容，模型名走环境变量）；`/api/recommend` 已实现。
-3. **前端三步页面**：`/api/parse`、`/api/recommend` 联调，ECharts 预览走通。
-4. **M4 + 端到端**：A-4.x 自动化断言 + WPS 人工验收（§12 checklist）。
+0. **M0 ablechart 可行性验证**（✅ 已通过，脚本 `backend/spikes/ablechart_spike.py`）：五项目标达成——ablechart 0.2.0 可安装；`create_combo_chart` 生成 barChart+lineChart+双 valAx；副轴 percent 不换算、轴上写 `numFmt=0.0%`；图表原生（`ppt/charts/chart1.xml`），数据为**内部**嵌入 workbook（rel `../embeddings/*.xlsx`，无 `TargetMode=External`）；python-pptx 默认写 `<c:dispBlanksAs val="gap">`；combo 对象的 `replace_data(CategoryChartData)` 可更新内嵌数据。C-2 的工程落点据此定为 §11 R-2。
+1. **M1 + M2 + validators**（✅ 已落地）：parser/semantic 与 `/api/parse`；validators V-1~V-8 随 M3 落地。6 行样例夹具、A-1.x/A-2.x 测试通过。
+2. **M3**（✅ 已落地）：mock LLM（A-3.x 全绿）+ 真实 LLM 接入（OpenAI 兼容，模型名走环境变量）；`/api/recommend` 已实现。
+3. **前端三步页面**（✅ 已落地）：`/api/parse`、`/api/recommend` 联调，ECharts 候选预览 + 选中全局 state 走通；导出按钮尚未接 `/api/generate-pptx`（待端到端联调）。
+4. **M4 单图导出**（✅ 已落地 `/api/generate-pptx`，A-4.1~A-4.6 自动化通过）：line/bar/combo 三类；剩 WPS/Office 人工双击验收（§12 checklist）。多图 deck 端点 `/api/generate` 与 slope/scatter/pie 导出为后续里程碑。
 
 每个里程碑完成的标准 = 对应验收标准全部通过，而非「代码写完」。

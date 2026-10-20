@@ -1,23 +1,27 @@
 """HTTP 路由层（SPEC §7）。
 
 已实现：
-- GET  /api/health    健康检查
-- POST /api/parse     M1+M2：文本/CSV/Excel → SemanticTable（SPEC §5.3）
-- POST /api/recommend M3：SemanticTable → ChartSpec[]（SPEC §5.4/§6 M3）
+- GET  /api/health         健康检查
+- POST /api/parse          M1+M2：文本/CSV/Excel → SemanticTable（SPEC §5.3）
+- POST /api/recommend      M3：SemanticTable → ChartSpec[]（SPEC §5.4/§6 M3）
+- POST /api/generate-pptx  M4：单图自描述请求 → .pptx 文件流（SPEC §5.6/§6 M4）
 
-待实现（随里程碑推进）：/api/generate（M4）。
+待实现（随里程碑推进）：/api/generate（多图 deck，§5.6b）。
 错误响应统一为 ApiError（SPEC §5.7）：{"code", "message", "details"}。
 """
 from __future__ import annotations
 
+import io
+from datetime import datetime
 from typing import Any
 
 import anyio
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import UploadFile
 
 from app.modules import ParseError, analyze_table, parse_bytes, parse_text
+from app.modules.pptx_builder import PptxValidationError, build_pptx
 from app.modules.recommender import RecommendationError, recommend_charts
 
 router = APIRouter(prefix="/api")
@@ -41,11 +45,16 @@ _ERROR_HTTP_STATUS = {
     "PARSE_EMPTY": 400,
     "PARSE_UNSUPPORTED": 400,
     "VALIDATION_FAILED": 400,
+    "UNSUPPORTED_CHART": 400,
     "PARSE_TOO_LARGE": 413,
     "LLM_INVALID_JSON": 502,
     "LLM_UNAVAILABLE": 502,
     "PPTX_BUILD_FAILED": 500,
 }
+
+PPTX_MEDIA_TYPE = (
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+)
 
 
 def _error_response(exc: ParseError) -> JSONResponse:
@@ -103,5 +112,30 @@ async def recommend_endpoint(request: Request) -> JSONResponse:
         return JSONResponse(content=result)
     except RecommendationError as exc:
         return _error_response(ParseError("VALIDATION_FAILED", str(exc)))
+    except ParseError as exc:
+        return _error_response(exc)
+
+
+@router.post("/generate-pptx")
+async def generate_pptx_endpoint(request: Request):
+    """SPEC §5.6/§6 M4：{chart_type, config?, data} → .pptx 文件流。"""
+    try:
+        try:
+            body: Any = await request.json()
+        except Exception as exc:  # noqa: BLE001
+            raise PptxValidationError("VALIDATION_FAILED", "请求体不是合法 JSON") from exc
+
+        def _build() -> bytes:
+            return build_pptx(body if isinstance(body, dict) else {})
+
+        try:
+            blob = await anyio.to_thread.run_sync(_build)
+        except ParseError as exc:
+            # 契约/校验类错误（含不支持的图型）→ 400，保留细分 code
+            return _error_response(exc)
+
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        headers = {"Content-Disposition": f'attachment; filename="chart-{stamp}.pptx"'}
+        return Response(content=blob, media_type=PPTX_MEDIA_TYPE, headers=headers)
     except ParseError as exc:
         return _error_response(exc)
