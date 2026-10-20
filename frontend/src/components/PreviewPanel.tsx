@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { ChartSpec, SemanticLayer, SemanticTable } from '../types';
 import { SEMANTIC_LAYER_LABEL } from '../types';
 import ChartCard from './ChartCard';
@@ -14,6 +15,8 @@ interface PreviewPanelProps {
 }
 
 const LAYER_ORDER: SemanticLayer[] = ['trend', 'comparison', 'rate'];
+// 管线节奏：每张卡片「接通」的间隔（ms），卡片进场后内部线条继续逐段绘制。
+const REVEAL_INTERVAL = 150;
 
 export default function PreviewPanel({
   table,
@@ -25,6 +28,55 @@ export default function PreviewPanel({
   onToggle,
   onGenerate,
 }: PreviewPanelProps) {
+  // 管线构建进度：已接通（可见）的卡片数；replayTick 用于「重播动画」强制重挂载。
+  const [visible, setVisible] = useState(0);
+  const [replayTick, setReplayTick] = useState(0);
+  const [waitPct, setWaitPct] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  const total = recs?.length ?? 0;
+  const revealing = recs !== null && visible < total;
+  const waiting = recs === null && generating;
+
+  // 生成等待期：伪进度缓升至 92%，营造进程感（真实完成由 recs 到达触发）。
+  useEffect(() => {
+    if (!waiting) {
+      setWaitPct(0);
+      return undefined;
+    }
+    const t = window.setInterval(() => {
+      setWaitPct((p) => (p >= 92 ? p : p + Math.max(1, Math.round((92 - p) * 0.06))));
+    }, 90);
+    return () => window.clearInterval(t);
+  }, [waiting]);
+
+  // 候选到达：清零后逐张接通；重播时同样走这条路径。
+  useEffect(() => {
+    if (!recs) {
+      setVisible(0);
+      return undefined;
+    }
+    setVisible(0);
+    timerRef.current = window.setInterval(() => {
+      setVisible((v) => {
+        if (v + 1 >= total) {
+          if (timerRef.current !== null) window.clearInterval(timerRef.current);
+          return total;
+        }
+        return v + 1;
+      });
+    }, REVEAL_INTERVAL);
+    return () => {
+      if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    };
+  }, [recs, replayTick, total]);
+
+  // 全量卡片的扁平顺序（按语义层分组顺序），用于管线索引与进场延迟。
+  const ordered = recs
+    ? LAYER_ORDER.flatMap((layer) => recs.filter((r) => r.semantic_layer === layer))
+    : [];
+  const indexOf = (id: string): number => ordered.findIndex((r) => r.id === id);
+
   return (
     <section className="panel main">
       <div className="panel-strip" aria-hidden />
@@ -33,12 +85,33 @@ export default function PreviewPanel({
           <h2 className="main-title">候选图表</h2>
           <p className="muted">点击卡片选中，图表将按选中状态导出</p>
         </div>
-        {recs?.length ? (
-          <button className="btn btn-ghost" onClick={onGenerate} disabled={generating || !table}>
-            {generating ? '生成中…' : '重新生成'}
-          </button>
-        ) : null}
+        <div className="main-actions">
+          {recs?.length ? (
+            <>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setReplayTick((n) => n + 1)}
+                disabled={revealing}
+                title="重新播放生成动画（便于单独测试前端动效）"
+              >
+                {revealing ? `接通中 ${visible}/${total}` : '重播动画'}
+              </button>
+              <button className="btn btn-ghost" onClick={onGenerate} disabled={generating || !table}>
+                {generating ? '生成中…' : '重新生成'}
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
+
+      {revealing ? (
+        <div className="pipeline" role="status" aria-live="polite">
+          <span className="pipeline-label">管线构建 {visible}/{total}</span>
+          <span className="pipeline-track">
+            <span className="pipeline-fill" style={{ width: `${(visible / Math.max(1, total)) * 100}%` }} />
+          </span>
+        </div>
+      ) : null}
 
       {error && <p className="error banner">{error}</p>}
       {degraded && recs?.length ? (
@@ -52,9 +125,13 @@ export default function PreviewPanel({
         </div>
       ) : !recs ? (
         generating ? (
-          <div className="empty">
+          <div className="empty scan-stage">
+            <span className="scan-beam" aria-hidden />
             <span className="empty-glyph pulse" aria-hidden />
-            <p>正在解析语义并生成候选图表…</p>
+            <p>正在解析语义并接通图表管线… {waitPct}%</p>
+            <span className="pipeline-track wide">
+              <span className="pipeline-fill" style={{ width: `${waitPct}%` }} />
+            </span>
           </div>
         ) : (
           <div className="empty">
@@ -76,14 +153,19 @@ export default function PreviewPanel({
               <div className="cand-grid">
                 {recs
                   .filter((r) => r.semantic_layer === layer)
-                  .map((r) => (
-                    <ChartCard
-                      key={r.id}
-                      spec={r}
-                      selected={selectedIds.includes(r.id)}
-                      onSelect={onToggle}
-                    />
-                  ))}
+                  .map((r) => {
+                    const idx = indexOf(r.id);
+                    if (idx >= visible) return null;
+                    return (
+                      <div className="card-enter" key={`${r.id}:${replayTick}`}>
+                        <ChartCard
+                          spec={r}
+                          selected={selectedIds.includes(r.id)}
+                          onSelect={onToggle}
+                        />
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           ))}

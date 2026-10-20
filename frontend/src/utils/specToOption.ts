@@ -16,6 +16,18 @@ const TOOLTIP = {
 
 const pct = (v: number): string => `${(v * 100).toFixed(1)}%`;
 
+// 生成动效：折线/柱体逐段「拉出」（管线感），扇区依次扫入；数据点渐进延迟。
+const ANIM = {
+  animation: true,
+  animationThreshold: 2000,
+  animationDuration: 950,
+  animationEasing: 'cubicOut' as const,
+  animationDelay: (idx: number): number => idx * 48,
+  animationDurationUpdate: 320,
+  animationEasingUpdate: 'cubicOut' as const,
+  animationDelayUpdate: 120,
+};
+
 // 数据值不落地改造，仅 tooltip/label 展示层追加单位（SPEC §8）。
 function valueFormatter(unit: string): (v: unknown) => string {
   return (v: unknown): string => {
@@ -58,7 +70,7 @@ function cartesianSeries(spec: ChartSpec, defaultType: ChartSeries['kind'], conn
 function singleAxisOption(spec: ChartSpec, type: ChartSeries['kind']): EChartsOption {
   const primary: AxisSpec = spec.axes.primary;
   return {
-    animation: false,
+    ...ANIM,
     color: PALETTE,
     grid: GRID,
     tooltip: { trigger: 'axis', ...TOOLTIP },
@@ -110,7 +122,7 @@ function comboOption(spec: ChartSpec): EChartsOption {
       : []),
   ] as EChartsOption['yAxis'];
   return {
-    animation: false,
+    ...ANIM,
     color: PALETTE,
     grid: GRID,
     tooltip: { trigger: 'axis', ...TOOLTIP },
@@ -136,7 +148,7 @@ function scatterOption(spec: ChartSpec): EChartsOption {
     if (typeof xv === 'number' && typeof yv === 'number') data.push([xv, yv]);
   });
   return {
-    animation: false,
+    ...ANIM,
     color: PALETTE,
     grid: GRID,
     tooltip: {
@@ -177,7 +189,7 @@ function pieOption(spec: ChartSpec): EChartsOption {
     .map((c, i) => ({ name: c, value: s.data[i] }))
     .filter((d) => typeof d.value === 'number');
   return {
-    animation: false,
+    ...ANIM,
     color: PALETTE,
     grid: { top: 8, bottom: 8, left: 8, right: 8 },
     tooltip: { trigger: 'item', ...TOOLTIP, formatter: '{b}: {c} ({d}%)' },
