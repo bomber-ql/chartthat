@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import type { ChartSpec } from '../types';
-import { CHART_TYPE_LABEL, INCOMPLETE_TAIL, SEMANTIC_LAYER_LABEL } from '../types';
+import { INCOMPLETE_TAIL } from '../types';
 import { specToOption } from '../utils/specToOption';
+import { useTheme } from '../theme';
+import { useI18n } from '../i18n';
 
 interface ChartCardProps {
   spec: ChartSpec;
@@ -12,6 +14,8 @@ interface ChartCardProps {
 }
 
 export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) {
+  const { theme } = useTheme();
+  const { t, chartLabel, layerLabel } = useI18n();
   const ref = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
   const optionRef = useRef<EChartsOption | null>(null);
@@ -19,7 +23,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
   useEffect(() => {
     if (!ref.current) return;
     const chart = echarts.init(ref.current);
-    const option: EChartsOption = specToOption(spec);
+    const option: EChartsOption = specToOption(spec, theme);
     chart.setOption(option);
     chartRef.current = chart;
     optionRef.current = option;
@@ -31,7 +35,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
       chartRef.current = null;
       optionRef.current = null;
     };
-  }, [spec]);
+  }, [spec, theme]);
 
   const replayChart = () => {
     const chart = chartRef.current;
@@ -60,8 +64,8 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
     >
       <header className="cand-head">
         <div className="cand-title">
-          <span className="cand-name">{spec.title || CHART_TYPE_LABEL[spec.chart_type]}</span>
-          <span className="cand-type">{CHART_TYPE_LABEL[spec.chart_type]}</span>
+          <span className="cand-name">{spec.title || chartLabel(spec.chart_type)}</span>
+          <span className="cand-type">{chartLabel(spec.chart_type)}</span>
         </div>
         <span className="check" aria-hidden>
           {selected ? '✓' : ''}
@@ -70,12 +74,12 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
 
       <div className="cand-stage">
         <div ref={ref} className="chart-holder" />
-        <span className="cand-layer">{SEMANTIC_LAYER_LABEL[spec.semantic_layer]}</span>
+        <span className="cand-layer">{layerLabel(spec.semantic_layer)}</span>
       </div>
 
       <div className="cand-reasoning">
-        {incomplete && <span className="tag-incomplete">数据不完整</span>}
-        <p>{spec.reasoning || '暂无推荐理由'}</p>
+        {incomplete && <span className="tag-incomplete">{t('incompleteTag')}</span>}
+        <p>{spec.reasoning || t('noReasoning')}</p>
       </div>
     </article>
   );

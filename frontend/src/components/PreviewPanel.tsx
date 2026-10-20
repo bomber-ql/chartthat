@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChartSpec, SemanticLayer, SemanticTable } from '../types';
-import { SEMANTIC_LAYER_LABEL } from '../types';
+import { useI18n } from '../i18n';
 import ChartCard from './ChartCard';
 
 interface PreviewPanelProps {
@@ -28,6 +28,7 @@ export default function PreviewPanel({
   onToggle,
   onGenerate,
 }: PreviewPanelProps) {
+  const { t, layerLabel } = useI18n();
   // 管线构建进度：已接通（可见）的卡片数；replayTick 用于「重播动画」强制重挂载。
   const [visible, setVisible] = useState(0);
   const [replayTick, setReplayTick] = useState(0);
@@ -82,8 +83,8 @@ export default function PreviewPanel({
       <div className="panel-strip" aria-hidden />
       <div className="main-head">
         <div>
-          <h2 className="main-title">候选图表</h2>
-          <p className="muted">点击卡片选中，图表将按选中状态导出</p>
+          <h2 className="main-title">{t('previewTitle')}</h2>
+          <p className="muted">{t('previewHint')}</p>
         </div>
         <div className="main-actions">
           {recs?.length ? (
@@ -92,12 +93,12 @@ export default function PreviewPanel({
                 className="btn btn-ghost"
                 onClick={() => setReplayTick((n) => n + 1)}
                 disabled={revealing}
-                title="重新播放生成动画（便于单独测试前端动效）"
+                title={t('replayTitle')}
               >
-                {revealing ? `接通中 ${visible}/${total}` : '重播动画'}
+                {revealing ? t('linking', { a: visible, b: total }) : t('replay')}
               </button>
               <button className="btn btn-ghost" onClick={onGenerate} disabled={generating || !table}>
-                {generating ? '生成中…' : '重新生成'}
+                {generating ? t('generating') : t('regenerate')}
               </button>
             </>
           ) : null}
@@ -106,7 +107,7 @@ export default function PreviewPanel({
 
       {revealing ? (
         <div className="pipeline" role="status" aria-live="polite">
-          <span className="pipeline-label">管线构建 {visible}/{total}</span>
+          <span className="pipeline-label">{t('pipelineBuilding', { a: visible, b: total })}</span>
           <span className="pipeline-track">
             <span className="pipeline-fill" style={{ width: `${(visible / Math.max(1, total)) * 100}%` }} />
           </span>
@@ -115,20 +116,20 @@ export default function PreviewPanel({
 
       {error && <p className="error banner">{error}</p>}
       {degraded && recs?.length ? (
-        <p className="notice warn">LLM 当前不可用，以下为启发式降级推荐（degraded=true）。</p>
+        <p className="notice warn">{t('degradedNotice')}</p>
       ) : null}
 
       {!table ? (
         <div className="empty">
           <span className="empty-glyph" aria-hidden />
-          <p>在左侧解析数据，将自动生成候选图表</p>
+          <p>{t('emptyNoTable')}</p>
         </div>
       ) : !recs ? (
         generating ? (
           <div className="empty scan-stage">
             <span className="scan-beam" aria-hidden />
             <span className="empty-glyph pulse" aria-hidden />
-            <p>正在解析语义并接通图表管线… {waitPct}%</p>
+            <p>{t('waitingText', { n: waitPct })}</p>
             <span className="pipeline-track wide">
               <span className="pipeline-fill" style={{ width: `${waitPct}%` }} />
             </span>
@@ -136,9 +137,9 @@ export default function PreviewPanel({
         ) : (
           <div className="empty">
             <span className="empty-glyph" aria-hidden />
-            <p>生成失败或未开始，请点击重试</p>
+            <p>{t('failedTitle')}</p>
             <button className="btn" onClick={onGenerate} disabled={!table}>
-              生成候选图表
+              {t('generateBtn')}
             </button>
           </div>
         )
@@ -148,7 +149,7 @@ export default function PreviewPanel({
             <div className="layer" key={layer}>
               <h3 className="layer-title">
                 <span className="layer-bar" aria-hidden />
-                {SEMANTIC_LAYER_LABEL[layer]}
+                {layerLabel(layer)}
               </h3>
               <div className="cand-grid">
                 {recs

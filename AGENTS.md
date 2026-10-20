@@ -9,6 +9,7 @@
 - `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder，契约见 SPEC §5/§6。
 - `frontend/`：React 18 + TypeScript + Vite 5 + ECharts 5；`ChartSpec` 是前后端共享的唯一图表事实源，映射层为 `src/utils/specToOption.ts`。
   - 已实现**左右分布单工作区**（深色科技感，DESIGN.md）：左 `ControlPanel`（输入→/api/parse **成功后自动调 /api/recommend**、解析摘要、已选清单、导出）+ 右 `PreviewPanel`（`ChartCard` 卡片网格，ECharts 缩略图 + reasoning，点击选中全局 state）；导出已接 /api/generate-pptx（十三种图型逐张下载 .pptx，v1.6 起全覆盖）。无页签三步流已废弃；「解析」与「生成图表」已合并为一次点击。
+  - **双主题 + 中英双语**：`src/theme.tsx`（`data-theme` 写根节点，深色默认，localStorage `dc-theme`）+ `src/i18n.tsx`（zh 默认，localStorage `dc-lang`；界面框架文案全入 STRINGS 字典，组件一律 `useI18n()` 取词；图表标题/reasoning/列名等数据内容保持后端原文）。样式全部走 CSS 变量（`styles.css` `:root` 深色 / `[data-theme='light']` 浅色），ECharts 色板由 `specToOption(spec, theme)` 双套 token 切换；顶栏右侧有主题/语言切换按钮。
   - `ChartSpec` → ECharts option 的唯一映射层为 `src/utils/specToOption.ts`（十三型；combo 柱主轴 + percent 折线副轴，tooltip/label 层 ×100 显示百分比；`connectNulls:false` 断线；hbar 轴互换 inverse、stacked 同 stack、area 半透明填充、waterfall 透明底座+增量同 stack、radar indicator 上限=最大值×1.2、donut 空心半径、sunburst 单层嵌套）。
 - dev：Vite 监听对外端口 `${DEPLOY_RUN_PORT}`（主仓 5000），`/api` 代理到 FastAPI 127.0.0.1:8000。
 - prod：`pnpm build` 产出 `frontend/dist`，FastAPI 监听 `${DEPLOY_RUN_PORT}` 并托管 dist（SPA fallback 已在 `main.py` 实现）。

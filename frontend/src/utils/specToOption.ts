@@ -1,18 +1,51 @@
 // SPEC §8 唯一映射层：ChartSpec → ECharts option。
 // 规则要点：null 断线不补 0；combo 主副轴；percent 恒为小数形态（0.112），仅展示层 ×100。
+// 双主题（DESIGN.md）：深色/浅色两套色板与文字色，由 specToOption 的 theme 参数切换。
 import type { EChartsOption } from 'echarts';
 import type { AxisSpec, ChartSpec, ChartSeries } from '../types';
+import type { Theme } from '../theme';
 
 const GRID = { left: 8, right: 12, top: 28, bottom: 8, containLabel: true };
-// 深色科技感色板：青蓝为主，辅以对比亮色（DESIGN.md）
-const PALETTE = ['#22d3ee', '#3b82f6', '#34d399', '#fbbf24', '#fb7185', '#a78bfa'];
-const TEXT_DIM = '#8ea2c0';
-const AXIS_LINE = 'rgba(56,189,248,.18)';
-const TOOLTIP = {
-  backgroundColor: 'rgba(10,16,30,.92)',
-  borderColor: 'rgba(56,189,248,.3)',
-  textStyle: { color: '#e2e8f0', fontSize: 11 },
+
+interface ThemeTokens {
+  palette: string[];
+  textDim: string;
+  axisLine: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  tooltipText: string;
+  stageBorder: string;
+}
+
+// 深色：青蓝发光色板；浅色：同色相降明度，白底可读（DESIGN.md）
+const THEME_TOKENS: Record<Theme, ThemeTokens> = {
+  dark: {
+    palette: ['#22d3ee', '#3b82f6', '#34d399', '#fbbf24', '#fb7185', '#a78bfa'],
+    textDim: '#8ea2c0',
+    axisLine: 'rgba(56,189,248,.18)',
+    tooltipBg: 'rgba(10,16,30,.92)',
+    tooltipBorder: 'rgba(56,189,248,.3)',
+    tooltipText: '#e2e8f0',
+    stageBorder: 'rgba(6,10,19,.9)',
+  },
+  light: {
+    palette: ['#0891b2', '#2563eb', '#059669', '#d97706', '#e11d48', '#7c3aed'],
+    textDim: '#5b6b82',
+    axisLine: 'rgba(15,28,46,.16)',
+    tooltipBg: 'rgba(255,255,255,.96)',
+    tooltipBorder: 'rgba(8,145,178,.3)',
+    tooltipText: '#0f1c2e',
+    stageBorder: 'rgba(244,248,252,.95)',
+  },
 };
+
+function tooltipStyle(T: ThemeTokens) {
+  return {
+    backgroundColor: T.tooltipBg,
+    borderColor: T.tooltipBorder,
+    textStyle: { color: T.tooltipText, fontSize: 11 },
+  };
+}
 
 const pct = (v: number): string => `${(v * 100).toFixed(1)}%`;
 
@@ -49,9 +82,9 @@ function axisFormatter(unit: string): (v: number) => string {
   };
 }
 
-function legend(series: ChartSeries[]) {
+function legend(series: ChartSeries[], T: ThemeTokens) {
   return series.length > 1
-    ? { top: 0, left: 0, itemWidth: 12, itemHeight: 8, icon: 'roundRect', textStyle: { fontSize: 10, color: TEXT_DIM } }
+    ? { top: 0, left: 0, itemWidth: 12, itemHeight: 8, icon: 'roundRect', textStyle: { fontSize: 10, color: T.textDim } }
     : undefined;
 }
 
@@ -67,33 +100,33 @@ function cartesianSeries(spec: ChartSpec, defaultType: ChartSeries['kind'], conn
 }
 
 // bar / line / slope：单主类别轴折/柱（SPEC §8）。
-function singleAxisOption(spec: ChartSpec, type: ChartSeries['kind']): EChartsOption {
+function singleAxisOption(spec: ChartSpec, type: ChartSeries['kind'], T: ThemeTokens): EChartsOption {
   const primary: AxisSpec = spec.axes.primary;
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: GRID,
-    tooltip: { trigger: 'axis', ...TOOLTIP },
-    legend: legend(spec.series),
+    tooltip: { trigger: 'axis', ...tooltipStyle(T) },
+    legend: legend(spec.series, T),
     xAxis: {
       type: 'category',
       data: spec.categories,
-      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisLabel: { fontSize: 10, color: T.textDim },
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: AXIS_LINE } },
+      axisLine: { lineStyle: { color: T.axisLine } },
     },
     yAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      axisLabel: { fontSize: 9, color: T.textDim, formatter: axisFormatter(primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     series: cartesianSeries(spec, type),
   };
 }
 
 // combo：bar 挂主轴(0)、percent line 挂副轴(1)；副轴按 percent 格式化（SPEC §8 / C-4）。
-function comboOption(spec: ChartSpec): EChartsOption {
+function comboOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const hasSecondary = spec.series.some((s) => s.axis === 'secondary') || Boolean(spec.axes.secondary);
   const series: EChartsOption['series'] = spec.series.map((s) => ({
     name: s.name,
@@ -107,15 +140,15 @@ function comboOption(spec: ChartSpec): EChartsOption {
     {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(spec.axes.primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      axisLabel: { fontSize: 9, color: T.textDim, formatter: axisFormatter(spec.axes.primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     ...(hasSecondary
       ? [
           {
             type: 'value',
             scale: true,
-            axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter('percent') },
+            axisLabel: { fontSize: 9, color: T.textDim, formatter: axisFormatter('percent') },
             splitLine: { show: false },
           },
         ]
@@ -123,16 +156,16 @@ function comboOption(spec: ChartSpec): EChartsOption {
   ] as EChartsOption['yAxis'];
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: GRID,
-    tooltip: { trigger: 'axis', ...TOOLTIP },
-    legend: legend(spec.series),
+    tooltip: { trigger: 'axis', ...tooltipStyle(T) },
+    legend: legend(spec.series, T),
     xAxis: {
       type: 'category',
       data: spec.categories,
-      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisLabel: { fontSize: 10, color: T.textDim },
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: AXIS_LINE } },
+      axisLine: { lineStyle: { color: T.axisLine } },
     },
     yAxis,
     series,
@@ -140,7 +173,7 @@ function comboOption(spec: ChartSpec): EChartsOption {
 }
 
 // scatter：两序列配成 [x, y]；任一坐标 null 的整点剔除（V-7）。
-function scatterOption(spec: ChartSpec): EChartsOption {
+function scatterOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const [xs, ys] = spec.series;
   const data: Array<[number, number]> = [];
   (xs?.data ?? []).forEach((xv, i) => {
@@ -149,11 +182,11 @@ function scatterOption(spec: ChartSpec): EChartsOption {
   });
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: GRID,
     tooltip: {
       trigger: 'item',
-      ...TOOLTIP,
+      ...tooltipStyle(T),
       formatter: (params: unknown) => {
         const p = params as { name?: string; value?: [number, number] };
         const v = p.value ?? [0, 0];
@@ -165,53 +198,53 @@ function scatterOption(spec: ChartSpec): EChartsOption {
     xAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM },
+      axisLabel: { fontSize: 9, color: T.textDim },
       name: xs?.name,
-      nameTextStyle: { fontSize: 10, color: TEXT_DIM },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      nameTextStyle: { fontSize: 10, color: T.textDim },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     yAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM },
+      axisLabel: { fontSize: 9, color: T.textDim },
       name: ys?.name,
-      nameTextStyle: { fontSize: 10, color: TEXT_DIM },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      nameTextStyle: { fontSize: 10, color: T.textDim },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     series: [{ type: 'scatter', data, symbolSize: 7 }],
   } as EChartsOption;
 }
 
 // hbar（条形图）：类目轴/数值轴互换，类目从顶部开始。
-function hbarOption(spec: ChartSpec): EChartsOption {
+function hbarOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const primary: AxisSpec = spec.axes.primary;
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: GRID,
-    tooltip: { trigger: 'axis', ...TOOLTIP },
-    legend: legend(spec.series),
+    tooltip: { trigger: 'axis', ...tooltipStyle(T) },
+    legend: legend(spec.series, T),
     xAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      axisLabel: { fontSize: 9, color: T.textDim, formatter: axisFormatter(primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     yAxis: {
       type: 'category',
       data: spec.categories,
       inverse: true,
-      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisLabel: { fontSize: 10, color: T.textDim },
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: AXIS_LINE } },
+      axisLine: { lineStyle: { color: T.axisLine } },
     },
     series: cartesianSeries(spec, 'bar'),
   };
 }
 
 // area（面积图）：折线 + 半透明面积填充。
-function areaOption(spec: ChartSpec): EChartsOption {
-  const base = singleAxisOption(spec, 'line');
+function areaOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
+  const base = singleAxisOption(spec, 'line', T);
   const series = ((base.series ?? []) as Array<Record<string, unknown>>).map((s) => ({
     ...s,
     areaStyle: { opacity: 0.16 },
@@ -221,8 +254,8 @@ function areaOption(spec: ChartSpec): EChartsOption {
 }
 
 // stacked（堆叠图，V-9 ≥2 序列同单位）：柱体共用 stack 叠加。
-function stackedOption(spec: ChartSpec): EChartsOption {
-  const base = singleAxisOption(spec, 'bar');
+function stackedOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
+  const base = singleAxisOption(spec, 'bar', T);
   const series = ((base.series ?? []) as Array<Record<string, unknown>>).map((s) => ({
     ...s,
     stack: 'total',
@@ -233,7 +266,7 @@ function stackedOption(spec: ChartSpec): EChartsOption {
 
 // waterfall（瀑布图，V-10 恰好 1 序列）：透明底座（前值累计）+ 增量柱，同 stack 等价表达（SPEC §11 R-5）。
 // null 保持空点不补 0（C-3）：底座与增量同位置都置 null。
-function waterfallOption(spec: ChartSpec): EChartsOption {
+function waterfallOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const s: ChartSeries = spec.series[0] ?? { name: '', source_column: '', unit: '', axis: 'primary', data: [] };
   const base: Array<number | null> = [];
   const delta: Array<number | null> = [];
@@ -256,11 +289,11 @@ function waterfallOption(spec: ChartSpec): EChartsOption {
   const fmt = valueFormatter(s.unit);
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: GRID,
     tooltip: {
       trigger: 'axis',
-      ...TOOLTIP,
+      ...tooltipStyle(T),
       formatter: (params: unknown) => {
         const list = params as Array<{ name?: string; dataIndex?: number }>;
         const idx = list[0]?.dataIndex ?? 0;
@@ -270,15 +303,15 @@ function waterfallOption(spec: ChartSpec): EChartsOption {
     xAxis: {
       type: 'category',
       data: spec.categories,
-      axisLabel: { fontSize: 10, color: TEXT_DIM },
+      axisLabel: { fontSize: 10, color: T.textDim },
       axisTick: { show: false },
-      axisLine: { lineStyle: { color: AXIS_LINE } },
+      axisLine: { lineStyle: { color: T.axisLine } },
     },
     yAxis: {
       type: 'value',
       scale: true,
-      axisLabel: { fontSize: 9, color: TEXT_DIM, formatter: axisFormatter(spec.axes.primary.unit) },
-      splitLine: { lineStyle: { type: 'dashed', color: AXIS_LINE } },
+      axisLabel: { fontSize: 9, color: T.textDim, formatter: axisFormatter(spec.axes.primary.unit) },
+      splitLine: { lineStyle: { type: 'dashed', color: T.axisLine } },
     },
     series: [
       {
@@ -297,7 +330,7 @@ function waterfallOption(spec: ChartSpec): EChartsOption {
 }
 
 // radar（雷达图，V-11 ≥3 序列同单位禁 percent）：类目为维度指标，多序列互比。
-function radarOption(spec: ChartSpec): EChartsOption {
+function radarOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const maxVal = Math.max(
     0,
     ...spec.series.flatMap((s) => s.data.filter((v): v is number => typeof v === 'number')),
@@ -306,10 +339,10 @@ function radarOption(spec: ChartSpec): EChartsOption {
   const indicator = spec.categories.map((c) => ({ name: c, max: top }));
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     tooltip: {
       trigger: 'item',
-      ...TOOLTIP,
+      ...tooltipStyle(T),
       formatter: (params: unknown) => {
         const p = params as { name?: string; value?: Array<number | null> };
         const rows = (p.value ?? [])
@@ -318,15 +351,15 @@ function radarOption(spec: ChartSpec): EChartsOption {
         return `${p.name ?? ''}<br/>${rows}`;
       },
     },
-    legend: legend(spec.series),
+    legend: legend(spec.series, T),
     radar: {
       indicator,
       radius: '60%',
       center: ['50%', '54%'],
-      axisName: { color: TEXT_DIM, fontSize: 9 },
-      splitLine: { lineStyle: { color: AXIS_LINE } },
+      axisName: { color: T.textDim, fontSize: 9 },
+      splitLine: { lineStyle: { color: T.axisLine } },
       splitArea: { show: false },
-      axisLine: { lineStyle: { color: AXIS_LINE } },
+      axisLine: { lineStyle: { color: T.axisLine } },
     },
     series: [
       {
@@ -343,84 +376,84 @@ function radarOption(spec: ChartSpec): EChartsOption {
 }
 
 // sunburst（旭日图）：契约数据为单 measure 平铺序列（V-12），预览用单层旭日表达；导出降级为圆环（R-5）。
-function sunburstOption(spec: ChartSpec): EChartsOption {
+function sunburstOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const s = spec.series[0];
   const data = spec.categories
     .map((c, i) => ({ name: c, value: s?.data[i] }))
     .filter((d) => typeof d.value === 'number');
   return {
     ...ANIM,
-    color: PALETTE,
-    tooltip: { trigger: 'item', ...TOOLTIP, formatter: '{b}: {c}' },
+    color: T.palette,
+    tooltip: { trigger: 'item', ...tooltipStyle(T), formatter: '{b}: {c}' },
     series: [
       {
         type: 'sunburst',
         radius: ['16%', '78%'],
         center: ['50%', '50%'],
         data,
-        label: { fontSize: 9, color: TEXT_DIM, rotate: 'radial' },
-        itemStyle: { borderColor: 'rgba(6,10,19,.9)', borderWidth: 1 },
+        label: { fontSize: 9, color: T.textDim, rotate: 'radial' },
+        itemStyle: { borderColor: T.stageBorder, borderWidth: 1 },
       },
     ],
   } as EChartsOption;
 }
 
-// pie：单 measure 序列；null 扇区剔除（V-8）。
 // pie / donut：单 measure 序列；null 扇区剔除（V-8 / V-12）。donut 加大空心半径。
-function pieOption(spec: ChartSpec, hollow = false): EChartsOption {
+function pieOption(spec: ChartSpec, T: ThemeTokens, hollow = false): EChartsOption {
   const s = spec.series[0];
   const data = spec.categories
     .map((c, i) => ({ name: c, value: s.data[i] }))
     .filter((d) => typeof d.value === 'number');
   return {
     ...ANIM,
-    color: PALETTE,
+    color: T.palette,
     grid: { top: 8, bottom: 8, left: 8, right: 8 },
-    tooltip: { trigger: 'item', ...TOOLTIP, formatter: '{b}: {c} ({d}%)' },
+    tooltip: { trigger: 'item', ...tooltipStyle(T), formatter: '{b}: {c} ({d}%)' },
     series: [
       {
         type: 'pie',
         radius: hollow ? ['42%', '68%'] : ['0%', '64%'],
         center: ['50%', '50%'],
         data,
-        label: { fontSize: 9, color: TEXT_DIM },
-        labelLine: { lineStyle: { color: AXIS_LINE } },
+        label: { fontSize: 9, color: T.textDim },
+        labelLine: { lineStyle: { color: T.axisLine } },
         valueFormatter: valueFormatter(s.unit),
       },
     ],
   } as EChartsOption;
 }
 
-export function specToOption(spec: ChartSpec): EChartsOption {
+export function specToOption(spec: ChartSpec, theme: Theme = 'dark'): EChartsOption {
+  const T = THEME_TOKENS[theme];
   switch (spec.chart_type) {
     case 'combo':
-      return comboOption(spec);
+      return comboOption(spec, T);
     case 'scatter':
-      return scatterOption(spec);
+      return scatterOption(spec, T);
     case 'pie':
-      return pieOption(spec);
+      return pieOption(spec, T);
     case 'donut':
-      return pieOption(spec, true);
+      return pieOption(spec, T, true);
     case 'sunburst':
-      return sunburstOption(spec);
+      return sunburstOption(spec, T);
     case 'hbar':
-      return hbarOption(spec);
+      return hbarOption(spec, T);
     case 'area':
-      return areaOption(spec);
+      return areaOption(spec, T);
     case 'stacked':
-      return stackedOption(spec);
+      return stackedOption(spec, T);
     case 'waterfall':
-      return waterfallOption(spec);
+      return waterfallOption(spec, T);
     case 'radar':
-      return radarOption(spec);
+      return radarOption(spec, T);
     case 'bar':
-      return singleAxisOption(spec, 'bar');
+      return singleAxisOption(spec, 'bar', T);
     case 'line':
-      return singleAxisOption(spec, 'line');
+      return singleAxisOption(spec, 'line', T);
     case 'slope':
       // 斜率图本质是跨类目的两点趋势线（SPEC §8）：以 category 为类目、每序列一条折线。
-      return singleAxisOption(spec, 'line');
+      return singleAxisOption(spec, 'line', T);
     default:
-      return singleAxisOption(spec, 'bar');
+      return singleAxisOption(spec, 'bar', T);
   }
 }
