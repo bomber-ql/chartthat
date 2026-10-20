@@ -3,8 +3,8 @@ import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
 import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
 
-/** M4 当前支持导出的图型（slope/scatter/pie 按 SPEC v1.4 暂返回 400） */
-const EXPORTABLE = new Set(['line', 'bar', 'combo']);
+/** M4 支持导出的图型（SPEC v1.5 起六型全覆盖） */
+const EXPORTABLE = new Set(['line', 'bar', 'combo', 'slope', 'scatter', 'pie']);
 
 export default function App() {
   const [table, setTable] = useState<SemanticTable | null>(null);
@@ -23,23 +23,25 @@ export default function App() {
     .filter((s): s is ChartSpec => Boolean(s));
   const exportableCount = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type)).length;
 
+  // 解析成功 → 自动继续生成候选图表（合并为一次操作，无需再点「生成图表」）
   const handleParsed = (t: SemanticTable) => {
     setTable(t);
     setRecs(null);
     setSelectedIds([]);
     setError(null);
     setExportMsg(null);
+    void generateRecs(t);
   };
 
-  const generateRecs = async () => {
-    if (!table) return;
+  const generateRecs = async (target: SemanticTable | null = table) => {
+    if (!target) return;
     setGenerating(true);
     setError(null);
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(table),
+        body: JSON.stringify(target),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -104,12 +106,7 @@ export default function App() {
         const safe = (s.title || s.chart_type).replace(/[\\/:*?"<>|]/g, '_');
         downloadBlob(blob, `${safe}.pptx`);
       }
-      const skipped = selectedSpecs.length - targets.length;
-      setExportMsg(
-        skipped > 0
-          ? `已下载 ${targets.length} 个 .pptx；${skipped} 张图（slope/scatter/pie）按 SPEC 暂不支持导出。`
-          : `已下载 ${targets.length} 个 .pptx 文件。`,
-      );
+      setExportMsg(`已下载 ${targets.length} 个 .pptx 文件。`);
     } catch (e) {
       setExportMsg(e instanceof Error ? e.message : String(e));
     } finally {

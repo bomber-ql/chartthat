@@ -64,12 +64,12 @@ export default function ControlPanel({
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const run = async (fn: () => Promise<SemanticTable>) => {
+  const run = async (fn: () => Promise<SemanticTable>, sourceText?: string) => {
     setLoading(true);
     setError(null);
     try {
       const t = await fn();
-      onInitialText(text);
+      onInitialText(sourceText ?? text);
       onParsed(t);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -86,7 +86,7 @@ export default function ControlPanel({
         <h2 className="blk-title">
           <span className="idx">01</span>数据输入
         </h2>
-        <p className="muted">Markdown 表格 / CSV / xlsx；「未披露·无·—」自动识别为缺失。</p>
+        <p className="muted">Markdown 表格 / CSV / xlsx；「未披露·无·—」自动识别为缺失，解析后自动生成候选图表。</p>
         <textarea
           className="input-text"
           rows={7}
@@ -96,16 +96,17 @@ export default function ControlPanel({
         />
         <div className="btn-row">
           <button className="btn" disabled={loading || !text.trim()} onClick={() => void run(() => parseText(text))}>
-            {loading ? '解析中…' : '解析数据'}
+            {loading ? '解析中…' : '解析并生成图表'}
           </button>
           <button
             className="btn btn-ghost"
+            disabled={loading}
             onClick={() => {
               setText(SAMPLE);
-              onInitialText(SAMPLE);
+              void run(() => parseText(SAMPLE), SAMPLE);
             }}
           >
-            填入示例
+            一键示例
           </button>
           <input
             ref={fileRef}

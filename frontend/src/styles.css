@@ -500,6 +500,12 @@ body {
   border-radius: 2px;
 }
 
+.empty-glyph.pulse {
+  animation: pulse 1.2s ease-in-out infinite, float 3.2s ease-in-out infinite;
+  border-style: solid;
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.28);
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }

@@ -33,9 +33,11 @@ export default function PreviewPanel({
           <h2 className="main-title">候选图表</h2>
           <p className="muted">点击卡片选中，图表将按选中状态导出</p>
         </div>
-        <button className="btn" onClick={onGenerate} disabled={generating || !table}>
-          {generating ? '生成中…' : recs?.length ? '重新生成' : '生成候选图表'}
-        </button>
+        {recs?.length ? (
+          <button className="btn btn-ghost" onClick={onGenerate} disabled={generating || !table}>
+            {generating ? '生成中…' : '重新生成'}
+          </button>
+        ) : null}
       </div>
 
       {error && <p className="error banner">{error}</p>}
@@ -46,13 +48,23 @@ export default function PreviewPanel({
       {!table ? (
         <div className="empty">
           <span className="empty-glyph" aria-hidden />
-          <p>先在左侧解析数据，再生成候选图表</p>
+          <p>在左侧解析数据，将自动生成候选图表</p>
         </div>
       ) : !recs ? (
-        <div className="empty">
-          <span className="empty-glyph" aria-hidden />
-          <p>数据已就绪，点击右上角「生成候选图表」</p>
-        </div>
+        generating ? (
+          <div className="empty">
+            <span className="empty-glyph pulse" aria-hidden />
+            <p>正在解析语义并生成候选图表…</p>
+          </div>
+        ) : (
+          <div className="empty">
+            <span className="empty-glyph" aria-hidden />
+            <p>生成失败或未开始，请点击重试</p>
+            <button className="btn" onClick={onGenerate} disabled={!table}>
+              生成候选图表
+            </button>
+          </div>
+        )
       ) : (
         <div className="scroll">
           {LAYER_ORDER.filter((layer) => recs.some((r) => r.semantic_layer === layer)).map((layer) => (

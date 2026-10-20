@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.4 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现
+> 版本：v1.5 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（六图型全覆盖）
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.5：M4 导出能力从「bar / line / combo」扩展为**六种图型全覆盖**——`slope` 按两期 `LINE_MARKERS`（含 gap 断线）实现，`scatter` 用 `XyChartData`（无效点剔除），`pie` 用 `PIE`（null 扇区剔除）（R-4 落定）；`UNSUPPORTED_CHART` 错误码随之移除（未知类型仍走 `VALIDATION_FAILED`）；新增入参校验：scatter 恰好 2 系列、pie 恰好 1 系列、slope/scatter/pie 禁止 percent 系列（V-9/V-10 与 M3 口径一致）。产品行为变更：前端「解析数据」与「生成候选图表」合并为一次点击（解析成功后自动调用推荐），导出不再跳过任何已选图型。
 - v1.4：M4 落地为**单图导出端点 `POST /api/generate-pptx`**（入参 `{chart_type, config, data}`，出参 `.pptx` 文件流，见 §5.6）；原多图 deck 端点 `/api/generate`（GenerateRequest，含 table/charts/options）降级为后续里程碑（MVP 之后），契约保留在 §5.6b 暂不实现。M0 门禁已通过（`backend/spikes/ablechart_spike.py`）：ablechart 0.2.0 `create_combo_chart(slide, df, categories_col, series_config=[{key,name,type,axis}], polish=False)` 产出原生 barChart+lineChart+双 valAx，内嵌 workbook 为内部 `package` 关系（`TargetMode` 非 External），**无外部数据链接**；python-pptx 1.0.2 无公共 BreakLink API（R-2），C-2 以「遍历 chart part relationships，删除所有 is_external 关系 + 移除 `<c:externalData>` 空引用」等价实现；python-pptx 生成的 line 图 `dispBlanksAs` 默认即 `gap`（空点断线，C-3），builder 仍显式置 `gap` 兜底；次轴数字格式 `0.0%`、主轴 tick label 格式 `0.0"亿"`（yi）通过 chart XML 设置；combo 的 `chart.chart_type` 读回为 COLUMN_CLUSTERED（多 plot 混合图无独立枚举），验收以 chart XML 同时含 `barChart`+`lineChart` 且 valAx=2 为准。
 - v1.3：图表类型恢复为六种（bar / line / combo / slope / scatter / pie，v1.1 的 MVP 三类型收窄撤销）；LLM 原始输出契约改为**裸 JSON 数组**，每项字段为 `chart_type` / `title` / `config` / `reasoning`（§5.5）；ChartSpec 的推荐理由字段 `rationale` 统一改名 `reasoning`，新增 `semantic_layer` 字段；M3 新增「趋势 / 体量对比 / 变化率」三语义层覆盖要求（含降级补齐）；明确缺失系列由后端确定性追加「该系列数据不完整，建议不纳入」；LLM 容错重试措辞明确为「最多调用 2 次（失败后重试 1 次）」；恢复 V-5~V-8（scatter/slope/pie）不变式与 §8 对应前端映射。
 - v1.2：percent 数值形态统一为小数（解析阶段 `+11.2% → 0.112`，M2/M3/ECharts/pptx 全链路一致，M4 不再换算）；缺失标记词表新增「无」；percent 判定新增「列名含 %」规则；M1 parser / M2 semantic 与 `/api/parse` 落地；勘误 §5.3 期望输出 distinct_count（以 §12 夹具实际值为准：梯队=4、平台态势=6，v1.3 再次校正）。
@@ -434,7 +435,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
     "chart_type": {
       "type": "string",
       "enum": ["bar", "line", "combo", "slope", "scatter", "pie"],
-      "description": "M4 MVP 必做 bar / line / combo；slope/scatter/pie 可返回 400 UNSUPPORTED_CHART"
+      "description": "六种图型全部支持导出（v1.5 起）；未知类型返回 400 VALIDATION_FAILED"
     },
     "config": {
       "type": "object",
@@ -474,7 +475,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 - 非 scatter/pie 图：每个 `series[i].data.length === data.categories.length`。
 - `combo`：≥2 个系列且至少一个 `kind=bar`、一个 `kind=line`；`unit=percent` 系列必须 `kind=line` 且 `axis=secondary`；主、副轴 unit 不得相同（V-3/V-4，C-4）。
 - percent 值必须是小数形态（绝对值 ≤ 1.5 的宽松容忍，仅用于拦截 `11.2` 这类未转换值；不修改数据）。
-- 非法入参返回 §5.7 ApiError：`VALIDATION_FAILED`（结构/长度问题）、`UNSUPPORTED_CHART`（M4 暂不支持的类型），HTTP 400。
+- `scatter`：恰好 2 个系列（x、y），且均不得为 percent；`pie`：恰好 1 个系列，且不得为 percent；`slope`：不得含 percent 系列（与 M3 投影口径一致）。
+- 非法入参返回 §5.7 ApiError：`VALIDATION_FAILED`（结构/长度/类型约束问题），HTTP 400。
 
 **GenerateResult**：HTTP 层直接返回 `.pptx` 文件流（见 §7）：
 `Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`
@@ -629,14 +631,16 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 **职责**：GeneratePptxRequest（§5.6，单图自描述）→ 单页 `.pptx` 文件流。C-1/C-2/C-3/C-4 的最终落点。多图 deck（§5.6b）为后续里程碑。
 
 **处理规则：**
-1. 入口按 §5.6「入参校验规则」校验（不信任前端）：长度一致、combo 的 kind/axis/unit 约束、percent 形态、类型支持范围；非法返回 `VALIDATION_FAILED` / `UNSUPPORTED_CHART`。
-2. 图表类型映射：
+1. 入口按 §5.6「入参校验规则」校验（不信任前端）：长度一致、combo 的 kind/axis/unit 约束、percent 形态、scatter/pie 系列数约束、slope/scatter/pie 禁 percent；非法返回 `VALIDATION_FAILED`。
+2. 图表类型映射（v1.5 起六型全覆盖）：
    | chart_type | 实现方式 |
    |---|---|
    | `bar` | python-pptx `add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, ...)` + `CategoryChartData` |
    | `line` | python-pptx `add_chart(XL_CHART_TYPE.LINE_MARKERS, ...)` + `CategoryChartData`，显式置 `c:dispBlanksAs val="gap"`（空点断线，不把空值当 0 连接，C-3） |
+   | `slope` | 同 line 的 `LINE_MARKERS` + `CategoryChartData` + `dispBlanksAs=gap`（系列为两期快照，R-4） |
+   | `scatter` | python-pptx `add_chart(XL_CHART_TYPE.XY_SCATTER, ...)` + `XyChartData`，任一坐标为 None 的点整体剔除（C-3）；x/y 轴按对应系列 unit 设数字格式 |
+   | `pie` | python-pptx `add_chart(XL_CHART_TYPE.PIE, ...)` + `CategoryChartData`，值为 None 的扇区整体剔除（C-3） |
    | `combo` | **`ablechart.create_combo_chart`**（M0 已验证）：构造 `DataFrame`（分类列 + 各系列列，None 保留为 NaN），`series_config=[{key,name,type,axis}]`，bar 主轴 + percent line 副轴，`polish=False`；之后对两个 `c:valAx` 设置数字格式 |
-   | `slope` / `scatter` / `pie` | M4 MVP 暂不导出，返回 400 `UNSUPPORTED_CHART`（推荐与预览仍支持；后续里程碑按 R-4 补齐） |
 3. 数据写入：缺失值以 `None` 写入（line 断线、bar 缺柱，C-3），任何环节禁止转 0；combo 经 pandas 时 None→NaN，ablechart 同样写为空点。
 4. 数字格式（严格按 §5.1）：percent 序列**按 JSON 值直接写入**（已为 `0.112` 小数形态，不再换算），**副轴 tick label 数字格式 `0.0%`**；`yi` 序列原值写入，**主轴 tick label 数字格式 `0.0"亿"`**（`wan` 类推 `0.0"万"`，`count` 用 `General`）。格式作用于对应 `c:valAx/c:numFmt`。
 5. **BreakLink 收尾（C-2，等价 XML 实现，R-2）**：save 之前遍历 `prs.slides[*].shapes` 中 `has_chart=True` 的 shape，对 `chart.part.rels.values()` 中 `is_external=True` 的关系删除；随后移除 `c:chartSpace/c:chart` 下已无有效引用的 `<c:externalData r:id=.../>` 元素（仅删空引用，内部嵌入 workbook 的 `package` 关系保留，以保证双击可编辑）。语义等价于「`IsLinked` 为 True 则 `BreakLink()`」：python-pptx 1.0.2 无公共 IsLinked/BreakLink API，外部关系是否存在即 IsLinked 的判据。
@@ -652,7 +656,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 - A-4.4（combo 必测）：chart XML 同时含 `c:barChart` 与 `c:lineChart`、且有两个 `c:valAx`；副轴 `numFmt` 含 `0.0%`；缓存的 percent 值点（`c:v`）与 JSON 一致（`0.024`/`0.112`/`-0.039`，§5.1 / C-4）；主轴 `numFmt` 含 `亿`。
 - A-4.5：line 图含 null 系列——chart XML 中 `<c:dispBlanksAs val="gap"/>`，且空点缓存不出现 `0`（C-3）。
 - A-4.6（可更新性）：读回产物中的 chart，调用 `chart.replace_data(CategoryChartData)` 改写内嵌数据后重新读回，`series.values` 等于新值（验证是真内嵌、可编辑的原生 Chart，而非图片/死链）。
-- A-4.7：非法入参（percent 挂主轴 / data 长度不齐 / chart_type=radar）→ HTTP 400 `VALIDATION_FAILED`/`UNSUPPORTED_CHART`，不产出文件。
+- A-4.7：非法入参（percent 挂主轴 / data 长度不齐 / chart_type=radar / scatter 系列数≠2 / pie 系列数≠1 / slope、scatter、pie 含 percent）→ HTTP 400 `VALIDATION_FAILED`，不产出文件。
+- A-4.9（v1.5 六型覆盖）：slope 产物含 `dispBlanksAs=gap` 且可重开；scatter 产物 plot 为 `scatterChart` 且无效（含 null）点已剔除；pie 产物 plot 为 `pieChart` 且 null 扇区已剔除；三者均无外部关系（C-2 同其他类型）。
 - A-4.8（人工，延后）：WPS 与 PowerPoint 打开产物，双击图表可编辑数据，无「链接文件不可用」提示。
 
 ---

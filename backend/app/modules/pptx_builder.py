@@ -1,10 +1,11 @@
-"""M4 PPT 生成模块（SPEC §6 M4，v1.4 单图导出契约）。
+"""M4 PPT 生成模块（SPEC §6 M4，v1.5 单图导出契约，六图型全覆盖）。
 
 入口：build_pptx(request: dict) -> bytes
 - 接收自描述单图请求 {chart_type, config?, data:{categories, series[]}}（§5.6）；
-- bar/line 走 python-pptx add_chart + CategoryChartData；
+- bar/line/slope 走 python-pptx add_chart + CategoryChartData（slope 按两期 LINE_MARKERS，R-4）；
+- scatter 走 XyChartData（无效点剔除）；pie 走 PIE（null 扇区剔除）；
 - combo 走 ablechart.create_combo_chart（bar 主轴 + percent line 副轴）；
-- 全程 None 空点（C-3），line 显式 dispBlanksAs=gap；
+- 全程 None 空点（C-3），line/slope 显式 dispBlanksAs=gap；
 - 副轴 0.0%、主轴带单位（yi -> 0.0"亿"）（§5.1 / C-4）；
 - 保存前断所有外部数据链接（C-2 等价实现，R-2）。
 """
@@ -17,7 +18,7 @@ import pandas as pd
 from lxml import etree
 from pptx import Presentation
 from pptx.chart.chart import Chart
-from pptx.chart.data import CategoryChartData
+from pptx.chart.data import CategoryChartData, XyChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 
@@ -28,7 +29,7 @@ from app.modules.parser import ParseError
 C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 NSMAP = {"c": C_NS}
 
-SUPPORTED_TYPES = {"bar", "line", "combo"}
+SUPPORTED_TYPES = {"bar", "line", "combo", "slope", "scatter", "pie"}  # v1.5 六型全覆盖
 SERIES_UNITS = {"count", "yi", "wan", "percent"}
 SERIES_KINDS = {"line", "bar", "scatter"}
 AXES = {"primary", "secondary"}
@@ -52,8 +53,6 @@ def _validate_request(req: Any) -> dict[str, Any]:
     if not isinstance(chart_type, str):
         raise PptxValidationError("VALIDATION_FAILED", "缺少字段 chart_type")
     if chart_type not in SUPPORTED_TYPES:
-        if chart_type in {"slope", "scatter", "pie"}:
-            raise PptxValidationError("UNSUPPORTED_CHART", f"M4 暂不支持导出图表类型：{chart_type}")
         raise PptxValidationError("VALIDATION_FAILED", f"未知 chart_type：{chart_type}")
 
     data = req.get("data")
@@ -123,6 +122,18 @@ def _validate_request(req: Any) -> dict[str, Any]:
         secondary_units = {s["unit"] for s in norm if s["axis"] == "secondary"}
         if primary_units & secondary_units:
             raise PptxValidationError("VALIDATION_FAILED", "主、副轴 unit 不得相同（V-3 / C-4）")
+
+    # scatter/pie/slope 形态约束（§5.6 入参校验规则，v1.5）
+    if chart_type == "scatter" and len(norm) != 2:
+        raise PptxValidationError("VALIDATION_FAILED", "scatter 需恰好 2 个系列（x、y）")
+    if chart_type == "pie" and len(norm) != 1:
+        raise PptxValidationError("VALIDATION_FAILED", "pie 需恰好 1 个系列")
+    if chart_type in {"slope", "scatter", "pie"}:
+        for i, s in enumerate(norm):
+            if s["unit"] == "percent":
+                raise PptxValidationError(
+                    "VALIDATION_FAILED", f"{chart_type} 不允许 percent 系列（series[{i}]，与 M3 口径一致）"
+                )
 
     config = req.get("config") or {}
     if not isinstance(config, dict):
@@ -223,7 +234,8 @@ def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: s
     for s in spec["series"]:
         chart_data.add_series(s["name"], tuple(s["data"]))
 
-    xl_type = XL_CHART_TYPE.LINE_MARKERS if chart_type == "line" else XL_CHART_TYPE.COLUMN_CLUSTERED
+    # slope 按两期 LINE_MARKERS 实现（R-4）；line 同型。
+    xl_type = XL_CHART_TYPE.LINE_MARKERS if chart_type in {"line", "slope"} else XL_CHART_TYPE.COLUMN_CLUSTERED
     top = Inches(1.2) if spec["title"] else Inches(0.5)
     graphic = slide.shapes.add_chart(
         xl_type, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
@@ -232,9 +244,60 @@ def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: s
 
     primary_unit = spec["series"][0]["unit"]
     _set_axis_numfmt(chart, 0, _AXIS_FORMAT[primary_unit])
-    if chart_type == "line":
+    if chart_type in {"line", "slope"}:
         _set_gap_for_nulls(chart)
     return chart
+
+
+def _build_scatter(prs: Presentation, spec: dict[str, Any]) -> Chart:
+    """scatter：XyChartData，任一坐标为 None 的点整体剔除（C-3）。"""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_title(slide, spec["title"] or "")
+
+    x_series, y_series = spec["series"][0], spec["series"][1]
+    points = [
+        (xv, yv)
+        for xv, yv in zip(x_series["data"], y_series["data"])
+        if xv is not None and yv is not None
+    ]
+    if not points:
+        raise PptxValidationError("VALIDATION_FAILED", "scatter 有效数据点为空（全部坐标缺失）")
+
+    chart_data = XyChartData()
+    xy = chart_data.add_series(f"{x_series['name']} × {y_series['name']}")
+    for xv, yv in points:
+        xy.add_data_point(xv, yv)
+
+    top = Inches(1.2) if spec["title"] else Inches(0.5)
+    graphic = slide.shapes.add_chart(
+        XL_CHART_TYPE.XY_SCATTER, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
+    )
+    chart = graphic.chart
+    # x 轴为 valAx[0]，y 轴为 valAx[1]，按对应系列 unit 设数字格式。
+    _set_axis_numfmt(chart, 0, _AXIS_FORMAT[x_series["unit"]])
+    _set_axis_numfmt(chart, 1, _AXIS_FORMAT[y_series["unit"]])
+    return chart
+
+
+def _build_pie(prs: Presentation, spec: dict[str, Any]) -> Chart:
+    """pie：CategoryChartData，值为 None 的扇区整体剔除（C-3）。"""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    _add_title(slide, spec["title"] or "")
+
+    s = spec["series"][0]
+    pairs = [(c, v) for c, v in zip(spec["categories"], s["data"]) if v is not None]
+    if not pairs:
+        raise PptxValidationError("VALIDATION_FAILED", "pie 有效扇区为空（全部数值缺失）")
+
+    chart_data = CategoryChartData()
+    chart_data.categories = [c for c, _ in pairs]
+    chart_data.add_series(s["name"], tuple(v for _, v in pairs))
+
+    top = Inches(1.2) if spec["title"] else Inches(0.5)
+    graphic = slide.shapes.add_chart(
+        XL_CHART_TYPE.PIE, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
+    )
+    return graphic.chart
 
 
 def _build_combo(prs: Presentation, spec: dict[str, Any]) -> Chart:
@@ -289,7 +352,11 @@ def build_pptx(request: dict[str, Any]) -> bytes:
 
     if spec["chart_type"] == "combo":
         _build_combo(prs, spec)
-    else:
+    elif spec["chart_type"] == "scatter":
+        _build_scatter(prs, spec)
+    elif spec["chart_type"] == "pie":
+        _build_pie(prs, spec)
+    else:  # bar / line / slope
         _build_category_chart(prs, spec, spec["chart_type"])
 
     break_external_chart_links(prs)

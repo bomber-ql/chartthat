@@ -209,11 +209,84 @@ def test_generate_pptx_endpoint_returns_file():
 
 def test_generate_pptx_endpoint_bad_request():
     client = TestClient(app)
-    # scatter 属六种受识别图型，但 M4 尚未实现 → UNSUPPORTED_CHART/400
-    resp = client.post("/api/generate-pptx", json={"chart_type": "scatter", "data": {}})
-    assert resp.status_code == 400
-    assert resp.json()["code"] == "UNSUPPORTED_CHART"
     # 完全未知的图型 → VALIDATION_FAILED/400
     resp2 = client.post("/api/generate-pptx", json={"chart_type": "radar", "data": {}})
     assert resp2.status_code == 400
     assert resp2.json()["code"] == "VALIDATION_FAILED"
+    # 结构非法（缺 data）→ VALIDATION_FAILED/400
+    resp3 = client.post("/api/generate-pptx", json={"chart_type": "scatter"})
+    assert resp3.status_code == 400
+    assert resp3.json()["code"] == "VALIDATION_FAILED"
+
+
+# ---------- v1.5 六图型覆盖（slope / scatter / pie） ----------
+
+def test_slope_builds_line_markers_with_gap():
+    req = {
+        "chart_type": "slope",
+        "data": {
+            "categories": ["微信", "抖音", "快手"],
+            "series": [
+                {"name": "2024 MAU", "unit": "yi", "data": [13.9, 10.5, 7.2]},
+                {"name": "2025 MAU", "unit": "yi", "data": [14.2, 11.7, None]},
+            ],
+        },
+    }
+    blob = build_pptx(req)
+    xml = _chart_xml(blob)
+    assert "<c:lineChart>" in xml
+    assert '<c:dispBlanksAs val="gap"/>' in xml
+    assert _external_link_targets(blob) == []
+    prs = Presentation(io.BytesIO(blob))
+    assert sum(1 for sh in prs.slides[0].shapes if sh.has_chart) == 1
+
+
+def test_scatter_builds_and_drops_invalid_points():
+    req = {
+        "chart_type": "scatter",
+        "data": {
+            "categories": ["微信", "抖音", "快手", "微博"],
+            "series": [
+                {"name": "2025 MAU", "unit": "yi", "data": [14.2, 11.7, 7.0, 5.7]},
+                {"name": "2025 DAU", "unit": "yi", "data": [None, 7.6, 4.0, 2.5]},
+            ],
+        },
+    }
+    blob = build_pptx(req)
+    xml = _chart_xml(blob)
+    assert "<c:scatterChart>" in xml
+    # 微信 DAU=None 的点被整体剔除：xVal/yVal 各剩 3 个点
+    assert xml.count('<c:ptCount val="3"') == 2
+    assert _external_link_targets(blob) == []
+
+
+def test_pie_builds_and_drops_null_slices():
+    req = {
+        "chart_type": "pie",
+        "data": {
+            "categories": ["微信", "抖音", "快手"],
+            "series": [{"name": "2025 MAU", "unit": "yi", "data": [14.2, None, 7.0]}],
+        },
+    }
+    blob = build_pptx(req)
+    xml = _chart_xml(blob)
+    assert "<c:pieChart>" in xml
+    # 抖音扇区被剔除：缓存只剩 2 个分类
+    assert xml.count("<c:pt idx=") >= 2 and "抖音" not in xml
+    assert _external_link_targets(blob) == []
+
+
+def test_rejects_new_type_shape_violations():
+    # scatter 系列数 ≠ 2
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "scatter", "data": {
+            "categories": ["a"], "series": [{"name": "x", "data": [1.0]}]}})
+    # pie 系列数 ≠ 1
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "pie", "data": {
+            "categories": ["a"], "series": [{"name": "x", "data": [1.0]}, {"name": "y", "data": [2.0]}]}})
+    # slope 含 percent
+    with pytest.raises(PptxValidationError):
+        build_pptx({"chart_type": "slope", "data": {
+            "categories": ["a", "b"],
+            "series": [{"name": "p", "unit": "percent", "data": [0.1, 0.2]}]}})
