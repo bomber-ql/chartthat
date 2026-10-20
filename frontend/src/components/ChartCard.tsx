@@ -13,19 +13,34 @@ interface ChartCardProps {
 
 export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
+  const optionRef = useRef<EChartsOption | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
     const chart = echarts.init(ref.current);
     const option: EChartsOption = specToOption(spec);
     chart.setOption(option);
+    chartRef.current = chart;
+    optionRef.current = option;
     const onResize = () => chart.resize();
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
       chart.dispose();
+      chartRef.current = null;
+      optionRef.current = null;
     };
   }, [spec]);
+
+  const replayChart = () => {
+    const chart = chartRef.current;
+    const option = optionRef.current;
+    if (!chart || !option) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    chart.clear();
+    chart.setOption(option, true);
+  };
 
   const incomplete = spec.reasoning.includes(INCOMPLETE_TAIL);
 
@@ -35,6 +50,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
       role="button"
       tabIndex={0}
       onClick={() => onSelect(spec.id)}
+      onMouseEnter={replayChart}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

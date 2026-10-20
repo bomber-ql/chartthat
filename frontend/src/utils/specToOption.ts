@@ -20,9 +20,9 @@ const pct = (v: number): string => `${(v * 100).toFixed(1)}%`;
 const ANIM = {
   animation: true,
   animationThreshold: 2000,
-  animationDuration: 950,
+  animationDuration: 1500,
   animationEasing: 'cubicOut' as const,
-  animationDelay: (idx: number): number => idx * 48,
+  animationDelay: (idx: number): number => idx * 70,
   animationDurationUpdate: 320,
   animationEasingUpdate: 'cubicOut' as const,
   animationDelayUpdate: 120,
