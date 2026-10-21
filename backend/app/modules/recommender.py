@@ -20,7 +20,24 @@ from app.config import settings
 from app.validators import CHART_TYPES, PERCENT_ALLOWED_TYPES, validate_chart_spec
 LAYERS = {"trend", "comparison", "rate"}
 MAX_RECOMMENDATIONS = 8
-INCOMPLETE_NOTE = "该系列数据不完整，建议不纳入"
+
+# v1.14：title/reasoning/模板按界面语言输出；列名等数据始终保持原文。
+LANGS = ("zh", "en")
+DEFAULT_LANG = "zh"
+INCOMPLETE_NOTE = {
+    "zh": "该系列数据不完整，建议不纳入",
+    "en": "Incomplete data for this series; exclude with caution",
+}
+DEGRADED_NOTE = {
+    "zh": "启发式降级推荐（LLM 不可用或结果不完整）",
+    "en": "Heuristic recommendation (LLM unavailable or incomplete)",
+}
+
+
+def normalize_lang(lang: Any) -> str:
+    """归一化界面语言，非法/缺省回退 zh。"""
+    return lang if lang in LANGS else DEFAULT_LANG
+
 
 # LLM 可调用签名：(messages) -> 文本。测试通过注入 mock 替换。
 LLMCallable = Callable[[list[dict[str, str]]], str]
@@ -57,13 +74,13 @@ def _pick_dimension(table: dict[str, Any], preferred: str | None) -> str | None:
 # LLM 调用与容错解析
 # --------------------------------------------------------------------------- #
 
-SYSTEM_PROMPT = """你是数据图表推荐引擎。根据用户给出的表结构摘要，推荐 1~6 个图表。
+SYSTEM_PROMPT_ZH = """你是数据图表推荐引擎。根据用户给出的表结构摘要，推荐 1~6 个图表。
 硬性规则：
 1. 只输出严格 JSON 数组，顶层必须是 [ ... ]，禁止 Markdown 代码围栏、禁止任何解释文字。
 2. 每个元素形如 {"chart_type","title","reasoning","config"}，字段缺一不可，不得额外加字段。
 3. chart_type 只能取：bar、hbar、line、area、combo、stacked、slope、scatter、waterfall、radar、pie、donut、sunburst。
 4. config = {"dimension": 维度列名, "semantic_layer": "trend"|"comparison"|"rate", "series":[{"column": 数值列名, "kind"?: "line"|"bar"|"scatter", "axis"?: "primary"|"secondary"}]}。
-5. 你只能引用表中真实存在的列，且禁止输出任何数据值；数据由系统投影。
+5. 你只能引用表中真实存在的列，且禁止输出任何数据值；数据由系统投影。列名与维度取值必须原样引用，不得翻译。
 6. 百分比列（unit=percent）只能出现在 bar、hbar、line、area、combo 中；combo 中须作副轴折线（kind=line）；
    stacked、waterfall、radar、slope、scatter、pie、donut、sunburst 不得使用百分比列。
 7. 推荐必须尽量覆盖三个语义层：trend（趋势，如多期折线/面积/斜率）、comparison（体量对比，柱/条/堆叠/饼/圆环/雷达/散点/旭日）、
@@ -71,8 +88,26 @@ SYSTEM_PROMPT = """你是数据图表推荐引擎。根据用户给出的表结�
 8. title 不超过 60 字，reasoning 不超过 200 字，均使用中文。
 9. 形态约束：combo ≥2 列；stacked ≥2 个同单位列；scatter 恰好 2 列；pie/donut/sunburst/waterfall 恰好 1 列；radar ≥3 个同单位列。"""
 
+SYSTEM_PROMPT_EN = """You are a data-chart recommendation engine. Based on the table schema summary given by the user, recommend 1~6 charts.
+Hard rules:
+1. Output ONLY a strict JSON array; the top level must be [ ... ]. No Markdown code fences, no explanatory text.
+2. Each element has the shape {"chart_type","title","reasoning","config"}; all fields are required and no extra fields are allowed.
+3. chart_type must be one of: bar, hbar, line, area, combo, stacked, slope, scatter, waterfall, radar, pie, donut, sunburst.
+4. config = {"dimension": dimension column name, "semantic_layer": "trend"|"comparison"|"rate", "series":[{"column": numeric column name, "kind"?: "line"|"bar"|"scatter", "axis"?: "primary"|"secondary"}]}.
+5. Only reference columns that actually exist in the table, and never output any data values; the system projects the data. Column names and dimension values must be quoted verbatim and MUST NOT be translated.
+6. Percent columns (unit=percent) may only appear in bar, hbar, line, area, combo; in combo they must be a secondary-axis line (kind=line).
+   stacked, waterfall, radar, slope, scatter, pie, donut, sunburst must not use percent columns.
+7. Recommendations should cover three semantic layers as much as possible: trend (multi-period line/area/slope), comparison (bar/hbar/stacked/pie/donut/radar/scatter/sunburst for magnitude),
+   and rate (percent secondary-axis combo). Columns with null_count>0 may be used, but mention the incomplete data in reasoning.
+8. title is at most 80 characters and reasoning at most 280 characters; BOTH must be written in English.
+9. Shape constraints: combo >=2 columns; stacked >=2 same-unit columns; scatter exactly 2 columns; pie/donut/sunburst/waterfall exactly 1 column; radar >=3 same-unit columns."""
 
-def _build_user_prompt(table: dict[str, Any]) -> str:
+
+def _system_prompt(lang: str) -> str:
+    return SYSTEM_PROMPT_EN if lang == "en" else SYSTEM_PROMPT_ZH
+
+
+def _build_user_prompt(table: dict[str, Any], lang: str = DEFAULT_LANG) -> str:
     summary = []
     for c in table["columns"]:
         s = c["stats"]
@@ -80,12 +115,20 @@ def _build_user_prompt(table: dict[str, Any]) -> str:
             f"- {c['name']}: role={c['role']}, unit={c['unit']}, "
             f"null_count={s['null_count']}, distinct={s['distinct_count']}"
         )
-    lines = ["表结构摘要：", *summary, "", "抽样数据（最多 10 行）："]
-    lines.append(" | ".join(c["name"] for c in table["columns"]))
-    for row in table["rows"][:10]:
-        lines.append(" | ".join("" if v is None else str(v) for v in row))
-    lines.append("")
-    lines.append("请输出严格 JSON 数组。")
+    if lang == "en":
+        lines = ["Table schema summary:", *summary, "", "Sample rows (up to 10):"]
+        lines.append(" | ".join(c["name"] for c in table["columns"]))
+        for row in table["rows"][:10]:
+            lines.append(" | ".join("" if v is None else str(v) for v in row))
+        lines.append("")
+        lines.append("Output a strict JSON array.")
+    else:
+        lines = ["表结构摘要：", *summary, "", "抽样数据（最多 10 行）："]
+        lines.append(" | ".join(c["name"] for c in table["columns"]))
+        for row in table["rows"][:10]:
+            lines.append(" | ".join("" if v is None else str(v) for v in row))
+        lines.append("")
+        lines.append("请输出严格 JSON 数组。")
     return "\n".join(lines)
 
 
@@ -164,7 +207,8 @@ def _validate_item_shape(item: dict[str, Any]) -> None:
         raise ValueError("title 必须为非空字符串")
 
 
-def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict[str, Any] | None:
+def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int,
+                  lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
     """把一条合法 LLM 推荐投影为完整 ChartSpec；任何环节非法返回 None。"""
     try:
         _validate_item_shape(item)
@@ -251,7 +295,7 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int) -> dict
     }
     if validate_chart_spec(spec, table):
         return None
-    _annotate_incomplete(spec)
+    _annotate_incomplete(spec, lang)
     return spec
 
 
@@ -263,27 +307,31 @@ def _infer_layer(chart_type: str, series: list[dict[str, Any]]) -> str:
     return "comparison"
 
 
-def _annotate_incomplete(spec: dict[str, Any]) -> None:
-    """SPEC §6 M3 规则 5：含 null 的系列确定性追加提示，禁止编造数值。"""
+def _annotate_incomplete(spec: dict[str, Any], lang: str = DEFAULT_LANG) -> None:
+    """SPEC §6 M3 规则 5：含 null 的系列确定性追加提示（v1.14 双语），禁止编造数值。"""
+    note = INCOMPLETE_NOTE[lang]
+    sep = "; " if lang == "en" else "；"
+    prefix = ": " if lang == "en" else "："
     notes = [
-        f"{s['source_column']}：{INCOMPLETE_NOTE}"
+        f"{s['source_column']}{prefix}{note}"
         for s in spec["series"]
         if any(v is None for v in s["data"])
     ]
     if not notes:
         return
     reasoning = spec.get("reasoning", "")
-    if INCOMPLETE_NOTE in reasoning:
-        return  # LLM 已写明，不重复追加
-    addition = "；".join(notes)
-    spec["reasoning"] = f"{reasoning}；{addition}" if reasoning else addition
+    # 任一语言的固定短语出现过都视为已注明，避免重复追加
+    if note in reasoning or INCOMPLETE_NOTE["zh"] in reasoning:
+        return
+    addition = sep.join(notes)
+    spec["reasoning"] = f"{reasoning}{sep}{addition}" if reasoning else addition
 
 
 # --------------------------------------------------------------------------- #
 # 降级（启发式 + 三语义层补齐）
 # --------------------------------------------------------------------------- #
 
-def _fallback_specs(table: dict[str, Any]) -> list[dict[str, Any]]:
+def _fallback_specs(table: dict[str, Any], lang: str = DEFAULT_LANG) -> list[dict[str, Any]]:
     cols = table["columns"]
     dim = next((c["name"] for c in cols if c["role"] == "dimension"), None)
     measures = [c["name"] for c in cols if c["role"] == "measure"]
@@ -333,22 +381,23 @@ def _fallback_specs(table: dict[str, Any]) -> list[dict[str, Any]]:
             "chart_type": chart_type,
             "title": title,
             "subtitle": None,
-            "reasoning": "启发式降级推荐（LLM 不可用或结果不完整）",
+            "reasoning": DEGRADED_NOTE[lang],
             "semantic_layer": layer,
             "dimension_column": dim,
             "categories": categories,
             "series": series,
             "axes": axes,
         }
-        _annotate_incomplete(spec)
+        _annotate_incomplete(spec, lang)
         return spec
 
     out: list[dict[str, Any]] = []
 
     # rate：measure + percent → combo 双轴
     if measures and percents:
-        out.append(make("combo", f"{dim}{measures[0]}规模与{percents[0]}",
-                        [*measures[:2], percents[0]], "rate"))
+        title_en = f"{measures[0]} and {percents[0]} by {dim}" if lang == "en" else \
+            f"{dim}{measures[0]}规模与{percents[0]}"
+        out.append(make("combo", title_en, [*measures[:2], percents[0]], "rate"))
 
     # trend：≥2 同单位 measure → line；恰两期补 slope；再补 area 变体
     unit_groups: dict[str, list[str]] = {}
@@ -356,34 +405,43 @@ def _fallback_specs(table: dict[str, Any]) -> list[dict[str, Any]]:
         unit_groups.setdefault(_columns_by_name(table)[name]["unit"], []).append(name)
     for unit, names in unit_groups.items():
         if len(names) >= 2:
-            out.append(make("line", f"{dim}各期{unit}指标趋势", names[:4], "trend"))
-            out.append(make("area", f"{dim}各期{unit}指标面积", names[:2], "trend"))
-            out.append(make("stacked", f"各{dim}{unit}指标堆叠构成", names[:3], "comparison"))
+            title_line = f"{dim} {unit} trend across periods" if lang == "en" else f"{dim}各期{unit}指标趋势"
+            title_area = f"{dim} {unit} area across periods" if lang == "en" else f"{dim}各期{unit}指标面积"
+            title_stack = f"{unit} stacked composition by {dim}" if lang == "en" else f"各{dim}{unit}指标堆叠构成"
+            out.append(make("line", title_line, names[:4], "trend"))
+            out.append(make("area", title_area, names[:2], "trend"))
+            out.append(make("stacked", title_stack, names[:3], "comparison"))
             if len(names) == 2:
-                out.append(make("slope", f"{dim}两期{unit}变化斜率", names, "trend"))
+                title_slope = f"{dim} two-period {unit} slope" if lang == "en" else f"{dim}两期{unit}变化斜率"
+                out.append(make("slope", title_slope, names, "trend"))
             if len(names) >= 3:
-                out.append(make("radar", f"{dim}{unit}指标雷达", names[:5], "comparison"))
+                title_radar = f"{dim} {unit} radar" if lang == "en" else f"{dim}{unit}指标雷达"
+                out.append(make("radar", title_radar, names[:5], "comparison"))
             break
 
     # comparison：bar（每实体一个 measure）+ 占比类
     if measures:
-        out.append(make("bar", f"各{dim}{measures[0]}对比", [measures[0]], "comparison"))
-        out.append(make("donut", f"各{dim}{measures[0]}占比构成", [measures[0]], "comparison"))
+        title_bar = f"{measures[0]} by {dim}" if lang == "en" else f"各{dim}{measures[0]}对比"
+        title_donut = f"{measures[0]} share by {dim}" if lang == "en" else f"各{dim}{measures[0]}占比构成"
+        out.append(make("bar", title_bar, [measures[0]], "comparison"))
+        out.append(make("donut", title_donut, [measures[0]], "comparison"))
         if len(measures) >= 2:
-            out.append(make("scatter", f"{measures[0]}与{measures[1]}相关性",
-                            measures[:2], "comparison"))
+            title_scatter = f"{measures[0]} vs {measures[1]}" if lang == "en" else f"{measures[0]}与{measures[1]}相关性"
+            out.append(make("scatter", title_scatter, measures[:2], "comparison"))
         else:
-            out.append(make("pie", f"各{dim}{measures[0]}占比", [measures[0]], "comparison"))
+            title_pie = f"{measures[0]} proportion by {dim}" if lang == "en" else f"各{dim}{measures[0]}占比"
+            out.append(make("pie", title_pie, [measures[0]], "comparison"))
 
     # 只过 validator 保护
     return [s for s in out if not validate_chart_spec(s, table)]
 
 
-def _ensure_layers(specs: list[dict[str, Any]], table: dict[str, Any]) -> list[dict[str, Any]]:
+def _ensure_layers(specs: list[dict[str, Any]], table: dict[str, Any],
+                   lang: str = DEFAULT_LANG) -> list[dict[str, Any]]:
     """补齐 trend/comparison/rate 三层（数据支持时）。"""
     covered = {s["semantic_layer"] for s in specs}
     existing_keys = {(s["chart_type"], tuple(s["source_column"] for s in s["series"])) for s in specs}
-    for fb in _fallback_specs(table):
+    for fb in _fallback_specs(table, lang):
         if fb["semantic_layer"] not in covered:
             key = (fb["chart_type"], tuple(s["source_column"] for s in fb["series"]))
             if key not in existing_keys:
@@ -415,16 +473,19 @@ def _dedupe(specs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def recommend_charts(
     table: dict[str, Any],
     llm_call: LLMCallable | None = None,
+    lang: str = DEFAULT_LANG,
 ) -> dict[str, Any]:
     """SemanticTable → {recommendations: ChartSpec[], degraded: bool}。
 
     llm_call 可注入（测试 mock）；默认走真实 OpenAI 兼容接口。
     未配置 key / 调用失败 / 两轮解析失败时降级，degraded=True。
+    lang（zh/en，v1.14）决定 title/reasoning 与降级模板语言；列名等数据保持原文。
     """
+    lang = normalize_lang(lang)
     llm_call = llm_call or call_llm
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_prompt(table)},
+        {"role": "system", "content": _system_prompt(lang)},
+        {"role": "user", "content": _build_user_prompt(table, lang)},
     ]
 
     specs: list[dict[str, Any]] = []
@@ -433,9 +494,15 @@ def recommend_charts(
 
     for attempt in range(2):  # 初次 + 重试 1 次（SPEC C-5）
         try:
+            retry_nudge = (
+                f"The previous output was unusable ({last_error or 'unknown error'}); "
+                "output ONLY a bare JSON array following the rules."
+                if lang == "en"
+                else f"上一次输出无法使用（{last_error or '未知错误'}），"
+                     "请严格按规则只输出裸 JSON 数组。"
+            )
             raw = llm_call(messages if attempt == 0 else messages + [
-                {"role": "user", "content": f"上一次输出无法使用（{last_error or '未知错误'}），"
-                                            "请严格按规则只输出裸 JSON 数组。"},
+                {"role": "user", "content": retry_nudge},
             ])
             items = parse_llm_json(raw)
         except Exception as exc:  # noqa: BLE001 - LLM 侧任何异常都应触发重试/降级
@@ -443,7 +510,7 @@ def recommend_charts(
             continue
 
         for i, item in enumerate(items, start=1):
-            spec = _project_spec(item, table, i)
+            spec = _project_spec(item, table, i, lang)
             if spec is not None:
                 specs.append(spec)
         if specs:
@@ -453,12 +520,15 @@ def recommend_charts(
     if not specs:
         # LLM 两轮均无任何合法产出 → 完全降级
         degraded = True
-        specs = _fallback_specs(table)
+        specs = _fallback_specs(table, lang)
     else:
         # LLM 已产出，仅对未覆盖的语义层用启发式补齐，degraded 保持 False
-        specs = _ensure_layers(specs, table)
+        specs = _ensure_layers(specs, table, lang)
 
     if not specs:
-        raise RecommendationError("数据中没有可绘图的数值列，无法推荐任何图表")
+        msg = ("No plottable numeric columns in the data; cannot recommend any chart."
+               if lang == "en"
+               else "数据中没有可绘图的数值列，无法推荐任何图表")
+        raise RecommendationError(msg)
 
     return {"recommendations": _dedupe(specs), "degraded": degraded}

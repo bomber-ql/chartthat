@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
 import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
@@ -51,7 +51,8 @@ export default function App() {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(target),
+        // v1.14：携带界面语言，后端 title/reasoning/降级模板按此语言产出；列名等数据保持原文
+        body: JSON.stringify({ ...target, lang }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
@@ -67,6 +68,13 @@ export default function App() {
       setGenerating(false);
     }
   };
+
+  // 切换界面语言后，已生成的标题/理由按新语言重新推荐（数据与选择不变）
+  useEffect(() => {
+    if (table) void generateRecs(table);
+    // 仅在语言变化时触发，table/generateRecs 不进依赖（解析时本就会重新推荐）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

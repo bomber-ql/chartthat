@@ -4,6 +4,7 @@
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.14：**推荐产出跟随界面语言**。`/api/recommend` 入参在裸 SemanticTable 基础上新增可选 `lang`（`"zh"`（默认）/`"en"`；兼容旧调用，缺省/非法值回退 zh）。`lang="en"` 时：LLM system prompt 指示 **title 与 reasoning 一律用英文输出**；LLM 不可用时的启发式降级标题/说明、缺失系列固定提示语均切换为英文模板（中文：「该系列数据不完整，建议不纳入」；英文：`"Incomplete data for this series; exclude with caution"`；降级说明英文：`"Heuristic recommendation (LLM unavailable or incomplete)"`）。**列名、categories（维度取值）、series.name 等数据驱动内容始终保持用户原文不翻译**（C-5 投影依据，翻译会破坏列引用匹配）；翻译范围仅限 title/reasoning 等模型/模板生成的说明性文本。前端按当前 i18n 语言在推荐请求中携带 `lang`。
 - v1.13：GIF 采帧体验两处修订。①**浅色主题实底由浅蓝 `#f4f8fc` 改为纯白 `#ffffff`**（用户反馈：贴 PPT 白底场景不应带颜色）。②采帧新增可选**数据标签**（GIF 为位图、导出后不可编辑，数值显示与否须在导出期决定）：前端导出区加「显示数据标签」开关，仅作用于动效 GIF 采帧（预览与标准 pptx 不变）；实现为 `specToOption` 的导出后处理器 `applyDataLabels(option, spec, theme)`——按 series 名匹配单位（`valueFormatter` 口径：percent 0.112→11.2%、亿/万追加单位），waterfall 显示**带正负的真实增量**而非 abs 堆叠值并跳过透明底座（`__base__`），pie/donut/sunburst 为「名称: 值」，柱/条/线/面积/堆叠/组合/散点/雷达按图型选 label 位置（hbar→right、stacked→inside、其余→top）。
 - v1.12：动效产物**主形态从「嵌入 pptx」改为「直出 .gif 文件」**，并新增透明背景选项。新增端点 `POST /api/generate-gif`：入参与 §5.6a 相同（`{title?（忽略，GIF 无标题）, frames, frame_ms?, transparent?}`），直接返回 `image/gif`（`Content-Disposition: attachment; filename="chart-{ts}.gif"`，GIF89a、loop=0）。前端动效按钮从「导出动效版 pptx」改为「导出动效 GIF」，逐图下载 .gif；不再默认套一层 pptx。`transparent`（默认 false）：①false=**跟随当前 UI 主题的实底色**（前端采帧时铺深色/浅色实底，GIF 不支持半透明、透明区域会被填黑）；②true=**二元透明**——GIF 仅支持每像素全透/不透（无 alpha 半透明），线条与文字抗锯齿边缘、面积图半透明填充、深色主题发光阴影会被硬切（可能出现毛边），且图表内文字/坐标色随主题（深色主题浅字贴到白底上不可见），**透明底仅适用于贴到与主题同色的背景**，作为可选项提供，默认实底。实现上透明模式保留 RGBA 合成（`disposal=2` 防帧残影、`transparency` 索引）。嵌入 pptx 的 `POST /api/generate-animated-pptx`（§5.6a）保留但前端不再主推；两端点共享同一 GIF 合成核心。标准静态导出 `/api/generate-pptx`（原生可编辑 Chart，C-1）不变。
 - v1.11：放映动效**路线切换——放弃 OOXML 原生图表动画，改走 GIF 动图路线**（R-6 改判）。v1.7~v1.10 四个版本基于 `<p:timing>`/oleChartEl 的原生图表分段动画在 WPS 实测全部失败（整图进入或完全无动画），且沙箱无法运行 WPS 验证、只能盲改，定论：**WPS 对图表子元素动画支持不可靠，此路不通**。新方案：前端用离屏 ECharts 实例播放绘制动画并定时采帧（canvas.toDataURL），将帧序列 POST 到新端点 `POST /api/generate-animated-pptx`；后端用 PIL 把多帧合成为动态 GIF（`save_all` + `duration` + `loop=0`），再以 `add_picture` 嵌入 pptx 全幅呈现。PPT/WPS 放映对 GIF 动图支持稳定，所见即所得。动效版是**独立产物**（文件名 `chart-animated-{ts}.pptx`），与标准导出互不影响；GIF 为位图不可编辑，但这**不违反 C-1**——C-1 约束的是标准导出端点 `/api/generate-pptx`（仍输出原生可编辑 Chart），动效版属用户显式选择的另一产物。标准导出端点移除 `animate` 入参，恢复为纯静态原生图表（不再有 p:timing 注入路径）。
@@ -648,7 +649,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 2. LLM 响应校验链：容错 JSON parse（先直接 parse；失败剥离 Markdown 围栏再 parse；兼容 `{"recommendations":[...]}` 包装形态）→ §5.5 元素 Schema 逐条校验 → 引用完整性（列名存在、role 合法）。parse 或整体校验失败时，携带错误信息**重试 1 次（最多调用 2 次）**；单条推荐非法仅丢弃该条并记 warning，不整体重试。
 3. **轴与形态归一**：LLM 可省略 `axis`——percent 列后端强制 `axis=secondary` 且（combo 内）`kind=line`，其余默认 `primary`；与 LLM 显式指定冲突且违反 V-3/V-4 时，以后端强制规则为准。
 4. **数据投影**：后端按 `config.dimension` + `config.series[].column` 从 SemanticTable 取真实数据填充 `categories` 与 `data`（null 原样保留，C-3），生成完整 ChartSpec（§5.4），过 V-1~V-8；不过则丢弃该条。
-5. **缺失系列提示（确定性，不依赖 LLM 是否写出）**：投影后任一 `series.data` 含 null，则在该 ChartSpec 的 `reasoning` 末尾**原样追加**：`该系列数据不完整，建议不纳入`（LLM 的 reasoning 已包含该短语时不重复追加；多系列缺失时逐系列以「列名：」前缀注明）。**禁止**为缺失值编造任何数值（A-3.6）。
+5. **缺失系列提示（确定性，不依赖 LLM 是否写出）**：投影后任一 `series.data` 含 null，则在该 ChartSpec 的 `reasoning` 末尾**原样追加**规定提示语（v1.14：`lang="en"` 时为 `Incomplete data for this series; exclude with caution`，否则为中文「该系列数据不完整，建议不纳入」；LLM 的 reasoning 已包含对应语言的该短语时不重复追加；多系列缺失时逐系列以「列名：」/`"column: "` 前缀注明）。**禁止**为缺失值编造任何数值（A-3.6）。
 6. **语义层覆盖**：每条 ChartSpec 的 `semantic_layer` 取 LLM 值（非法/缺失时由后端推断：含 percent 副轴→`rate`；line/slope 且≥2 期同单位→`trend`；否则→`comparison`）。LLM 结果若未同时覆盖 trend / comparison / rate 三层（且数据支持），用降级策略补齐缺失层。
 7. **降级策略**（LLM 失败或覆盖不全时的启发式兜底，按数据条件产出）：
    - 有 measure + percent → `combo`（measure bar 主轴 + percent line 副轴，`rate`）；
@@ -729,7 +730,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 |---|---|---|---|---|
 | GET | `/api/health` | - | `{"status":"ok"}` | 健康检查 |
 | POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用（已实现） |
-| POST | `/api/recommend` | SemanticTable | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3 |
+| POST | `/api/recommend` | SemanticTable，可选顶层 `lang: "zh"\|"en"`（默认 zh；可与 `columns/rows` 同级，兼容裸表） | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3；`lang` 决定 title/reasoning 与降级模板语言（v1.14），列名等数据保持原文 |
 | POST | `/api/generate-pptx` | GeneratePptxRequest（§5.6，单图 `{chart_type, config, data}`） | `.pptx` 文件流 | M4（已实现）；错误返回 ApiError + 4xx/5xx |
 | POST | `/api/generate-gif` | AnimatedFramesRequest（§5.6a，GIF 帧序列 + transparent?） | `.gif` 文件流 | M4b 动效直出（v1.12 主形态，R-6） |
 | POST | `/api/generate-animated-pptx` | AnimatedFramesRequest（§5.6a，GIF 帧序列） | `.pptx` 文件流 | M4b 嵌入版（v1.11，保留，R-6） |

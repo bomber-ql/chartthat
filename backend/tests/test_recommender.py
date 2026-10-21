@@ -245,7 +245,7 @@ def test_incomplete_series_annotation(table: dict[str, Any]) -> None:
     assert dau["data"][0] is None and dau["data"][5] is None  # 微信/小红书
     assert dau["data"][1] == 7.0                              # 抖音完整
     assert 0 not in dau["data"]                               # 禁止 0 顶替
-    assert INCOMPLETE_NOTE in spec["reasoning"]
+    assert INCOMPLETE_NOTE["zh"] in spec["reasoning"]
     assert "2024 DAU" in spec["reasoning"]
 
 
@@ -254,8 +254,81 @@ def test_annotation_not_duplicated(table: dict[str, Any]) -> None:
 
     def llm(_m: list[dict[str, str]]) -> str:
         item = _combo_item(with_dau=True)
-        item["reasoning"] = f"DAU 缺失较多，{INCOMPLETE_NOTE}"
+        item["reasoning"] = f"DAU 缺失较多，{INCOMPLETE_NOTE['zh']}"
         return json.dumps([item], ensure_ascii=False)
 
     spec = recommend_charts(table, llm_call=llm)["recommendations"][0]
-    assert spec["reasoning"].count(INCOMPLETE_NOTE) == 1
+    assert spec["reasoning"].count(INCOMPLETE_NOTE["zh"]) == 1
+
+
+# --------------------------------------------------------------------------- #
+# v1.14：lang=en 时 title/reasoning/prompt/降级模板英文，数据列名保持原文
+# --------------------------------------------------------------------------- #
+
+def test_english_lang_uses_english_prompt_and_passthrough_llm_text(table: dict[str, Any]) -> None:
+    """LLM 可用：英文 system prompt 被发送，LLM 英文 title/reasoning 原样透传。"""
+    import json
+
+    captured: dict[str, Any] = {}
+
+    def llm(messages: list[dict[str, str]]) -> str:
+        captured["system"] = messages[0]["content"]
+        captured["user"] = messages[1]["content"]
+        item = _combo_item()
+        item["title"] = "MAU scale and YoY growth by platform"
+        item["reasoning"] = "Dual axis for volume and growth rate"
+        return json.dumps([item], ensure_ascii=False)
+
+    result = recommend_charts(table, llm_call=llm, lang="en")
+    assert result["degraded"] is False
+    spec = result["recommendations"][0]
+    assert spec["title"] == "MAU scale and YoY growth by platform"
+    assert spec["reasoning"] == "Dual axis for volume and growth rate"
+    # 列名/维度保持原文，不翻译
+    assert spec["dimension_column"] == "平台"
+    assert any(s["source_column"] == "2024 MAU" for s in spec["series"])
+    # 英文 prompt
+    assert "English" in captured["system"]
+    assert "JSON array" in captured["user"]
+
+
+def test_english_lang_incomplete_note_is_english(table: dict[str, Any]) -> None:
+    import json
+
+    def llm(_m: list[dict[str, str]]) -> str:
+        item = _combo_item(with_dau=True)
+        item["reasoning"] = "Volume and growth on dual axes"  # 英文 LLM 产出英文 reasoning
+        return json.dumps([item], ensure_ascii=False)
+
+    spec = recommend_charts(table, llm_call=llm, lang="en")["recommendations"][0]
+    assert INCOMPLETE_NOTE["en"] in spec["reasoning"]
+    assert INCOMPLETE_NOTE["zh"] not in spec["reasoning"]
+    assert "2024 DAU" in spec["reasoning"]  # 列名仍原文
+
+
+def test_english_fallback_titles_and_note(table: dict[str, Any]) -> None:
+    """LLM 不可用（抛错）→ 完全降级：英文标题/说明 + 列名原文。"""
+    def llm(_m: list[dict[str, str]]) -> str:
+        raise RuntimeError("llm down")
+
+    result = recommend_charts(table, llm_call=llm, lang="en")
+    assert result["degraded"] is True
+    recs = result["recommendations"]
+    assert recs, "应至少有一条英文降级推荐"
+    for spec in recs:
+        assert spec["reasoning"].startswith("Heuristic recommendation")
+        # 英文模板标题含英文连接/关键词（列名本身可能含中文，故只断言模板英文部分）
+        english_words = ("by", "across", "vs", "stacked", "radar", "slope",
+                         "trend", "proportion", "share", "area")
+        assert any(w in spec["title"] for w in english_words), spec["title"]
+
+
+def test_invalid_lang_falls_back_to_zh(table: dict[str, Any]) -> None:
+    import json
+
+    def llm(_m: list[dict[str, str]]) -> str:
+        return json.dumps([_combo_item()], ensure_ascii=False)
+
+    result = recommend_charts(table, llm_call=llm, lang="fr")  # type: ignore[arg-type]
+    assert result["degraded"] is False
+    assert result["recommendations"][0]["chart_type"] == "combo"
