@@ -23,6 +23,13 @@ export interface CaptureOptions {
   height?: number;
 }
 
+/** 采帧底色：ECharts canvas 默认透明，GIF 不支持半透明（透明区会被填黑），
+ * 必须按当前主题铺实底（与 styles.css 的 --stage-bg 深色/浅色取值一致）。 */
+const STAGE_BG: Record<Theme, string> = {
+  dark: '#0d1424',
+  light: '#f4f8fc',
+};
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export async function captureChartFrames(
@@ -40,12 +47,14 @@ export async function captureChartFrames(
 
   const chart = echarts.init(host, undefined, { devicePixelRatio: 2, renderer: 'canvas' });
   try {
-    chart.setOption(specToOption(spec, theme));
+    const option = specToOption(spec, theme);
+    option.backgroundColor = STAGE_BG[theme];
+    chart.setOption(option);
 
     const frames: string[] = [];
     const totalFrames = Math.max(2, Math.round(durationMs / frameMs) + 1);
     for (let i = 0; i < totalFrames; i += 1) {
-      frames.push(chart.getRenderedCanvas().toDataURL('image/png'));
+      frames.push(chart.renderToCanvas().toDataURL('image/png'));
       if (i < totalFrames - 1) await sleep(frameMs);
     }
     return { frames, frameMs };
