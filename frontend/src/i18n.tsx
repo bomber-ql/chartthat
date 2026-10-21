@@ -61,6 +61,14 @@ const STRINGS = {
     inputHint: 'Markdown 表格 / CSV / xlsx；「未披露·无·—」自动识别为缺失，解析后自动生成候选图表。',
     inputPlaceholder: '粘贴表格文本，或点击「一键示例」快速体验…',
     sample: '一键示例',
+    sampleData:
+      '| 产品线 | 2024营收 | 2025营收 | 同比增长 | 市场份额 | 毛利率 |\n' +
+      '|---|---|---|---|---|---|\n' +
+      '| 产品线甲 | 12.3亿 | 14.8亿 | +20.3% | 18.5% | 32.1% |\n' +
+      '| 产品线乙 | 9.8亿 | 10.2亿 | +4.1% | 13.2% | 28.6% |\n' +
+      '| 产品线丙 | 7.5亿 | 7.1亿 | -5.3% | 9.4% | 24.8% |\n' +
+      '| 产品线丁 | 5.2亿 | 6.6亿 | +26.9% | 8.1% | 35.2% |\n' +
+      '| 产品线戊 | 3.4亿 | 未披露 | — | 4.7% | 19.5% |',
     upload: '上传',
     analyze: '解析并生成图表',
     analyzing: '解析中…',
@@ -110,6 +118,14 @@ const STRINGS = {
     inputHint: 'Markdown table / CSV / xlsx; "N/A · none · —" are detected as missing. Candidates are generated right after parsing.',
     inputPlaceholder: 'Paste a table here, or click "Load Sample" to try…',
     sample: 'Load Sample',
+    sampleData:
+      '| Product Line | Revenue 2024 | Revenue 2025 | YoY Growth | Market Share | Gross Margin |\n' +
+      '|---|---|---|---|---|---|\n' +
+      '| Product A | 123 | 148 | +20.3% | 18.5% | 32.1% |\n' +
+      '| Product B | 98 | 102 | +4.1% | 13.2% | 28.6% |\n' +
+      '| Product C | 75 | 71 | -5.3% | 9.4% | 24.8% |\n' +
+      '| Product D | 52 | 66 | +26.9% | 8.1% | 35.2% |\n' +
+      '| Product E | 34 | N/A | — | 4.7% | 19.5% |',
     upload: 'Upload',
     analyze: 'Parse & Generate',
     analyzing: 'Parsing…',

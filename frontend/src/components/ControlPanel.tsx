@@ -44,14 +44,6 @@ async function parseFile(file: File, failMsg: string): Promise<SemanticTable> {
   return (await res.json()) as SemanticTable;
 }
 
-const SAMPLE =
-  '| 平台 | 2024 MAU | 2025 MAU | 同比 | 2024 DAU | 2025 DAU |\n' +
-  '|---|---|---|---|---|---|\n' +
-  '| 微信 | 13.9亿 | 14.2亿 | +2.4% | 未披露 | 未披露 |\n' +
-  '| 抖音 | 10.5亿 | 11.7亿 | +11.2% | 7.0亿 | 7.6亿 |\n' +
-  '| 快手 | 7.2亿 | 7.0亿 | -2.8% | 4.1亿 | 4.0亿 |\n' +
-  '| 微博 | 5.9亿 | 5.7亿 | -3.9% | 2.6亿 | 2.5亿 |';
-
 export default function ControlPanel({
   table,
   initialText,
@@ -118,8 +110,9 @@ export default function ControlPanel({
             className="btn btn-ghost"
             disabled={loading}
             onClick={() => {
-              setText(SAMPLE);
-              void run(() => parseText(SAMPLE, t('parseFailed')), SAMPLE);
+              const sample = t('sampleData');
+              setText(sample);
+              void run(() => parseText(sample, t('parseFailed')), sample);
             }}
           >
             {t('sample')}
