@@ -25,6 +25,7 @@ export default function App() {
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [transparentGif, setTransparentGif] = useState(false);
+  const [showLabels, setShowLabels] = useState(false);
 
   const recById = new Map((recs ?? []).map((r) => [r.id, r]));
   const selectedSpecs = selectedIds
@@ -131,7 +132,7 @@ export default function App() {
     setExportMsg(null);
     try {
       for (const s of targets) {
-        const frames = await captureFrames(s, theme, transparentGif);
+        const frames = await captureFrames(s, theme, { transparent: transparentGif, showLabels });
         const res = await fetch('/api/generate-gif', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -216,6 +217,8 @@ export default function App() {
           exportMsg={exportMsg}
           transparentGif={transparentGif}
           onToggleTransparent={setTransparentGif}
+          showLabels={showLabels}
+          onToggleLabels={setShowLabels}
           onExport={() => void exportPptx()}
           onExportGif={() => void exportGif()}
           onRemove={toggleSelect}

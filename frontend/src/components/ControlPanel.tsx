@@ -13,6 +13,8 @@ interface ControlPanelProps {
   exportMsg: string | null;
   transparentGif: boolean;
   onToggleTransparent: (v: boolean) => void;
+  showLabels: boolean;
+  onToggleLabels: (v: boolean) => void;
   onExport: () => void;
   onExportGif: () => void;
   onRemove: (id: string) => void;
@@ -63,6 +65,8 @@ export default function ControlPanel({
   onExportGif,
   transparentGif,
   onToggleTransparent,
+  showLabels,
+  onToggleLabels,
   onRemove,
 }: ControlPanelProps) {
   const { t, chartLabel } = useI18n();
@@ -206,6 +210,15 @@ export default function ControlPanel({
         >
           {exporting ? t('exporting') : t('exportGifBtn', { n: exportableCount })}
         </button>
+        <label className="gif-opt">
+          <input
+            type="checkbox"
+            checked={showLabels}
+            disabled={exporting}
+            onChange={(e) => onToggleLabels(e.target.checked)}
+          />
+          <span>{t('showDataLabels')}</span>
+        </label>
         <label className="gif-opt">
           <input
             type="checkbox"

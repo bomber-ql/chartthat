@@ -458,3 +458,62 @@ export function specToOption(spec: ChartSpec, theme: Theme = 'dark'): EChartsOpt
       return singleAxisOption(spec, 'bar', T);
   }
 }
+
+interface LabelParams {
+  name?: string;
+  value?: unknown;
+  dataIndex?: number;
+}
+
+// v1.13：GIF 采帧可选「显示数据标签」（SPEC 修订记录 v1.13）。GIF 为位图导出后不可
+// 编辑，数值显示须在导出期决定；仅用于动效采帧，预览与标准 pptx 不启用。
+export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: Theme = 'dark'): void {
+  const T = THEME_TOKENS[theme];
+  const byName = new Map(spec.series.map((s) => [s.name, s]));
+  const list = (Array.isArray(option.series) ? option.series : option.series ? [option.series] : []) as Array<Record<string, unknown>>;
+  list.forEach((serie) => {
+    if (!serie || typeof serie !== 'object') return;
+    if (serie.name === '__base__') return; // waterfall 透明底座不标值
+    const def = byName.get(String(serie.name ?? '')) ?? spec.series[0];
+    if (!def) return;
+    const fmt = valueFormatter(def.unit);
+    const type = String(serie.type ?? '');
+    const prev = (serie.label && typeof serie.label === 'object' ? serie.label : {}) as Record<string, unknown>;
+    let label: Record<string, unknown>;
+    if (spec.chart_type === 'waterfall') {
+      // 显示带正负的真实增量（option 内存的是 abs 堆叠值，不能直接用）
+      label = {
+        show: true,
+        position: 'top',
+        fontSize: 9,
+        color: T.tooltipText,
+        formatter: (p: LabelParams): string => {
+          const v = typeof p.dataIndex === 'number' ? def.data[p.dataIndex] : null;
+          return typeof v === 'number' && !Number.isNaN(v) ? fmt(v) : '';
+        },
+      };
+    } else if (type === 'pie' || type === 'sunburst') {
+      label = {
+        show: true,
+        fontSize: 9,
+        color: T.tooltipText,
+        formatter: (p: LabelParams): string => {
+          const v = p.value;
+          return typeof v === 'number' && !Number.isNaN(v) ? `${p.name ?? ''}: ${fmt(v)}` : String(p.name ?? '');
+        },
+      };
+    } else {
+      label = {
+        show: true,
+        position: spec.chart_type === 'hbar' ? 'right' : spec.chart_type === 'stacked' ? 'inside' : 'top',
+        fontSize: 9,
+        color: T.tooltipText,
+        formatter: (p: LabelParams): string => {
+          const raw = Array.isArray(p.value) ? p.value[p.value.length - 1] : p.value;
+          return typeof raw === 'number' && !Number.isNaN(raw) ? fmt(raw) : '';
+        },
+      };
+    }
+    serie.label = { ...prev, ...label };
+  });
+}

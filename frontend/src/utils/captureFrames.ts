@@ -14,7 +14,7 @@ import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import type { ChartSpec } from '../types';
 import type { Theme } from '../theme';
-import { specToOption } from './specToOption';
+import { applyDataLabels, specToOption } from './specToOption';
 
 const FRAME_WIDTH = 960;
 const FRAME_HEIGHT = 540; // 16:9
@@ -22,13 +22,20 @@ const FRAME_INTERVAL_MS = 100; // 与后端默认 frame_ms 一致
 const TOTAL_FRAMES = 20; // 总时长 ≈ 1.9s，覆盖 1.5s 绘制动画
 const WARMUP_MS = 60; // setOption 后留一拍让首帧上屏
 
-/** 主题对应的实底采帧色（与卡片舞台底色一致，GIF 不支持半透明需铺实底）。 */
+/** 主题对应的实底采帧色（GIF 不支持半透明需铺实底；v1.13 浅色改纯白，贴 PPT 白底不带色）。 */
 const THEME_BG: Record<Theme, string> = {
   dark: '#0d1424',
-  light: '#f4f8fc',
+  light: '#ffffff',
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export interface CaptureOptions {
+  /** true=画布透明，后端合成二元透明 GIF（仅适合贴同色背景）；默认 false=主题实底。 */
+  transparent?: boolean;
+  /** true=在 GIF 中显示每个数据点的数值标签（位图导出后不可编辑，v1.13）。 */
+  showLabels?: boolean;
+}
 
 /**
  * 离屏播放指定图表的绘制动画并截取多帧 PNG dataURL。
@@ -37,7 +44,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 export async function captureFrames(
   spec: ChartSpec,
   theme: Theme,
-  transparent = false
+  { transparent = false, showLabels = false }: CaptureOptions = {}
 ): Promise<string[]> {
   const holder = document.createElement('div');
   holder.setAttribute('aria-hidden', 'true');
@@ -61,6 +68,9 @@ export async function captureFrames(
       devicePixelRatio: 2,
     });
     const baseOption: EChartsOption = specToOption(spec, theme);
+    if (showLabels) {
+      applyDataLabels(baseOption, spec, theme);
+    }
     chart.setOption({
       ...baseOption,
       backgroundColor: transparent ? 'transparent' : THEME_BG[theme],
