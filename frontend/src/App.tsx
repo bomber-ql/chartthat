@@ -104,6 +104,7 @@ export default function App() {
             chart_type: s.chart_type,
             title: s.title,
             config: { dimension: s.dimension_column },
+            show_labels: showLabels,
             data: {
               categories: s.categories,
               series: s.series.map((x) => ({

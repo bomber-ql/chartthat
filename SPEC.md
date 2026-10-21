@@ -1,9 +1,11 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.13 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（十三图型全覆盖），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
+> 版本：v1.16 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出可随界面语言 zh/en），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.16：①标准 PPTX 导出支持**数据标签开关**。GeneratePptxRequest 顶层新增可选 `show_labels`（默认 false）；为 true 时给原生可编辑 Chart 写入 `<c:dLbls>`：柱/条/线/面积/堆叠/斜率显值，饼/圆环/旭日显「类别名+值」，瀑布仅「增量」系列显值（透明底座不加），散点/雷达因 python-pptx 原生 dLbls 支持差而安全跳过（不报错）；数字格式沿用各序列 unit 轴口径（percent=`0.0%`、yi/wan 带单位、count=`General`）。标签是原生图表元素、在 PPT/WPS 可继续编辑，C-1 不违反。「显示数据标签」开关自此同时作用于预览、GIF 与标准 PPTX。②修复降级标题泄漏内部单位码：line/area/stacked/slope/radar 启发式标题不再拼接裸 unit（曾出现「产品线各期yi指标趋势」），单位只保留在坐标轴与数据标签上。
+- v1.15：「显示数据标签」开关经 App→PreviewPanel→ChartCard 透传，预览卡片与 GIF 采帧共用 `applyDataLabels`，勾选即显、取消即隐（所见即所得）；标准 pptx 当时仍不带标签（v1.16 补齐）。
 - v1.14：**推荐产出跟随界面语言**。`/api/recommend` 入参在裸 SemanticTable 基础上新增可选 `lang`（`"zh"`（默认）/`"en"`；兼容旧调用，缺省/非法值回退 zh）。`lang="en"` 时：LLM system prompt 指示 **title 与 reasoning 一律用英文输出**；LLM 不可用时的启发式降级标题/说明、缺失系列固定提示语均切换为英文模板（中文：「该系列数据不完整，建议不纳入」；英文：`"Incomplete data for this series; exclude with caution"`；降级说明英文：`"Heuristic recommendation (LLM unavailable or incomplete)"`）。**列名、categories（维度取值）、series.name 等数据驱动内容始终保持用户原文不翻译**（C-5 投影依据，翻译会破坏列引用匹配）；翻译范围仅限 title/reasoning 等模型/模板生成的说明性文本。前端按当前 i18n 语言在推荐请求中携带 `lang`。
 - v1.13：GIF 采帧体验两处修订。①**浅色主题实底由浅蓝 `#f4f8fc` 改为纯白 `#ffffff`**（用户反馈：贴 PPT 白底场景不应带颜色）。②采帧新增可选**数据标签**（GIF 为位图、导出后不可编辑，数值显示与否须在导出期决定）：前端导出区加「显示数据标签」开关，仅作用于动效 GIF 采帧（预览与标准 pptx 不变）；实现为 `specToOption` 的导出后处理器 `applyDataLabels(option, spec, theme)`——按 series 名匹配单位（`valueFormatter` 口径：percent 0.112→11.2%、亿/万追加单位），waterfall 显示**带正负的真实增量**而非 abs 堆叠值并跳过透明底座（`__base__`），pie/donut/sunburst 为「名称: 值」，柱/条/线/面积/堆叠/组合/散点/雷达按图型选 label 位置（hbar→right、stacked→inside、其余→top）。
 - v1.12：动效产物**主形态从「嵌入 pptx」改为「直出 .gif 文件」**，并新增透明背景选项。新增端点 `POST /api/generate-gif`：入参与 §5.6a 相同（`{title?（忽略，GIF 无标题）, frames, frame_ms?, transparent?}`），直接返回 `image/gif`（`Content-Disposition: attachment; filename="chart-{ts}.gif"`，GIF89a、loop=0）。前端动效按钮从「导出动效版 pptx」改为「导出动效 GIF」，逐图下载 .gif；不再默认套一层 pptx。`transparent`（默认 false）：①false=**跟随当前 UI 主题的实底色**（前端采帧时铺深色/浅色实底，GIF 不支持半透明、透明区域会被填黑）；②true=**二元透明**——GIF 仅支持每像素全透/不透（无 alpha 半透明），线条与文字抗锯齿边缘、面积图半透明填充、深色主题发光阴影会被硬切（可能出现毛边），且图表内文字/坐标色随主题（深色主题浅字贴到白底上不可见），**透明底仅适用于贴到与主题同色的背景**，作为可选项提供，默认实底。实现上透明模式保留 RGBA 合成（`disposal=2` 防帧残影、`transparency` 索引）。嵌入 pptx 的 `POST /api/generate-animated-pptx`（§5.6a）保留但前端不再主推；两端点共享同一 GIF 合成核心。标准静态导出 `/api/generate-pptx`（原生可编辑 Chart，C-1）不变。
@@ -494,7 +496,9 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 **GenerateResult**：HTTP 层直接返回 `.pptx` 文件流（见 §7）：
 `Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`
-`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`；`animate=true` 时文件名为 `chart-animated-{yyyyMMdd-HHmmss}.pptx`。
+`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`（标准端点自 v1.11 起不再有 `animate`，动效产物见 §5.6a）。
+
+**数据标签（v1.16）**：请求体顶层可选 `show_labels: boolean`（默认 false）。为 true 时在原生 Chart 的序列上写 `<c:dLbls>` 显值（口径见修订记录 v1.16）；标签为原生元素、可在 PPT/WPS 继续编辑。
 错误时返回 §5.7 ApiError（构建失败 `PPTX_BUILD_FAILED`，HTTP 500）。
 
 ### 5.6a 动效产物契约（GIF，v1.11 引入 / v1.12 扩展为直出 + 嵌入两形态，R-6）

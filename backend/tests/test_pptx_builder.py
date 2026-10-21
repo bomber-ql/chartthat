@@ -13,6 +13,7 @@ import io
 import zipfile
 
 import pytest
+from lxml import etree
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from fastapi.testclient import TestClient
@@ -450,3 +451,64 @@ def test_generate_pptx_endpoint_filename():
     assert resp.status_code == 200
     disposition = resp.headers.get("content-disposition", "")
     assert "chart-2" in disposition and "animated" not in disposition
+
+
+# ---------------------------------------------------------------------------
+# v1.16 数据标签（原生 c:dLbls）
+# ---------------------------------------------------------------------------
+def test_show_labels_bar_writes_dlbls():
+    blob = build_pptx({"chart_type": "bar", "show_labels": True, "data": {
+        "categories": ["a", "b"],
+        "series": [_series("营收", [1.0, 2.0], unit="yi")],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:dLbls>" in xml
+    assert "<c:showVal val=\"1\"/>" in xml
+    assert '0.0&quot;亿&quot;' in xml  # yi 单位数字格式
+
+
+def test_show_labels_default_off():
+    blob = build_pptx({"chart_type": "bar", "data": {
+        "categories": ["a", "b"],
+        "series": [_series("营收", [1.0, 2.0], unit="yi")],
+    }})
+    assert "<c:dLbls>" not in _chart_xml(blob)
+
+
+def test_show_labels_pie_shows_category_and_value():
+    blob = build_pptx({"chart_type": "pie", "show_labels": True, "data": {
+        "categories": ["x", "y"],
+        "series": [_series("占比", [4.0, 5.0])],
+    }})
+    xml = _chart_xml(blob)
+    assert "<c:dLbls>" in xml
+    assert "<c:showCatName val=\"1\"/>" in xml
+    assert "<c:showVal val=\"1\"/>" in xml
+
+
+def test_show_labels_waterfall_only_delta_series():
+    blob = build_pptx({"chart_type": "waterfall", "show_labels": True, "data": {
+        "categories": ["期初", "迁移", "期末"],
+        "series": [_series("变化", [10.0, 3.0, -2.0])],
+    }})
+    _, _, charts = _charts(blob)
+    chart = charts[0]
+    # 两个系列（底座、增量）：仅增量（index 1）有 dLbls，底座无
+    base_xml = etree.tostring(chart.series[0]._element, encoding="unicode")
+    delta_xml = etree.tostring(chart.series[1]._element, encoding="unicode")
+    assert "<c:dLbls>" not in base_xml
+    assert "<c:dLbls>" in delta_xml
+
+
+def test_show_labels_radar_safely_skipped():
+    # radar 的 python-pptx dLbls 支持差，开启不应报错也不强写
+    blob = build_pptx({"chart_type": "radar", "show_labels": True, "data": {
+        "categories": ["a", "b", "c"],
+        "series": [
+            _series("p1", [1.0, 2.0, 3.0], unit="count"),
+            _series("p2", [2.0, 3.0, 1.0], unit="count"),
+            _series("p3", [3.0, 1.0, 2.0], unit="count"),
+        ],
+    }})
+    _, _, charts = _charts(blob)
+    assert len(charts[0].series) == 3  # 正常构建未中断

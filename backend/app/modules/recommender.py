@@ -405,17 +405,17 @@ def _fallback_specs(table: dict[str, Any], lang: str = DEFAULT_LANG) -> list[dic
         unit_groups.setdefault(_columns_by_name(table)[name]["unit"], []).append(name)
     for unit, names in unit_groups.items():
         if len(names) >= 2:
-            title_line = f"{dim} {unit} trend across periods" if lang == "en" else f"{dim}各期{unit}指标趋势"
-            title_area = f"{dim} {unit} area across periods" if lang == "en" else f"{dim}各期{unit}指标面积"
-            title_stack = f"{unit} stacked composition by {dim}" if lang == "en" else f"各{dim}{unit}指标堆叠构成"
+            title_line = f"{dim} trend across periods" if lang == "en" else f"{dim}各期指标趋势"
+            title_area = f"{dim} area across periods" if lang == "en" else f"{dim}各期指标面积"
+            title_stack = f"Stacked composition by {dim}" if lang == "en" else f"各{dim}指标堆叠构成"
             out.append(make("line", title_line, names[:4], "trend"))
             out.append(make("area", title_area, names[:2], "trend"))
             out.append(make("stacked", title_stack, names[:3], "comparison"))
             if len(names) == 2:
-                title_slope = f"{dim} two-period {unit} slope" if lang == "en" else f"{dim}两期{unit}变化斜率"
+                title_slope = f"{dim} two-period slope" if lang == "en" else f"{dim}两期变化斜率"
                 out.append(make("slope", title_slope, names, "trend"))
             if len(names) >= 3:
-                title_radar = f"{dim} {unit} radar" if lang == "en" else f"{dim}{unit}指标雷达"
+                title_radar = f"{dim} radar" if lang == "en" else f"{dim}指标雷达"
                 out.append(make("radar", title_radar, names[:5], "comparison"))
             break
 

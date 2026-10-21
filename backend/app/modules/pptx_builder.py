@@ -23,7 +23,7 @@ from lxml import etree
 from pptx import Presentation
 from pptx.chart.chart import Chart
 from pptx.chart.data import CategoryChartData, XyChartData
-from pptx.enum.chart import XL_CHART_TYPE
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION
 from pptx.util import Inches
 
 import ablechart
@@ -203,6 +203,47 @@ def _set_gap_for_nulls(chart: Chart) -> None:
 
 
 # --------------------------------------------------------------------------
+# v1.16：原生数据标签（<c:dLbls>，可在 PPT/WPS 继续编辑，C-1 不违反）
+# --------------------------------------------------------------------------
+def _apply_data_labels(
+    chart: Chart,
+    units: list[str],
+    *,
+    pie_like: bool = False,
+    skip_indexes: set[int] | None = None,
+    label_position: XL_LABEL_POSITION | None = None,
+) -> None:
+    """给每个序列开启数据标签。
+
+    units 与 chart.series 顺序对应，决定 numFmt（percent=0.0%、yi/wan 带单位、
+    count=General）。pie_like=True 时显「类别名 + 值」。skip_indexes 中的序列
+    不加标签（瀑布图透明底座系列）。label_position 控制标签位置（柱/条类）。
+    scatter/radar 等 python-pptx dLbls 支持不稳定的图型由调用方不调用本函数。
+    """
+    skip_indexes = skip_indexes or set()
+    for i, s in enumerate(chart.series):
+        if i in skip_indexes:
+            continue
+        try:
+            dl = s.data_labels
+        except Exception:  # noqa: BLE001 - 个别图型不支持标签时安全跳过
+            continue
+        if pie_like:
+            dl.show_category_name = True
+            dl.show_value = True
+            continue
+        dl.show_value = True
+        fmt = _AXIS_FORMAT.get(units[i] if i < len(units) else "count", "General")
+        dl.number_format = fmt
+        dl.number_format_is_linked = False
+        if label_position is not None:
+            try:
+                dl.position = label_position
+            except Exception:  # noqa: BLE001 - 位置不被该图型接受时退回默认
+                pass
+
+
+# --------------------------------------------------------------------------
 # C-2：断开外部数据链接（等价 BreakLink，R-2）
 # --------------------------------------------------------------------------
 def break_external_chart_links(prs: Presentation) -> None:
@@ -246,7 +287,9 @@ def _add_title(slide: Any, title: str) -> None:
     para.font.bold = True
 
 
-def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: str) -> Chart:
+def _build_category_chart(
+    prs: Presentation, spec: dict[str, Any], chart_type: str, show_labels: bool = False
+) -> Chart:
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_title(slide, spec["title"] or "")
 
@@ -276,10 +319,14 @@ def _build_category_chart(prs: Presentation, spec: dict[str, Any], chart_type: s
     _set_axis_numfmt(chart, 0, _AXIS_FORMAT[primary_unit])
     if chart_type in {"line", "slope"}:
         _set_gap_for_nulls(chart)
+    if show_labels and chart_type != "radar":
+        # 堆叠柱标签置段内居中（段外会堆到柱顶外），其余柱/条/线/面积置端外。
+        pos = XL_LABEL_POSITION.CTR if chart_type == "stacked" else XL_LABEL_POSITION.OUTSIDE_END
+        _apply_data_labels(chart, [s["unit"] for s in spec["series"]], label_position=pos)
     return chart
 
 
-def _build_waterfall(prs: Presentation, spec: dict[str, Any]) -> Chart:
+def _build_waterfall(prs: Presentation, spec: dict[str, Any], show_labels: bool = False) -> Chart:
     """waterfall 等价实现（R-5）：COLUMN_STACKED，底座系列透明 + 增量系列。
 
     取值口径（§6 M4 映射表）：底座 = min(前值累计, 后值累计)，增量 = |原始增量|。
@@ -314,10 +361,13 @@ def _build_waterfall(prs: Presentation, spec: dict[str, Any]) -> Chart:
     chart = graphic.chart
     chart.series[0].format.fill.background()  # 底座透明，仅起垫高作用
     _set_axis_numfmt(chart, 0, _AXIS_FORMAT[s["unit"]])
+    if show_labels:
+        # 仅给「增量」系列（index 1）加标签，透明底座（index 0）不加。
+        _apply_data_labels(chart, ["count", s["unit"]], skip_indexes={0})
     return chart
 
 
-def _build_scatter(prs: Presentation, spec: dict[str, Any]) -> Chart:
+def _build_scatter(prs: Presentation, spec: dict[str, Any], show_labels: bool = False) -> Chart:
     """scatter：XyChartData，任一坐标为 None 的点整体剔除（C-3）。"""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_title(slide, spec["title"] or "")
@@ -344,10 +394,11 @@ def _build_scatter(prs: Presentation, spec: dict[str, Any]) -> Chart:
     # x 轴为 valAx[0]，y 轴为 valAx[1]，按对应系列 unit 设数字格式。
     _set_axis_numfmt(chart, 0, _AXIS_FORMAT[x_series["unit"]])
     _set_axis_numfmt(chart, 1, _AXIS_FORMAT[y_series["unit"]])
+    # v1.16：散点图 python-pptx 数据标签支持差，show_labels 时安全跳过（不报错）。
     return chart
 
 
-def _build_pie(prs: Presentation, spec: dict[str, Any], chart_type: str = "pie") -> Chart:
+def _build_pie(prs: Presentation, spec: dict[str, Any], chart_type: str = "pie", show_labels: bool = False) -> Chart:
     """pie/donut/sunburst：CategoryChartData，值为 None 的扇区整体剔除（C-3）。
 
     sunburst 按 R-5 降级为 DOUGHNUT 近似导出。
@@ -369,10 +420,12 @@ def _build_pie(prs: Presentation, spec: dict[str, Any], chart_type: str = "pie")
     graphic = slide.shapes.add_chart(
         xl_type, Inches(0.5), top, Inches(12.3), Inches(5.6), chart_data
     )
+    if show_labels:
+        _apply_data_labels(graphic.chart, [s["unit"]], pie_like=True)
     return graphic.chart
 
 
-def _build_combo(prs: Presentation, spec: dict[str, Any]) -> Chart:
+def _build_combo(prs: Presentation, spec: dict[str, Any], show_labels: bool = False) -> Chart:
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_title(slide, spec["title"] or "")
 
@@ -409,6 +462,8 @@ def _build_combo(prs: Presentation, spec: dict[str, Any]) -> Chart:
         _set_axis_numfmt(chart, 0, _AXIS_FORMAT[next(iter(primary_units))])
     if secondary_units:
         _set_axis_numfmt(chart, 1, _AXIS_FORMAT[next(iter(secondary_units))])
+    if show_labels:
+        _apply_data_labels(chart, [s["unit"] for s in spec["series"]])
     return chart
 
 
@@ -422,16 +477,17 @@ def build_pptx(request: dict[str, Any]) -> bytes:
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
 
+    show_labels = bool(request.get("show_labels", False))
     if spec["chart_type"] == "combo":
-        _build_combo(prs, spec)
+        _build_combo(prs, spec, show_labels)
     elif spec["chart_type"] == "scatter":
-        _build_scatter(prs, spec)
+        _build_scatter(prs, spec, show_labels)
     elif spec["chart_type"] == "waterfall":
-        _build_waterfall(prs, spec)
+        _build_waterfall(prs, spec, show_labels)
     elif spec["chart_type"] in {"pie", "donut", "sunburst"}:
-        _build_pie(prs, spec, spec["chart_type"])
+        _build_pie(prs, spec, spec["chart_type"], show_labels)
     else:  # bar / hbar / line / area / stacked / slope / radar
-        _build_category_chart(prs, spec, spec["chart_type"])
+        _build_category_chart(prs, spec, spec["chart_type"], show_labels)
 
     break_external_chart_links(prs)
 
