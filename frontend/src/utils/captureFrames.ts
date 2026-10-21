@@ -1,65 +1,88 @@
-/** 动效版导出的离屏采帧工具（SPEC §5.6a/§6a，v1.11，R-6）。
+/**
+ * M4b 动效产物：离屏 ECharts 绘制动画采帧（SPEC §5.6a/§6a，v1.11 / v1.12）。
  *
- * 创建隐藏容器初始化离屏 ECharts，播放绘制动画的同时以固定帧间隔采样
- * canvas.toDataURL('image/png')，得到上传给 /api/generate-animated-pptx 的帧序列。
+ * 在脱离文档流的隐藏容器中 init 一张 ECharts，注入 specToOption(spec, theme)，
+ * 利用其原生绘制动画，按固定间隔用 renderToCanvas 截取 PNG dataURL，产出
+ * 一组帧序列（≥2 帧）交给后端合成循环 GIF。
+ *
+ * 背景（v1.12）：
+ * - transparent=false（默认）：铺与当前 UI 主题一致的实底色，GIF 播放观感最佳；
+ * - transparent=true：画布透明，后端合成二元透明 GIF（抗锯齿边缘会被硬切，
+ *   且图表文字随主题配色，仅适合贴到与主题同色的背景）。
  */
 import * as echarts from 'echarts';
+import type { EChartsOption } from 'echarts';
 import type { ChartSpec } from '../types';
 import type { Theme } from '../theme';
 import { specToOption } from './specToOption';
 
-export interface CaptureResult {
-  frames: string[];
-  frameMs: number;
-}
+const FRAME_WIDTH = 960;
+const FRAME_HEIGHT = 540; // 16:9
+const FRAME_INTERVAL_MS = 100; // 与后端默认 frame_ms 一致
+const TOTAL_FRAMES = 20; // 总时长 ≈ 1.9s，覆盖 1.5s 绘制动画
+const WARMUP_MS = 60; // setOption 后留一拍让首帧上屏
 
-export interface CaptureOptions {
-  /** 帧间隔（GIF duration），默认 100ms */
-  frameMs?: number;
-  /** 总采样时长，需覆盖绘制动画周期（specToOption 动画 1500ms + 渐进延迟），默认 1900ms */
-  durationMs?: number;
-  /** 离屏画布尺寸（CSS px；devicePixelRatio=2 输出 2 倍像素保证清晰度） */
-  width?: number;
-  height?: number;
-}
-
-/** 采帧底色：ECharts canvas 默认透明，GIF 不支持半透明（透明区会被填黑），
- * 必须按当前主题铺实底（与 styles.css 的 --stage-bg 深色/浅色取值一致）。 */
-const STAGE_BG: Record<Theme, string> = {
+/** 主题对应的实底采帧色（与卡片舞台底色一致，GIF 不支持半透明需铺实底）。 */
+const THEME_BG: Record<Theme, string> = {
   dark: '#0d1424',
   light: '#f4f8fc',
 };
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function captureChartFrames(
+/**
+ * 离屏播放指定图表的绘制动画并截取多帧 PNG dataURL。
+ * 失败（容器/实例化异常）时保证清理 DOM 与实例并向上抛出。
+ */
+export async function captureFrames(
   spec: ChartSpec,
   theme: Theme,
-  options: CaptureOptions = {},
-): Promise<CaptureResult> {
-  const { frameMs = 100, durationMs = 1900, width = 960, height = 600 } = options;
+  transparent = false
+): Promise<string[]> {
+  const holder = document.createElement('div');
+  holder.setAttribute('aria-hidden', 'true');
+  holder.style.position = 'fixed';
+  holder.style.left = '-10000px';
+  holder.style.top = '0';
+  holder.style.width = `${FRAME_WIDTH}px`;
+  holder.style.height = `${FRAME_HEIGHT}px`;
+  holder.style.pointerEvents = 'none';
+  holder.style.opacity = '0';
+  if (!transparent) {
+    holder.style.background = THEME_BG[theme];
+  }
+  document.body.appendChild(holder);
 
-  const host = document.createElement('div');
-  host.style.cssText =
-    `position:fixed;left:-10000px;top:0;width:${width}px;height:${height}px;` +
-    'pointer-events:none;visibility:hidden;';
-  document.body.appendChild(host);
-
-  const chart = echarts.init(host, undefined, { devicePixelRatio: 2, renderer: 'canvas' });
+  let chart: echarts.ECharts | null = null;
   try {
-    const option = specToOption(spec, theme);
-    option.backgroundColor = STAGE_BG[theme];
-    chart.setOption(option);
+    chart = echarts.init(holder, undefined, {
+      width: FRAME_WIDTH,
+      height: FRAME_HEIGHT,
+      devicePixelRatio: 2,
+    });
+    const baseOption: EChartsOption = specToOption(spec, theme);
+    chart.setOption({
+      ...baseOption,
+      backgroundColor: transparent ? 'transparent' : THEME_BG[theme],
+      animationDuration: 1500,
+      animationDurationUpdate: 1500,
+      animationEasing: 'cubicOut',
+    });
+
+    await sleep(WARMUP_MS);
 
     const frames: string[] = [];
-    const totalFrames = Math.max(2, Math.round(durationMs / frameMs) + 1);
-    for (let i = 0; i < totalFrames; i += 1) {
-      frames.push(chart.renderToCanvas().toDataURL('image/png'));
-      if (i < totalFrames - 1) await sleep(frameMs);
+    for (let i = 0; i < TOTAL_FRAMES; i += 1) {
+      const canvas = chart.renderToCanvas({
+        backgroundColor: transparent ? 'transparent' : THEME_BG[theme],
+        pixelRatio: 2,
+      });
+      frames.push(canvas.toDataURL('image/png'));
+      await sleep(FRAME_INTERVAL_MS);
     }
-    return { frames, frameMs };
+    return frames;
   } finally {
-    chart.dispose();
-    host.remove();
+    chart?.dispose();
+    holder.remove();
   }
 }

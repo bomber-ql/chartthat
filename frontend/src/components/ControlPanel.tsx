@@ -11,8 +11,10 @@ interface ControlPanelProps {
   exportableCount: number;
   exporting: boolean;
   exportMsg: string | null;
+  transparentGif: boolean;
+  onToggleTransparent: (v: boolean) => void;
   onExport: () => void;
-  onExportAnimated: () => void;
+  onExportGif: () => void;
   onRemove: (id: string) => void;
 }
 
@@ -58,7 +60,9 @@ export default function ControlPanel({
   exporting,
   exportMsg,
   onExport,
-  onExportAnimated,
+  onExportGif,
+  transparentGif,
+  onToggleTransparent,
   onRemove,
 }: ControlPanelProps) {
   const { t, chartLabel } = useI18n();
@@ -196,15 +200,24 @@ export default function ControlPanel({
           {exporting ? t('exporting') : t('exportBtn', { n: exportableCount })}
         </button>
         <button
-          className="btn btn-block"
+          className="btn btn-ghost btn-block"
           disabled={exporting || exportableCount === 0}
-          onClick={onExportAnimated}
+          onClick={onExportGif}
         >
-          {exporting ? t('exporting') : t('exportAnimatedBtn', { n: exportableCount })}
+          {exporting ? t('exporting') : t('exportGifBtn', { n: exportableCount })}
         </button>
+        <label className="gif-opt">
+          <input
+            type="checkbox"
+            checked={transparentGif}
+            disabled={exporting}
+            onChange={(e) => onToggleTransparent(e.target.checked)}
+          />
+          <span>{t('transparentGif')}</span>
+        </label>
         {exportMsg && <p className="notice">{exportMsg}</p>}
         <p className="muted tiny">{t('exportHint')}</p>
-        <p className="muted tiny">{t('exportAnimatedHint')}</p>
+        <p className="muted tiny">{t('exportGifHint')}</p>
       </section>
     </aside>
   );

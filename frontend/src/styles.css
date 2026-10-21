@@ -469,6 +469,24 @@ body {
   background: var(--btn-ghost-hover-bg);
 }
 
+.gif-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 -2px;
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+  user-select: none;
+}
+.gif-opt input {
+  accent-color: var(--cyan);
+  cursor: pointer;
+}
+.gif-opt input:disabled {
+  cursor: default;
+}
+
 .btn-primary {
   background: var(--grad);
   color: var(--btn-primary-text);

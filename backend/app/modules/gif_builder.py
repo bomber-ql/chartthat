@@ -1,13 +1,22 @@
-"""M4b 动效版 GIF 导出模块（SPEC §5.6a / §6a，v1.11，R-6）。
+"""M4b 动效产物 GIF 模块（SPEC §5.6a / §6a，v1.11 引入 / v1.12 直出为主，R-6）。
 
-入口：build_animated_pptx(request: dict) -> bytes
-- 入参 {title?, frames: string[], frame_ms?}；frames 为前端离屏 ECharts 采帧得到的
-  base64 PNG dataURL 数组（≥2 帧）；
-- PIL 逐帧解码 → 首帧 save(save_all=True, append_images=rest, duration=frame_ms,
-  loop=0) 合成循环动态 GIF；
-- python-pptx 新建 16:9 空白页，可选页标题，add_picture 等比缩放居中嵌入 GIF；
-- 位图产物、不可编辑，属独立动效产物，不影响 C-1（C-1 仅约束标准导出端点）。
-- 契约错误抛 ParseError("VALIDATION_FAILED")；合成/构建异常抛 ParseError("PPTX_BUILD_FAILED")。
+两个入口（共享帧校验与 GIF 合成核心）：
+- build_animated_gif(request)  -> bytes：POST /api/generate-gif，直接返回 image/gif；
+- build_animated_pptx(request) -> bytes：POST /api/generate-animated-pptx，
+  把同一 GIF 以 add_picture 等比居中嵌入 16:9 空白页（v1.11，保留）。
+
+入参 {title?, frames: string[], frame_ms?, transparent?}；frames 为前端离屏
+ECharts 采帧得到的 base64 PNG dataURL 数组（≥2 帧）。
+
+背景模式（v1.12）：
+- transparent=false（默认）：帧转 RGB 实底（前端已按 UI 主题铺深色/浅色底），
+  GIF 不支持半透明，透明像素若不铺底会被填黑；
+- transparent=true：保留 RGBA 合成，GIF 仅二元透明（P 模式 + transparency 索引、
+  disposal=2 防帧残影）；抗锯齿边缘/半透明填充会被硬切，且文字色随主题，仅适合
+  贴到与主题同色的背景。
+
+位图产物、不可编辑，属独立动效产物，不影响 C-1（C-1 仅约束标准导出端点）。
+契约错误抛 PptxValidationError("VALIDATION_FAILED")；合成/构建异常抛 ParseError("PPTX_BUILD_FAILED")。
 """
 from __future__ import annotations
 
@@ -37,8 +46,8 @@ _AREA_HEIGHT_IN = 5.6
 _AREA_HEIGHT_NO_TITLE_IN = 6.5
 
 
-def _decode_frame(raw: Any, index: int) -> "Image.Image":
-    """把一帧 base64 PNG dataURL 解码为 PIL Image（RGB）。"""
+def _decode_frame(raw: Any, index: int):
+    """把一帧 base64 PNG dataURL 解码为 PIL Image（RGBA，保留 alpha）。"""
     if Image is None:  # pragma: no cover
         raise ParseError("PPTX_BUILD_FAILED", "缺少 Pillow 依赖，无法合成 GIF")
     if not isinstance(raw, str) or not raw.startswith(_PNG_PREFIX):
@@ -60,13 +69,16 @@ def _decode_frame(raw: Any, index: int) -> "Image.Image":
         raise PptxValidationError(
             "VALIDATION_FAILED", f"frames[{index}] 不是合法 PNG 图片"
         ) from exc
-    return img.convert("RGB")
+    return img.convert("RGBA")
 
 
-def _validate_request(request: dict[str, Any]) -> dict[str, Any]:
-    """入参校验（SPEC §5.6a，不信任前端）。"""
+def _parse_request(request: dict[str, Any]) -> dict[str, Any]:
+    """入参校验 + 解码（SPEC §5.6a，不信任前端）。返回 RGBA 帧序列。"""
     if not isinstance(request, dict):
-        raise PptxValidationError("VALIDATION_FAILED", "请求体必须为 JSON 对象 {title?, frames, frame_ms?}")
+        raise PptxValidationError(
+            "VALIDATION_FAILED",
+            "请求体必须为 JSON 对象 {title?, frames, frame_ms?, transparent?}",
+        )
     frames = request.get("frames")
     if not isinstance(frames, list) or len(frames) < 2:
         raise PptxValidationError("VALIDATION_FAILED", "frames 必须为至少 2 帧的数组")
@@ -78,25 +90,45 @@ def _validate_request(request: dict[str, Any]) -> dict[str, Any]:
             "VALIDATION_FAILED",
             f"frame_ms 必须为 {_MIN_FRAME_MS}~{_MAX_FRAME_MS} 的整数",
         )
+    transparent = request.get("transparent", False)
+    if not isinstance(transparent, bool):
+        raise PptxValidationError("VALIDATION_FAILED", "transparent 必须为布尔值")
     title = request.get("title")
     if title is not None and not isinstance(title, str):
         raise PptxValidationError("VALIDATION_FAILED", "title 必须为字符串或 null")
     images = [_decode_frame(raw, i) for i, raw in enumerate(frames)]
-    return {"title": title or "", "images": images, "frame_ms": frame_ms}
+    return {
+        "title": title or "",
+        "images_rgba": images,
+        "frame_ms": frame_ms,
+        "transparent": transparent,
+    }
 
 
-def _compose_gif(images: list["Image.Image"], frame_ms: int) -> bytes:
-    """多帧合成循环动态 GIF（loop=0 无限循环）。"""
+def _compose_gif(images_rgba: list, frame_ms: int, transparent: bool) -> bytes:
+    """多帧合成循环动态 GIF（loop=0 无限循环）。
+
+    transparent=False：转 RGB 实底（前端已铺主题底色）。
+    transparent=True ：保留 alpha，GIF 二元透明（disposal=2 防帧间残影）。
+    """
+    if Image is None:  # pragma: no cover
+        raise ParseError("PPTX_BUILD_FAILED", "缺少 Pillow 依赖，无法合成 GIF")
     try:
+        if transparent:
+            frames_out = images_rgba  # RGBA；save(GIF) 自动量化并保留透明索引
+            kwargs: dict[str, Any] = {"disposal": 2}
+        else:
+            frames_out = [im.convert("RGB") for im in images_rgba]
+            kwargs = {"optimize": True}
         buf = io.BytesIO()
-        images[0].save(
+        frames_out[0].save(
             buf,
             format="GIF",
             save_all=True,
-            append_images=images[1:],
+            append_images=frames_out[1:],
             duration=frame_ms,
             loop=0,
-            optimize=True,
+            **kwargs,
         )
         return buf.getvalue()
     except ParseError:
@@ -105,10 +137,17 @@ def _compose_gif(images: list["Image.Image"], frame_ms: int) -> bytes:
         raise ParseError("PPTX_BUILD_FAILED", f"GIF 合成失败：{exc}") from exc
 
 
+def build_animated_gif(request: dict[str, Any]) -> bytes:
+    """AnimatedFramesRequest -> .gif 字节流（SPEC §5.6a/§6a，v1.12 主形态）。"""
+    spec = _parse_request(request)
+    return _compose_gif(spec["images_rgba"], spec["frame_ms"], spec["transparent"])
+
+
 def build_animated_pptx(request: dict[str, Any]) -> bytes:
-    """GenerateAnimatedPptxRequest -> .pptx 字节流（SPEC §5.6a / §6a）。"""
-    spec = _validate_request(request)
-    gif_bytes = _compose_gif(spec["images"], spec["frame_ms"])
+    """AnimatedFramesRequest -> .pptx 字节流（SPEC §5.6a/§6a，v1.11 保留）。"""
+    spec = _parse_request(request)
+    # 嵌入 pptx 时透明 GIF 叠在白色版式上文字可能不可见，但遵循用户显式选择。
+    gif_bytes = _compose_gif(spec["images_rgba"], spec["frame_ms"], spec["transparent"])
 
     try:
         prs = Presentation()
@@ -118,7 +157,7 @@ def build_animated_pptx(request: dict[str, Any]) -> bytes:
         _add_title(slide, spec["title"])
 
         # 等比缩放 + 水平垂直居中嵌入（画幅与标准导出图表区一致）
-        img_w, img_h = spec["images"][0].size
+        img_w, img_h = spec["images_rgba"][0].size
         area_w = _AREA_WIDTH_IN
         area_h = _AREA_HEIGHT_IN if spec["title"] else _AREA_HEIGHT_NO_TITLE_IN
         top_edge = 1.2 if spec["title"] else 0.5

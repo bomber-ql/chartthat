@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import app
-from app.modules.gif_builder import build_animated_pptx
+from app.modules.gif_builder import build_animated_gif, build_animated_pptx
 from app.modules.pptx_builder import PptxValidationError
 
 
@@ -28,7 +28,19 @@ def _frame(color: tuple[int, int, int], size: tuple[int, int] = (320, 200)) -> s
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
+def _rgba_frame() -> str:
+    """全透明底 + 左侧实色青块的 RGBA 帧 dataURL。"""
+    rgba = Image.new("RGBA", (240, 120), (0, 0, 0, 0))
+    for x in range(0, 80):
+        for y in range(120):
+            rgba.putpixel((x, y), (34, 211, 238, 255))
+    buf = io.BytesIO()
+    rgba.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 FRAMES = [_frame((200, 30, 30)), _frame((30, 200, 30)), _frame((30, 30, 200))]
+RGBA_FRAMES = [_rgba_frame(), _frame((30, 200, 30))]
 
 
 def _gif_part(blob: bytes) -> bytes:
@@ -47,6 +59,48 @@ def test_build_animated_pptx_contains_looping_gif():
     assert getattr(img, "n_frames", 1) == len(FRAMES)
     assert img.info.get("loop") == 0  # 无限循环
     assert img.info.get("duration") == 120
+
+
+def test_build_animated_gif_returns_looping_gif():
+    blob = build_animated_gif({"frames": FRAMES, "frame_ms": 120})
+    assert blob[:6] in (b"GIF87a", b"GIF89a")
+    img = Image.open(io.BytesIO(blob))
+    assert getattr(img, "n_frames", 1) == len(FRAMES)
+    assert img.info.get("loop") == 0
+    assert img.info.get("duration") == 120
+    # 实底模式不应带透明索引
+    assert "transparency" not in img.info
+
+
+def test_transparent_gif_preserves_alpha():
+    blob = build_animated_gif({"frames": RGBA_FRAMES, "frame_ms": 100, "transparent": True})
+    img = Image.open(io.BytesIO(blob))
+    assert img.info.get("transparency") is not None
+    assert img.disposal_method == 2  # 还原为背景，防帧残影
+    px = img.convert("RGBA").load()
+    assert px[220, 60][3] == 0  # 未绘制区保持透明
+
+
+def test_animated_pptx_transparent_flag_accepted():
+    blob = build_animated_pptx({"title": "t", "frames": RGBA_FRAMES, "transparent": True})
+    assert blob[:2] == b"PK"
+    img = Image.open(io.BytesIO(_gif_part(blob)))
+    assert img.info.get("transparency") is not None
+
+
+def test_transparent_flag_must_be_bool():
+    with pytest.raises(PptxValidationError):
+        build_animated_gif({"frames": FRAMES, "transparent": "yes"})
+
+
+def test_gif_endpoint_smoke():
+    client = TestClient(app)
+    resp = client.post("/api/generate-gif", json={"frames": FRAMES, "frame_ms": 100})
+    assert resp.status_code == 200
+    assert resp.content[:6] == b"GIF89a"
+    assert resp.headers["content-type"] == "image/gif"
+    disposition = resp.headers.get("content-disposition", "")
+    assert "chart-" in disposition and disposition.endswith('.gif"')
 
 
 def test_slide_has_picture_shape():

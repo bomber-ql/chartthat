@@ -4,7 +4,7 @@ import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
 import { useTheme } from './theme';
 import { useI18n } from './i18n';
-import { captureChartFrames } from './utils/captureFrames';
+import { captureFrames } from './utils/captureFrames';
 
 /** M4 支持导出的图型（SPEC v1.6 起十三型全覆盖；waterfall 透明底座等价、sunburst 降级圆环，见 §11 R-5） */
 const EXPORTABLE = new Set([
@@ -24,6 +24,7 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [transparentGif, setTransparentGif] = useState(false);
 
   const recById = new Map((recs ?? []).map((r) => [r.id, r]));
   const selectedSpecs = selectedIds
@@ -80,50 +81,69 @@ export default function App() {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportPptx = async (animate = false) => {
+  const exportPptx = async () => {
     const targets = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type));
     if (!targets.length) return;
     setExporting(true);
     setExportMsg(null);
     try {
       for (const s of targets) {
-        let res: Response;
-        if (animate) {
-          // v1.11 动效版（GIF 路线，SPEC §5.6a）：离屏采帧 → 后端合成 GIF 嵌入 pptx
-          const { frames, frameMs } = await captureChartFrames(s, theme);
-          res = await fetch('/api/generate-animated-pptx', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: s.title, frames, frame_ms: frameMs }),
-          });
-        } else {
-          res = await fetch('/api/generate-pptx', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chart_type: s.chart_type,
-              title: s.title,
-              config: { dimension: s.dimension_column },
-              data: {
-                categories: s.categories,
-                series: s.series.map((x) => ({
-                  name: x.name,
-                  kind: x.kind,
-                  axis: x.axis,
-                  unit: x.unit,
-                  data: x.data,
-                })),
-              },
-            }),
-          });
-        }
+        const res = await fetch('/api/generate-pptx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chart_type: s.chart_type,
+            title: s.title,
+            config: { dimension: s.dimension_column },
+            data: {
+              categories: s.categories,
+              series: s.series.map((x) => ({
+                name: x.name,
+                kind: x.kind,
+                axis: x.axis,
+                unit: x.unit,
+                data: x.data,
+              })),
+            },
+          }),
+        });
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { message?: string } | null;
           throw new Error(body?.message ?? `${t('exportFailed')}（HTTP ${res.status}）`);
         }
         const blob = await res.blob();
         const safe = (s.title || s.chart_type).replace(/[\\/:*?"<>|]/g, '_');
-        downloadBlob(blob, `${safe}${animate ? '-animated' : ''}.pptx`);
+        downloadBlob(blob, `${safe}.pptx`);
+      }
+      setExportMsg(t('exportDone', { n: targets.length }));
+    } catch (e) {
+      setExportMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // v1.12 动效产物（SPEC §5.6a）：离屏采帧 → /api/generate-gif 直出循环 GIF 文件
+  const exportGif = async () => {
+    const targets = selectedSpecs.filter((s) => EXPORTABLE.has(s.chart_type));
+    if (!targets.length) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      for (const s of targets) {
+        const frames = await captureFrames(s, theme, transparentGif);
+        const res = await fetch('/api/generate-gif', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frames, frame_ms: 100, transparent: transparentGif }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(body?.message ?? `${t('exportFailed')}（HTTP ${res.status}）`);
+        }
+        const blob = await res.blob();
+        const safe = (s.title || s.chart_type).replace(/[\\/:*?"<>|]/g, '_');
+        downloadBlob(blob, `${safe}.gif`);
       }
       setExportMsg(t('exportDone', { n: targets.length }));
     } catch (e) {
@@ -194,8 +214,10 @@ export default function App() {
           exportableCount={exportableCount}
           exporting={exporting}
           exportMsg={exportMsg}
+          transparentGif={transparentGif}
+          onToggleTransparent={setTransparentGif}
           onExport={() => void exportPptx()}
-          onExportAnimated={() => void exportPptx(true)}
+          onExportGif={() => void exportGif()}
           onRemove={toggleSelect}
         />
         <PreviewPanel

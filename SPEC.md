@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.11 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（十三图型全覆盖 + 动效版改走 GIF 路线）
+> 版本：v1.12 ｜ 状态：M1/M2 已实现，M3 已实现，M4 单图 PPT 导出已实现（十三图型全覆盖），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.12：动效产物**主形态从「嵌入 pptx」改为「直出 .gif 文件」**，并新增透明背景选项。新增端点 `POST /api/generate-gif`：入参与 §5.6a 相同（`{title?（忽略，GIF 无标题）, frames, frame_ms?, transparent?}`），直接返回 `image/gif`（`Content-Disposition: attachment; filename="chart-{ts}.gif"`，GIF89a、loop=0）。前端动效按钮从「导出动效版 pptx」改为「导出动效 GIF」，逐图下载 .gif；不再默认套一层 pptx。`transparent`（默认 false）：①false=**跟随当前 UI 主题的实底色**（前端采帧时铺深色/浅色实底，GIF 不支持半透明、透明区域会被填黑）；②true=**二元透明**——GIF 仅支持每像素全透/不透（无 alpha 半透明），线条与文字抗锯齿边缘、面积图半透明填充、深色主题发光阴影会被硬切（可能出现毛边），且图表内文字/坐标色随主题（深色主题浅字贴到白底上不可见），**透明底仅适用于贴到与主题同色的背景**，作为可选项提供，默认实底。实现上透明模式保留 RGBA 合成（`disposal=2` 防帧残影、`transparency` 索引）。嵌入 pptx 的 `POST /api/generate-animated-pptx`（§5.6a）保留但前端不再主推；两端点共享同一 GIF 合成核心。标准静态导出 `/api/generate-pptx`（原生可编辑 Chart，C-1）不变。
 - v1.11：放映动效**路线切换——放弃 OOXML 原生图表动画，改走 GIF 动图路线**（R-6 改判）。v1.7~v1.10 四个版本基于 `<p:timing>`/oleChartEl 的原生图表分段动画在 WPS 实测全部失败（整图进入或完全无动画），且沙箱无法运行 WPS 验证、只能盲改，定论：**WPS 对图表子元素动画支持不可靠，此路不通**。新方案：前端用离屏 ECharts 实例播放绘制动画并定时采帧（canvas.toDataURL），将帧序列 POST 到新端点 `POST /api/generate-animated-pptx`；后端用 PIL 把多帧合成为动态 GIF（`save_all` + `duration` + `loop=0`），再以 `add_picture` 嵌入 pptx 全幅呈现。PPT/WPS 放映对 GIF 动图支持稳定，所见即所得。动效版是**独立产物**（文件名 `chart-animated-{ts}.pptx`），与标准导出互不影响；GIF 为位图不可编辑，但这**不违反 C-1**——C-1 约束的是标准导出端点 `/api/generate-pptx`（仍输出原生可编辑 Chart），动效版属用户显式选择的另一产物。标准导出端点移除 `animate` 入参，恢复为纯静态原生图表（不再有 p:timing 注入路径）。
 - v1.10：放映动效**第三版修正**——修复 v1.9 引入的致命 XML 合法性错误：v1.9 给 afterEffect 段的起始条件用了**不存在的元素 `<p:beginCondLst>`**（OOXML 时间节点只有 `<p:stCondLst>`/`<p:endCondLst>`），WPS 解析到非法节点将整段 `<p:timing>` 丢弃 → 放映**完全没有动画**。v1.10 改为合法形式：首段 `clickEffect`（`<p:stCondLst><p:cond delay="indefinite"/>` 等待点击），其余段 `afterEffect` + `<p:stCondLst><p:cond delay="0"/></p:stCondLst>`（afterEffect 语义即「上一动画之后」自动接续，无需逐段点击）。oleChartEl 多段结构（v1.9）保留不变。
 - v1.9：放映动效**第二版修正**——v1.7/v1.8 注入的 `<a:bldChart bld>` 只解决「动画窗格里的构建声明」，但真正决定播放分段的是 mainSeq 中**每个动画 effect 目标里的 `<p:oleChartEl type="..." lvl="N"/>`**（`spTgt` 的子元素，指定该段作用到第 N 个类别/系列）。此前所有 effect 目标都是整图 spid、无 oleChartEl，WPS 实测只能整图进入。v1.9 改为**为每个类别（或系列）生成一个独立 par/clickEffect 段**，每段 target 为 `spTgt[spid] > oleChartEl`（笛卡尔柱/条/堆叠/面积/瀑布/组合/雷达=`type="category" lvl=类别下标`，折线/斜率/散点=`type="series" lvl=系列下标`，饼/圆环/旭日=`type="series" lvl=0` 配合 wheel 逐扇区由 bldChart 表达），首段点击触发、其余段「上一动画之后」自动接续（WPS 无需逐次点击）；`<a:bldChart bld>` 同步用 `category`/`series` 粗粒度（`ptIn*` 逐点粒度对多系列柱图的 oleChartEl 段结构要求更高、WPS 兼容更差，弃用）。人工 WPS 验证（A-4.11）确认后关闭。
@@ -30,7 +31,7 @@
 4. 用户选定后导出 `.pptx`，其中所有图表为 **原生 Chart 对象**，可在 WPS / PowerPoint 中**双击编辑数据**。
 
 ### 1.2 范围说明（MVP）
-- **支持十三种图表类型（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。** 全部参与推荐、预览与 M4 PPT 导出；瀑布/旭日的导出等价与降级规则见 §6（M4 映射表）与 R-5，任何进一步降级必须先回写 SPEC。另提供独立的**动效版导出**（GIF 路线，v1.11，见 §5.6a/§6a；位图产物，不影响 C-1）。
+- **支持十三种图表类型（v1.6）：`bar`、`hbar`、`line`、`area`、`combo`、`stacked`、`slope`、`scatter`、`waterfall`、`radar`、`pie`、`donut`、`sunburst`。** 全部参与推荐、预览与 M4 PPT 导出；瀑布/旭日的导出等价与降级规则见 §6（M4 映射表）与 R-5，任何进一步降级必须先回写 SPEC。另提供独立的**动效产物**（GIF 路线，v1.11 引入 / v1.12 直出 .gif 为主、可选嵌入 pptx；支持跟随主题实底或二元透明背景，见 §5.6a/§6a；位图产物，不影响 C-1）。
 - M3 每次推荐**至少覆盖三个语义层**：趋势（trend）、体量对比（comparison）、变化率（rate），见 §6 M3 规则 4。
 
 ### 1.3 非目标（Out of Scope）
@@ -494,26 +495,34 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 `Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`；`animate=true` 时文件名为 `chart-animated-{yyyyMMdd-HHmmss}.pptx`。
 错误时返回 §5.7 ApiError（构建失败 `PPTX_BUILD_FAILED`，HTTP 500）。
 
-### 5.6a GenerateAnimatedPptxRequest（动效版 GIF 导出契约，v1.11，R-6）
+### 5.6a 动效产物契约（GIF，v1.11 引入 / v1.12 扩展为直出 + 嵌入两形态，R-6）
 
-`POST /api/generate-animated-pptx`。前端离屏 ECharts 采帧 → 后端合成 GIF → 嵌入 pptx。位图产物、不可编辑，属独立动效产物，不影响 C-1（C-1 仅约束 §5.6 标准端点）。
+两个端点共享同一帧契约与 GIF 合成核心，前端离屏 ECharts 采帧 → 后端 PIL 合成 GIF。位图产物、不可编辑，属独立动效产物，不影响 C-1（C-1 仅约束 §5.6 标准端点）。
+
+- **`POST /api/generate-gif`（v1.12 起为主形态）**：直接返回 `image/gif` 文件，`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.gif"`。
+- `POST /api/generate-animated-pptx`（v1.11，保留）：把同一 GIF 以 `add_picture` 等比居中嵌入 16:9 空白页（可选 `title` 页标题），返回 `chart-animated-{ts}.pptx`。
 
 ```json
 {
-  "title": "GenerateAnimatedPptxRequest",
+  "title": "AnimatedFramesRequest",
   "type": "object",
   "required": ["frames"],
   "properties": {
-    "title":    { "type": ["string", "null"], "default": null },
-    "frames":   { "type": "array", "minItems": 2, "items": { "type": "string", "description": "base64 PNG dataURL（data:image/png;base64,...）" } },
-    "frame_ms": { "type": "integer", "minimum": 20, "maximum": 2000, "default": 100, "description": "每帧时长（GIF duration）" }
+    "title":       { "type": ["string", "null"], "default": null, "description": "仅嵌入 pptx 形态使用，直出 GIF 忽略" },
+    "frames":      { "type": "array", "minItems": 2, "items": { "type": "string", "description": "base64 PNG dataURL（data:image/png;base64,...）" } },
+    "frame_ms":    { "type": "integer", "minimum": 20, "maximum": 2000, "default": 100, "description": "每帧时长（GIF duration）" },
+    "transparent": { "type": "boolean", "default": false, "description": "true=二元透明底（保留 alpha=0）；false=跟随主题实底（推荐）" }
   }
 }
 ```
 
-入参校验规则（不信任前端）：frames 至少 2 帧；每帧必须是 `data:image/png;base64,` 前缀的合法 base64 PNG（PIL 可解码）；非法返回 `VALIDATION_FAILED`（400）；合成/构建异常返回 `PPTX_BUILD_FAILED`（500）。
+**背景模式（v1.12）**：
+- `transparent=false`（默认）：帧由前端按当前 UI 主题铺实底色（深色/浅色）。GIF 不支持半透明，透明像素若不铺底会被填黑。
+- `transparent=true`：GIF 仅有二元透明（每像素全透/不透，无 alpha 半透明）——后端保留 RGBA 合成（P 模式 + `transparency` 索引、`disposal=2` 防帧残影）。代价：抗锯齿边缘/面积图半透明填充/发光阴影被硬切可能毛边，且文字坐标色随主题，透明底仅适合贴到与主题同色的背景。
 
-输出：`Response`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Content-Disposition: attachment; filename="chart-animated-{yyyyMMdd-HHmmss}.pptx"`。
+入参校验规则（不信任前端）：frames 至少 2 帧；每帧必须是 `data:image/png;base64,` 前缀的合法 base64 PNG（PIL 可解码）；`transparent` 必须为布尔；非法返回 `VALIDATION_FAILED`（400）；合成/构建异常返回 `PPTX_BUILD_FAILED`（500）。
+
+直出 GIF 输出：`Response`，`Content-Type: image/gif`，魔数 `GIF89a`，循环 `loop=0`。
 
 ### 5.6b GenerateRequest（多图 deck 契约，后续里程碑，MVP 不实现）
 
@@ -687,14 +696,14 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 7. 输出：`Response`，`Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation`，`Content-Disposition: attachment; filename="chart-{yyyyMMdd-HHmmss}.pptx"`。
 8. **v1.11 起移除 `animate` 入参与 p:timing 注入路径**：标准导出端点恒为纯静态原生可编辑 Chart（C-1）。动效版改由独立端点 `/api/generate-animated-pptx`（§5.6a，GIF 路线，R-6）提供。历史：v1.7~v1.10 的 OOXML `<p:timing>`/oleChartEl 图表分段动画因 WPS 支持不可靠且无法在本环境验证而废弃（见修订记录 v1.11）。
 
-**§6a M4b 动效版 GIF 导出（v1.11，R-6）**
+**§6a M4b 动效产物 GIF（v1.11 引入 / v1.12 直出为主，R-6）**
 
-1. **前端采帧**：离屏创建隐藏容器，`echarts.init`（devicePixelRatio 2）+ `specToOption(spec, theme)` setOption 播放绘制动画；以固定帧间隔 `frame_ms`（默认 100ms）采样 `canvas.toDataURL('image/png')`，总时长覆盖动画周期（默认 ≈1.5s+缓冲），得到 PNG dataURL 帧序列。
-2. **上传**：`POST /api/generate-animated-pptx`，入参 `{title?, frames: string[], frame_ms?, width?, height?}`（frames 为 base64 PNG dataURL 数组）。
-3. **后端合成**：PIL 逐帧 base64 解码 → `Image.open`；首帧 `save(format='GIF', save_all=True, append_images=rest, duration=frame_ms, loop=0)` 合成循环动态 GIF。
-4. **嵌入 pptx**：16:9 空白版式；若给 `title` 加页标题；`add_picture(gif)` 按画幅比例等比缩放、水平垂直居中嵌入。
-5. **输出**：`Content-Disposition: attachment; filename="chart-animated-{yyyyMMdd-HHmmss}.pptx"`。PPT/WPS 放映对 GIF 动图支持稳定。
-6. **约束**：动效版为位图产物、不可编辑，属用户显式选择的独立产物，**不影响 C-1**（C-1 仅约束标准导出端点）；后端不合成图表、不处理 ChartSpec 数据，仅做帧→GIF→嵌入。
+1. **前端采帧**：离屏创建隐藏容器，`echarts.init`（devicePixelRatio 2）+ `specToOption(spec, theme)` setOption 播放绘制动画；以固定帧间隔 `frame_ms`（默认 100ms）采样 `chart.renderToCanvas().toDataURL('image/png')`，总时长覆盖动画周期（默认 ≈1.9s），得到 PNG dataURL 帧序列。背景：`transparent=false` 时给 option 注入主题实底色（深色 `#0d1424` / 浅色 `#f4f8fc`，GIF 不支持半透明，透明区会被填黑）；`transparent=true` 时不铺底、保留 alpha。
+2. **上传**：主端点 `POST /api/generate-gif`（v1.12）直出 GIF；嵌入端点 `POST /api/generate-animated-pptx`（v1.11，保留）。入参 `{title?, frames: string[], frame_ms?, transparent?}`（§5.6a）。
+3. **后端合成**：PIL 逐帧 base64 解码 → `Image.open`；实底模式转 RGB，透明模式保留 RGBA；首帧 `save(format='GIF', save_all=True, append_images=rest, duration=frame_ms, loop=0, disposal=2)` 合成循环动态 GIF（透明模式 GIF 为二元透明，`transparency` 索引；`disposal=2` 防帧间残影）。
+4. **形态**：直出端点返回 `image/gif`（`chart-{ts}.gif`）；嵌入端点把同一 GIF 以 `add_picture` 等比居中嵌入 16:9 空白页（可选 `title`），返回 `chart-animated-{ts}.pptx`。
+5. **输出**：直出 `Content-Type: image/gif`、魔数 `GIF89a`；嵌入 `Content-Type: ...presentationml.presentation`。PPT/WPS 放映对 GIF 动图支持稳定。
+6. **约束**：动效产物为位图、不可编辑，属用户显式选择的独立产物，**不影响 C-1**（C-1 仅约束标准导出端点）；后端不合成图表、不处理 ChartSpec 数据，仅做帧→GIF（→嵌入）。透明模式为可选，仅适合贴同色背景（§5.6a）。
 
 **输入**：GeneratePptxRequest（§5.6）。 **输出**：`.pptx` 二进制流 / ApiError。
 
@@ -721,7 +730,8 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 | POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用（已实现） |
 | POST | `/api/recommend` | SemanticTable | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3 |
 | POST | `/api/generate-pptx` | GeneratePptxRequest（§5.6，单图 `{chart_type, config, data}`） | `.pptx` 文件流 | M4（已实现）；错误返回 ApiError + 4xx/5xx |
-| POST | `/api/generate-animated-pptx` | GenerateAnimatedPptxRequest（§5.6a，GIF 帧序列） | `.pptx` 文件流 | M4b 动效版（v1.11，GIF 路线，R-6） |
+| POST | `/api/generate-gif` | AnimatedFramesRequest（§5.6a，GIF 帧序列 + transparent?） | `.gif` 文件流 | M4b 动效直出（v1.12 主形态，R-6） |
+| POST | `/api/generate-animated-pptx` | AnimatedFramesRequest（§5.6a，GIF 帧序列） | `.pptx` 文件流 | M4b 嵌入版（v1.11，保留，R-6） |
 | POST | `/api/generate` | GenerateRequest（§5.6b，多图 deck） | `.pptx` 文件流 | 后续里程碑，MVP 未实现 |
 
 **通用约定：**
