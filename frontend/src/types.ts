@@ -83,4 +83,6 @@ export const CHART_TYPE_LABEL: Record<ChartType, string> = {
   sunburst: '旭日图',
 };
 
+// 缺失系列提示尾缀（与后端 INCOMPLETE_NOTE 对应，双语；用于卡片「数据缺失」徽标判断）。
 export const INCOMPLETE_TAIL = '该系列数据不完整，建议不纳入';
+export const INCOMPLETE_TAIL_EN = 'incomplete data for this series; exclude with caution';

@@ -240,6 +240,7 @@ export default function App() {
           error={error}
           onToggle={toggleSelect}
           onGenerate={() => void generateRecs()}
+          showLabels={showLabels}
         />
       </main>
     </div>

@@ -12,6 +12,8 @@ interface PreviewPanelProps {
   error: string | null;
   onToggle: (id: string) => void;
   onGenerate: () => void;
+  /** 「显示数据标签」开关，透传给卡片与 GIF 采帧保持同一口径。 */
+  showLabels: boolean;
 }
 
 const LAYER_ORDER: SemanticLayer[] = ['trend', 'comparison', 'rate'];
@@ -27,6 +29,7 @@ export default function PreviewPanel({
   error,
   onToggle,
   onGenerate,
+  showLabels,
 }: PreviewPanelProps) {
   const { t, layerLabel } = useI18n();
   // 管线构建进度：已接通（可见）的卡片数；replayTick 用于「重播动画」强制重挂载。
@@ -163,6 +166,7 @@ export default function PreviewPanel({
                           spec={r}
                           selected={selectedIds.includes(r.id)}
                           onSelect={onToggle}
+                          showLabels={showLabels}
                         />
                       </div>
                     );

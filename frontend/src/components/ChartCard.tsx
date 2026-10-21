@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import type { ChartSpec } from '../types';
-import { INCOMPLETE_TAIL } from '../types';
-import { specToOption } from '../utils/specToOption';
+import { INCOMPLETE_TAIL, INCOMPLETE_TAIL_EN } from '../types';
+import { applyDataLabels, specToOption } from '../utils/specToOption';
 import { useTheme } from '../theme';
 import { useI18n } from '../i18n';
 
@@ -11,11 +11,13 @@ interface ChartCardProps {
   spec: ChartSpec;
   selected: boolean;
   onSelect: (id: string) => void;
+  /** 与导出 GIF 的「显示数据标签」同一开关：勾选后预览卡片同步显示数值。 */
+  showLabels?: boolean;
 }
 
-export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) {
+export default function ChartCard({ spec, selected, onSelect, showLabels = false }: ChartCardProps) {
   const { theme } = useTheme();
-  const { t, chartLabel, layerLabel } = useI18n();
+  const { t, chartLabel, layerLabel, lang } = useI18n();
   const ref = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
   const optionRef = useRef<EChartsOption | null>(null);
@@ -24,6 +26,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
     if (!ref.current) return;
     const chart = echarts.init(ref.current);
     const option: EChartsOption = specToOption(spec, theme);
+    if (showLabels) applyDataLabels(option, spec, theme);
     chart.setOption(option);
     chartRef.current = chart;
     optionRef.current = option;
@@ -35,7 +38,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
       chartRef.current = null;
       optionRef.current = null;
     };
-  }, [spec, theme]);
+  }, [spec, theme, showLabels]);
 
   const replayChart = () => {
     const chart = chartRef.current;
@@ -46,7 +49,7 @@ export default function ChartCard({ spec, selected, onSelect }: ChartCardProps) 
     chart.setOption(option, true);
   };
 
-  const incomplete = spec.reasoning.includes(INCOMPLETE_TAIL);
+  const incomplete = spec.reasoning.includes(lang === 'en' ? INCOMPLETE_TAIL_EN : INCOMPLETE_TAIL);
 
   return (
     <article
