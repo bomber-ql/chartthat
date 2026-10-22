@@ -1,0 +1,28 @@
+# chartthat.com 生产编排：app（FastAPI 全栈）+ caddy（自动 HTTPS 反代）。
+# 用法见 DEPLOY.md；密钥一律放 .env（不入库，模板见 .env.example）。
+services:
+  app:
+    build: .
+    image: chartthat-app
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8000"
+    # 单容器无状态；后续加 Postgres/Redis 时在此扩展 services
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # 证书持久化，重建容器不重签
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

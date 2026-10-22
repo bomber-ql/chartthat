@@ -1,0 +1,19 @@
+# chartthat.com 站点配置：自动申请/续期 Let's Encrypt 证书。
+# 更换域名时只需改这里的域名，无需其他改动。
+
+www.chartthat.com {
+	redir https://chartthat.com{uri} permanent
+}
+
+chartthat.com {
+	encode zstd gzip
+	reverse_proxy app:8000
+
+	# 安全响应头
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

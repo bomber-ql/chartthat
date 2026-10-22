@@ -28,6 +28,12 @@
 - TypeScript：strict 模式；React 17+ JSX runtime，不写 `import React`（除非显式使用 React API）。
 - 标点符号代码内一律半角；提交信息遵循 Conventional Commits。
 
+## 生产部署（chartthat.com）
+- 单容器全栈：根目录 `Dockerfile`（多阶段：Node 20 构建 `frontend/dist` → python:3.12-slim 运行时，uvicorn 监听容器内 `DEPLOY_RUN_PORT=8000`，FastAPI 托管 dist，健康检查 `/healthz`）。
+- 编排：`docker-compose.yml`（app + caddy:2-alpine），`deploy/Caddyfile`（chartthat.com 自动 Let's Encrypt，www 301 到裸域，安全响应头）；环境变量走 `.env`（模板 `.env.example`，`.env` 已 gitignore）。
+- LLM 零改动接 DeepSeek：`LLM_API_KEY`/`LLM_BASE_URL=https://api.deepseek.com`/`LLM_MODEL=deepseek-chat`（config.py 原生支持，未配置自动走启发式降级）。
+- 完整上线步骤（Hetzner VPS + Cloudflare DNS + 防火墙 + 更新/运维/备份）见 `DEPLOY.md`。
+
 ## 核心约束（实现时不可违反，详见 SPEC §3）
 - C-1 pptx 图表只能走 `add_chart` / ablechart `create_*_chart`，禁止图片嵌入。
 - C-2 保存前遍历 has_chart shapes，IsLinked 则断链（WPS 双击不弹"链接文件不可用"）。

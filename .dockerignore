@@ -1,0 +1,14 @@
+.git
+**/node_modules
+frontend/dist
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+.env
+.env.*
+!.env.example
+deploy
+*.md
+!README.md
+.vscode
+.idea
