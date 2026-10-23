@@ -471,12 +471,16 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
   const T = THEME_TOKENS[theme];
   const byName = new Map(spec.series.map((s) => [s.name, s]));
   const list = (Array.isArray(option.series) ? option.series : option.series ? [option.series] : []) as Array<Record<string, unknown>>;
+  // 折线族（line/area/slope）：标签错开后再用系列色区分归属（stacked 柱内标签需对比色，不用系列色）。
+  const LINE_LIKE = spec.chart_type === 'line' || spec.chart_type === 'area' || spec.chart_type === 'slope';
   list.forEach((serie) => {
     if (!serie || typeof serie !== 'object') return;
     if (serie.name === '__base__') return; // waterfall 透明底座不标值
     const def = byName.get(String(serie.name ?? '')) ?? spec.series[0];
     if (!def) return;
     const fmt = valueFormatter(def.unit);
+    const colorIdx = Math.max(0, spec.series.indexOf(def));
+    const seriesColor = T.palette[colorIdx % T.palette.length];
     const type = String(serie.type ?? '');
     const prev = (serie.label && typeof serie.label === 'object' ? serie.label : {}) as Record<string, unknown>;
     let label: Record<string, unknown>;
@@ -507,7 +511,7 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
         show: true,
         position: spec.chart_type === 'hbar' ? 'right' : spec.chart_type === 'stacked' ? 'inside' : 'top',
         fontSize: 9,
-        color: T.tooltipText,
+        color: LINE_LIKE || String(serie.type ?? '') === 'line' ? seriesColor : T.tooltipText,
         formatter: (p: LabelParams): string => {
           const raw = Array.isArray(p.value) ? p.value[p.value.length - 1] : p.value;
           return typeof raw === 'number' && !Number.isNaN(raw) ? fmt(raw) : '';
@@ -516,4 +520,25 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
     }
     serie.label = { ...prev, ...label };
   });
+
+  // 数值接近时，同一类目位置的多系列标签会完全叠在一起（折线/面积/斜率最明显）。
+  // 启用 ECharts 5 内置标签避让：笛卡尔系沿 Y 轴上下错开；条形图（hbar）沿 X 轴错开。
+  // 同时作用于预览卡片与 GIF 采帧（同一 option 管线）。
+  const CARTESIAN_TYPES = new Set<ChartSpec['chart_type']>([
+    'bar',
+    'hbar',
+    'line',
+    'area',
+    'combo',
+    'stacked',
+    'slope',
+    'waterfall',
+  ]);
+  if (CARTESIAN_TYPES.has(spec.chart_type)) {
+    option.labelLayout = { moveOverlap: spec.chart_type === 'hbar' ? 'shiftX' : 'shiftY' };
+    // 顶部多留一点空间，错开的标签（top 位置再上移）不顶到 legend/画布边缘
+    if (option.grid && !Array.isArray(option.grid)) {
+      option.grid = { ...option.grid, top: 34 };
+    }
+  }
 }
