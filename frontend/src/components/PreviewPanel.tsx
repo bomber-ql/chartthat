@@ -124,6 +124,16 @@ export default function PreviewPanel({
 
       {!table ? (
         <div className="empty">
+          <div className="hero">
+            <strong className="hero-name">ChartThat</strong>
+            <p className="hero-tag">{t('brandSub')}</p>
+            <p className="hero-intro">{t('heroIntro')}</p>
+            <div className="hero-feats">
+              <span>{t('heroFeat1')}</span>
+              <span>{t('heroFeat2')}</span>
+              <span>{t('heroFeat3')}</span>
+            </div>
+          </div>
           <span className="empty-glyph" aria-hidden />
           <p>{t('emptyNoTable')}</p>
         </div>

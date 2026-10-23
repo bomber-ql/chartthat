@@ -103,7 +103,7 @@ const LAYER_LABELS: Record<Lang, Record<SemanticLayer, string>> = {
 };
 
 const zhStrings = {
-  brandSub: '智能数据图表 PPT 生成器',
+  brandSub: '有数据？图它',
   statusReady: '已生成 {n} 张候选',
   statusStandby: '待命',
   exportDone: '已下载 {n} 个文件。',
@@ -158,12 +158,16 @@ const zhStrings = {
   generateBtn: '生成候选图表',
   incompleteTag: '数据不完整',
   noReasoning: '暂无推荐理由',
+  heroIntro: '粘贴表格数据，秒级生成十三种专业图表——导出原生可编辑的 PPTX，或循环播放的动效 GIF。',
+  heroFeat1: '十三种图型',
+  heroFeat2: '原生可编辑 PPTX',
+  heroFeat3: '动效 GIF',
 };
 
 export type StringKey = keyof typeof zhStrings;
 
 const enStrings: Record<StringKey, string> = {
-  brandSub: 'Data Chart PPT Generator',
+  brandSub: 'Got data? Chart that.',
   statusReady: '{n} candidates ready',
   statusStandby: 'Standby',
   exportDone: 'Downloaded {n} file(s).',
@@ -218,10 +222,14 @@ const enStrings: Record<StringKey, string> = {
   generateBtn: 'Generate Charts',
   incompleteTag: 'Incomplete data',
   noReasoning: 'No rationale provided',
+  heroIntro: 'Paste your table data and get thirteen pro chart types in seconds — export as native editable PPTX or looping animated GIFs.',
+  heroFeat1: '13 chart types',
+  heroFeat2: 'Native editable PPTX',
+  heroFeat3: 'Animated GIF',
 };
 
 const frStrings: Record<StringKey, string> = {
-  brandSub: 'Générateur de graphiques PPT',
+  brandSub: 'Des données ? Faites-en un graphique.',
   statusReady: '{n} graphiques prêts',
   statusStandby: 'En attente',
   exportDone: '{n} fichier(s) téléchargé(s).',
@@ -276,10 +284,14 @@ const frStrings: Record<StringKey, string> = {
   generateBtn: 'Générer les graphiques',
   incompleteTag: 'Données incomplètes',
   noReasoning: 'Aucune justification',
+  heroIntro: 'Collez vos données et obtenez treize types de graphiques en quelques secondes — PPTX natif modifiable ou GIF animés en boucle.',
+  heroFeat1: '13 types de graphiques',
+  heroFeat2: 'PPTX natif modifiable',
+  heroFeat3: 'GIF animé',
 };
 
 const deStrings: Record<StringKey, string> = {
-  brandSub: 'PPT-Diagramm-Generator',
+  brandSub: 'Daten da? Diagramm draus.',
   statusReady: '{n} Diagramme bereit',
   statusStandby: 'Standby',
   exportDone: '{n} Datei(en) heruntergeladen.',
@@ -334,10 +346,14 @@ const deStrings: Record<StringKey, string> = {
   generateBtn: 'Diagramme generieren',
   incompleteTag: 'Unvollständige Daten',
   noReasoning: 'Keine Begründung verfügbar',
+  heroIntro: 'Tabellendaten einfügen und in Sekunden dreizehn Diagrammtypen erhalten — nativ editierbares PPTX oder animierte GIFs im Loop.',
+  heroFeat1: '13 Diagrammtypen',
+  heroFeat2: 'Nativ editierbares PPTX',
+  heroFeat3: 'Animierte GIFs',
 };
 
 const esStrings: Record<StringKey, string> = {
-  brandSub: 'Generador de gráficos PPT',
+  brandSub: '¿Tienes datos? Haz un gráfico.',
   statusReady: '{n} gráficos listos',
   statusStandby: 'En espera',
   exportDone: '{n} archivo(s) descargado(s).',
@@ -392,6 +408,10 @@ const esStrings: Record<StringKey, string> = {
   generateBtn: 'Generar gráficos',
   incompleteTag: 'Datos incompletos',
   noReasoning: 'Sin justificación',
+  heroIntro: 'Pega tus datos y obtén trece tipos de gráficos en segundos — PPTX nativo editable o GIF animados en bucle.',
+  heroFeat1: '13 tipos de gráficos',
+  heroFeat2: 'PPTX nativo editable',
+  heroFeat3: 'GIF animado',
 };
 
 const STRINGS: Record<Lang, Record<StringKey, string>> = {

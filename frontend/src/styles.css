@@ -227,7 +227,7 @@ body {
   margin: 0;
   font-family: var(--font-disp);
   font-size: 17px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.02em;
   font-weight: 700;
   background: var(--brand-text-grad);
   -webkit-background-clip: text;
@@ -795,6 +795,56 @@ body {
   box-shadow: var(--glow);
 }
 
+/* ---- 空态品牌 hero（ChartThat 介绍区） ---- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  max-width: 560px;
+  text-align: center;
+}
+.hero-name {
+  font-family: var(--font-disp);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  background: var(--brand-text-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-tag {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+.hero-intro {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--dim);
+}
+.hero-feats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.hero-feats span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--dim);
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
@@ -1044,7 +1094,13 @@ body {
   }
   .brand h1 {
     font-size: 14px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.02em;
+  }
+  .hero-name {
+    font-size: 26px;
+  }
+  .hero-intro {
+    font-size: 12px;
   }
   .brand-sub {
     font-size: 10px;

@@ -176,7 +176,7 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark" aria-hidden />
           <div>
-            <h1>DATA CHART PPTX</h1>
+            <h1>ChartThat</h1>
             <p className="brand-sub">{t('brandSub')}</p>
           </div>
         </div>

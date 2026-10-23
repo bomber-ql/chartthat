@@ -1,5 +1,10 @@
 # DESIGN.md
 
+## 品牌
+- 产品名：**ChartThat**（chartthat.com）；顶栏品牌字为驼峰 `ChartThat`（品牌渐变字，字距收紧 0.02em，不再全大写拉开）。
+- 口号：`Got data? Chart that.`（六语言化：中「有数据？图它」/ 法 «Des données ? Faites-en un graphique.» / 德 „Daten da? Diagramm draus.“ / 西 «¿Tienes datos? Haz un gráfico.»），置于顶栏副标题位（brandSub）。
+- 产品介绍：右列空态（首次到访第一眼）承载品牌 hero——大号产品名 + 口号 + 一句话介绍（粘贴数据→十三种图表→PPTX/GIF）+ 三枚特性胶囊（图型数 / 原生可编辑 PPTX / 动效 GIF），下方保留原空态引导。
+
 ## 气质与意象
 深空控制台：像太空任务指挥中心的操作台——深色空间中悬浮着半透明玻璃面板，数据流以青色光带穿行。克制、精密、冷冽，发光只用于指引视线，不做炫技。
 
