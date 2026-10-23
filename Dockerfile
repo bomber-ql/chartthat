@@ -4,7 +4,9 @@
 
 # ---- Stage 1: 前端构建 ----
 FROM node:20-alpine AS frontend
-RUN corepack enable
+# 显式安装 pnpm（版本与 pnpm-lock.yaml lockfileVersion 9 对齐）：
+# 不用 corepack 自动解析——旧镜像内置签名 key 过期会导致 pnpm 下载校验失败
+RUN npm install -g pnpm@9.15.9 && pnpm --version
 WORKDIR /app/frontend
 # 依赖层单独拷贝，命中 Docker 缓存
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
