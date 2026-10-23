@@ -103,7 +103,7 @@ const LAYER_LABELS: Record<Lang, Record<SemanticLayer, string>> = {
 };
 
 const zhStrings = {
-  brandSub: '数据进，图表出',
+  brandSub: '数据给我，图表给你',
   statusReady: '已生成 {n} 张候选',
   statusStandby: '待命',
   exportDone: '已下载 {n} 个文件。',
@@ -229,7 +229,7 @@ const enStrings: Record<StringKey, string> = {
 };
 
 const frStrings: Record<StringKey, string> = {
-  brandSub: 'Vos données, nos graphiques.',
+  brandSub: 'Des données ? Hop, des graphiques !',
   statusReady: '{n} graphiques prêts',
   statusStandby: 'En attente',
   exportDone: '{n} fichier(s) téléchargé(s).',
@@ -291,7 +291,7 @@ const frStrings: Record<StringKey, string> = {
 };
 
 const deStrings: Record<StringKey, string> = {
-  brandSub: 'Daten rein, Diagramme raus.',
+  brandSub: 'Daten her, Diagramme hin.',
   statusReady: '{n} Diagramme bereit',
   statusStandby: 'Standby',
   exportDone: '{n} Datei(en) heruntergeladen.',
@@ -353,7 +353,7 @@ const deStrings: Record<StringKey, string> = {
 };
 
 const esStrings: Record<StringKey, string> = {
-  brandSub: 'Entran datos, salen gráficos.',
+  brandSub: 'Pásame datos, te paso gráficos.',
   statusReady: '{n} gráficos listos',
   statusStandby: 'En espera',
   exportDone: '{n} archivo(s) descargado(s).',
