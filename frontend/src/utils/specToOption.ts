@@ -522,15 +522,15 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
   });
 
   // 数值接近时，同一类目位置的多系列标签会完全叠在一起。柱形族（bar/hbar/combo/stacked/
-  // waterfall）用 ECharts 5 内置 moveOverlap 避让（Y 向，hbar 用 shiftX）；注意 moveOverlap
-  // 对折线标签不生效（折线标签位置固定、不支持漂移），line/area/slope 走下方的手工避让。
+  // waterfall）用 ECharts 5 内置 moveOverlap 避让（Y 向，hbar 用 shiftX）；moveOverlap
+  // 对折线标签不生效（折线标签位置固定、不支持漂移），line/area/slope 走纯几何回调避让。
   // 两者同时作用于预览卡片与 GIF 采帧（同一 option 管线）。
   const MOVE_OVERLAP_TYPES = new Set<ChartSpec['chart_type']>(['bar', 'hbar', 'combo', 'stacked', 'waterfall']);
   if (MOVE_OVERLAP_TYPES.has(spec.chart_type)) {
     option.labelLayout = { moveOverlap: spec.chart_type === 'hbar' ? 'shiftX' : 'shiftY' };
   }
   if (LINE_LIKE) {
-    separateLineLabels(option, spec);
+    option.labelLayout = lineLabelAvoidLayout(spec);
   }
   if (MOVE_OVERLAP_TYPES.has(spec.chart_type) || LINE_LIKE) {
     // 顶部多留一点空间，错开的标签（top 位置再上移）不顶到 legend/画布边缘
@@ -540,61 +540,97 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
   }
 }
 
-// 折线族（line/area/slope）标签避让：逐类目比较各系列数值，差值小于阈值（约一个标签高度
-// 对应的值域跨度）视为冲突——最高值保持默认 top，其余交替移到数据点下方（bottom），仍冲突
-// 则按名次递增 distance 继续外推。只改写 option 内的 data 副本（逐系列 slice），不污染
-// spec.series 原数组（标准 pptx 导出直接走 spec JSON，不能被 {value,label} 对象污染）。
-function separateLineLabels(option: EChartsOption, spec: ChartSpec): void {
-  const list = (Array.isArray(option.series) ? option.series : []) as Array<Record<string, unknown>>;
-  if (!list.length) return;
-  let min = Infinity;
-  let max = -Infinity;
-  spec.series.forEach((s) => {
-    s.data.forEach((v) => {
-      if (typeof v === 'number' && !Number.isNaN(v)) {
-        if (v < min) min = v;
-        if (v > max) max = v;
-      }
-    });
-  });
-  if (!Number.isFinite(min) || max - min <= 0) return;
-  // 标签 9px 行高约 12px；轴 scale:true 留边距后显示值域 ≈ 数据值域 ×1.25，
-  // 缩略图绘图区约 100~130px → 一个标签高约占数据值域 12~14%，阈值取 14% 保覆盖
-  const thr = (max - min) * 0.14;
-  for (let i = 0; i < spec.categories.length; i++) {
-    const pts: Array<{ si: number; v: number }> = [];
+// ---- 折线族标签几何避让（line/area/slope）----
+// 规则（纯几何，无任何随数据值/单位/值域/卡片尺寸变化的魔数）：
+// 1) 同一点位（dataIndex）按真实值降序排名 rank（值越大 rank 越小，仅作仲裁优先级）；
+// 2) 每个标签布局后 ECharts 回调，给出标签真实像素矩形 labelRect；
+// 3) 标签按「原位 → 数据点下方 → 上方一档 → 下二档 → 上二档…」的顺序选第一个不与
+//    同点位已放置标签相交的位置；若相交对象的值比自己大（rank 更小），自己必须让位；
+//    若对方值更小，忽略它（对方下一帧会让位给我）——因此不相交的标签全部留原位，
+//    相交时小值让大值，最终标签上下次序与数据高低一致。
+// 动画期间每帧全量回调，位置表跨帧收敛；动画结束帧结果稳定。每档位移 = 标签真实高度 +
+// 间隙（labelRect 运行时提供），字号/容器变化自适应；负值排名按真实值，上方=屏幕上方。
+interface LabelRectLike {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+interface LabelLayoutParams {
+  seriesIndex: number;
+  dataIndex: number;
+  labelRect: LabelRectLike;
+}
+interface PlacedRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rank: number;
+}
+const LABEL_GAP = 3; // 标签间最小呼吸间隙（px，纯排版常数）
+const POINT_GAP = 5; // 默认 top 标签与数据点的间距（px）
+
+function rectsOverlap(a: PlacedRect, b: PlacedRect): boolean {
+  return (
+    a.x < b.x + b.w + LABEL_GAP &&
+    a.x + a.w + LABEL_GAP > b.x &&
+    a.y < b.y + b.h + LABEL_GAP &&
+    a.y + a.h + LABEL_GAP > b.y
+  );
+}
+
+// 预计算每个 (seriesIndex,dataIndex) 的值排名：同一点位，值越大 rank 越小；非数字不参与。
+function buildValueRanks(spec: ChartSpec): Map<string, number> {
+  const ranks = new Map<string, number>();
+  for (let di = 0; di < spec.categories.length; di++) {
+    const vals: Array<{ si: number; v: number }> = [];
     spec.series.forEach((s, si) => {
-      const v = s.data[i];
-      if (typeof v === 'number' && !Number.isNaN(v)) pts.push({ si, v });
+      const v = s.data[di];
+      if (typeof v === 'number' && !Number.isNaN(v)) vals.push({ si, v });
     });
-    if (pts.length < 2) continue;
-    pts.sort((a, b) => b.v - a.v);
-    // 相邻差 < thr 的连续段归为同一冲突组
-    let k = 0;
-    while (k < pts.length) {
-      let j = k;
-      while (j + 1 < pts.length && pts[j].v - pts[j + 1].v < thr) j++;
-      const group = pts.slice(k, j + 1);
-      if (group.length > 1) {
-        group.forEach((p, rank) => {
-          if (rank === 0) return; // 组内最高值保持默认 top 不动
-          const serie = list[p.si];
-          const src = spec.series[p.si];
-          if (!serie || !src) return;
-          const arr = Array.isArray(serie.data) ? (serie.data as Array<unknown>).slice() : [];
-          while (arr.length < src.data.length) arr.push(src.data[arr.length] ?? null);
-          const raw = src.data[i];
-          const above = rank % 2 === 0; // 偶数名次仍放上方、奇数名次放下方，逐级加距
-          arr[i] = {
-            value: typeof raw === 'number' && !Number.isNaN(raw) ? raw : null,
-            label: above
-              ? { position: 'top', distance: 4 + Math.floor(rank / 2) * 13 }
-              : { position: 'bottom', distance: 4 + Math.floor((rank - 1) / 2) * 13 },
-          };
-          serie.data = arr;
-        });
-      }
-      k = j + 1;
-    }
+    vals.sort((a, b) => b.v - a.v);
+    vals.forEach((item, rank) => ranks.set(`${item.si}:${di}`, rank));
   }
+  return ranks;
+}
+
+export function lineLabelAvoidLayout(
+  spec: ChartSpec,
+): (params: LabelLayoutParams) => { x: number; y: number } {
+  const ranks = buildValueRanks(spec);
+  const placed = new Map<string, PlacedRect>(); // 跨帧保留，逐帧收敛
+  return (params) => {
+    const r = params.labelRect;
+    const key = `${params.seriesIndex}:${params.dataIndex}`;
+    const myRank = ranks.get(key) ?? 0;
+    placed.delete(key); // 丢掉自身上一帧位置，用本帧 labelRect 重算
+    const others: PlacedRect[] = [];
+    placed.forEach((rect, k) => {
+      if (k.endsWith(`:${params.dataIndex}`)) others.push(rect);
+    });
+    const pointY = r.y + r.height + POINT_GAP;
+    const belowY = pointY + POINT_GAP - 1;
+    const step = r.height + LABEL_GAP;
+    const candidates: Array<{ x: number; y: number }> = [
+      { x: r.x, y: r.y },
+      { x: r.x, y: belowY },
+    ];
+    for (let level = 1; level <= 3; level++) {
+      candidates.push({ x: r.x, y: r.y - level * step });
+      candidates.push({ x: r.x, y: belowY + level * step });
+    }
+    let chosen = candidates[candidates.length - 1]; // 全部冲突时的最远兜底
+    for (const c of candidates) {
+      const rect: PlacedRect = { x: c.x, y: c.y, w: r.width, h: r.height, rank: myRank };
+      const blocker = others.find((o) => rectsOverlap(rect, o));
+      if (!blocker || blocker.rank > myRank) {
+        // 空位置，或占位者值更小（它下帧会让我）→ 采用
+        chosen = c;
+        break;
+      }
+    }
+    placed.set(key, { x: chosen.x, y: chosen.y, w: r.width, h: r.height, rank: myRank });
+    return { x: chosen.x, y: chosen.y };
+  };
 }
