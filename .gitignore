@@ -94,4 +94,7 @@ logs/
 .preview
 
 # CodeGraph index
-.codegraphassets/
+.codegraph/
+
+# 用户上传的截图（不入库）
+assets/
