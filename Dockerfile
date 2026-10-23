@@ -18,7 +18,8 @@ RUN pnpm run build
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEPLOY_RUN_PORT=8000
+    DEPLOY_RUN_PORT=8000 \
+    DATA_DIR=/app/data
 
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements.txt

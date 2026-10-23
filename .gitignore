@@ -14,6 +14,9 @@ __pycache__/
 .env
 .cozeproj/reduction
 
+# 使用统计埋点本地数据（SPEC v1.19，生产走容器 volume）
+backend/data/
+
 # JS/TS bundlers & build outputs
 .next
 .nuxt

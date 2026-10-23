@@ -20,6 +20,9 @@ class Settings:
     cors_origins: tuple[str, ...] = tuple(_cors_origins())
     backend_port: int = int(os.getenv("BACKEND_PORT", "8000"))
 
+    # 使用统计埋点（SPEC v1.19 §7.1）：STATS_TOKEN 未配置则 /api/stats 恒 404
+    stats_token: str = os.getenv("STATS_TOKEN", "")
+
     # 上传与解析限制（SPEC §M1）
     max_upload_bytes: int = 10 * 1024 * 1024
     max_data_rows: int = 10_000

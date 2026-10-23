@@ -3,10 +3,11 @@
 ## 项目概览
 智能数据图表 PPT 生成器：用户输入文本/CSV/Excel，后端解析数据语义，LLM 推荐图表（十三种：bar/hbar/line/area/combo/stacked/slope/scatter/waterfall/radar/pie/donut/sunburst），前端 ECharts 预览，最终由 python-pptx + ablechart 生成含**原生可编辑 Chart 对象**的 .pptx。
 
-**唯一规格来源：`SPEC.md`（v1.13）。任何代码实现必须先与 SPEC 对齐，冲突时先回写 SPEC。**
+**唯一规格来源：`SPEC.md`（v1.19）。任何代码实现必须先与 SPEC 对齐，冲突时先回写 SPEC。**
 
 ## 架构
-- `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder，契约见 SPEC §5/§6。
+- `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder / analytics 埋点（SPEC v1.19 §7.1），契约见 SPEC §5/§6。
+  - **使用统计埋点（v1.19）**：`backend/app/analytics.py`——五个业务端点成功响应时各记一条事件到 SQLite（`events(id, ts, event, lang, country, meta)`，单连接+模块锁，写入失败静默降级不影响业务）。存储 `DATA_DIR`（默认 `backend/data/`，生产容器 `/app/data` 挂 named volume `app_data`）。**隐私红线**：不记 IP/UA/请求体原文/用户数据内容/图表标题/列名；lang 取 `X-Lang` 头（recommend 以 body.lang 归一化值为准），country 仅取 `CF-IPCountry`（XX/T1→NULL），meta 只放产品维度。查询端点 `GET /api/stats?token=<STATS_TOKEN>`（未配置或不匹配恒 404），返回累计/今日/近 30 天、近 14 天按日、recommend 语言分布、PPTX 图型分布。前端 5 处 fetch 统一带 `X-Lang` 头。
 - `frontend/`：React 18 + TypeScript + Vite 5 + ECharts 5；`ChartSpec` 是前后端共享的唯一图表事实源，映射层为 `src/utils/specToOption.ts`。
   - 已实现**左右分布单工作区**（深色科技感，DESIGN.md）：左 `ControlPanel`（输入→/api/parse **成功后自动调 /api/recommend**、解析摘要、已选清单、导出）+ 右 `PreviewPanel`（`ChartCard` 卡片网格，ECharts 缩略图 + reasoning，点击选中全局 state）；导出已接 /api/generate-pptx（十三种图型逐张下载 .pptx，v1.6 起全覆盖）。无页签三步流已废弃；「解析」与「生成图表」已合并为一次点击。响应式：≤1080px 上下单列 + **自然文档流**（`.workspace` overflow 必须 visible，整页随 body 滚动，内部滚动会导致移动端候选区显示不完整）、≤640px 手机端卡片单列全宽 + 顶栏压缩 + 隐藏四角装饰 + 预览面板头部折行（文字占满整行，提示文案不被按钮挤压成竖长条）（`styles.css` 媒体查询）。
   - **双主题 + 六语言（v1.17）**：`src/theme.tsx`（`data-theme` 写根节点，深色默认，localStorage `dc-theme`）+ `src/i18n.tsx`（zh/en/fr/de/es；**初始语言检测浏览器** navigator.language 前缀匹配、其余英文兜底，localStorage `dc-lang` 手动选择优先；界面框架文案全入 STRINGS 六语言字典，组件一律 `useI18n()` 取词；图表标题/reasoning/列名等数据内容保持后端原文）。样式全部走 CSS 变量（`styles.css` `:root` 深色 / `[data-theme='light']` 浅色），ECharts 色板由 `specToOption(spec, theme)` 双套 token 切换；顶栏右侧主题切换按钮 + 语言下拉（`.lang-select`）。
@@ -32,6 +33,7 @@
 - 单容器全栈：根目录 `Dockerfile`（多阶段：Node 20 构建 `frontend/dist` → python:3.12-slim 运行时，uvicorn 监听容器内 `DEPLOY_RUN_PORT=8000`，FastAPI 托管 dist，健康检查 `/healthz`）。
 - 编排：`docker-compose.yml`（app + caddy:2-alpine），`deploy/Caddyfile`（chartthat.com 自动 Let's Encrypt，www 301 到裸域，安全响应头）；环境变量走 `.env`（模板 `.env.example`，`.env` 已 gitignore）。
 - LLM 零改动接 DeepSeek：`LLM_API_KEY`/`LLM_BASE_URL=https://api.deepseek.com`/`LLM_MODEL=deepseek-chat`（config.py 原生支持，未配置自动走启发式降级）。
+- 使用统计（v1.19）：`.env` 配 `STATS_TOKEN=<随机串>`（`openssl rand -hex 16`）后，浏览器访问 `https://chartthat.com/api/stats?token=<该串>` 查看 JSON；数据在 named volume `app_data`（容器重建不丢）。
 - 完整上线步骤（Hetzner VPS + Cloudflare DNS + 防火墙 + 更新/运维/备份）见 `DEPLOY.md`。
 
 ## 核心约束（实现时不可违反，详见 SPEC §3）
@@ -57,4 +59,4 @@
   - v1.6 起扩展为**十三图型**（新增 hbar/stacked/donut/area/waterfall/radar/sunburst，映射表见 SPEC §6）：hbar=BAR_CLUSTERED、area=AREA、stacked=COLUMN_STACKED、radar=RADAR_MARKERS（categories=指标名、系列=各实体）、donut=DOUGHNUT；**waterfall 无原生枚举**→COLUMN_STACKED 等价（R-5）：「底座」系列透明（`format.fill.background()`）+「增量」系列，取值口径 **底座=min(前值累计,后值累计)、增量=|原始增量|**（堆叠负值会回落零轴下方，必须翻转垫高），None 增量保持空点；**sunburst 降级 DOUGHNUT**（R-5，前端预览仍为真旭日）。形态校验：donut/sunburst/waterfall 恰好 1 系列、stacked ≥2 同单位、radar ≥3 同单位，新类型（除 hbar/area）禁 percent。
   - M0 spike 已通过：`backend/spikes/ablechart_spike.py`（pip 安装、双轴 combo、副轴 percent 生效、内部嵌入、line gap 默认、combo `replace_data` 可更新）。
 - M4 测试在 `backend/tests/test_pptx_builder.py`（TestClient 直接打 ASGI，无网络）：断言无 External rel、combo 含 barChart+lineChart+双 valAx+0.0%、`replace_data` 后重存读回值更新、null→gap 且无伪 0、v1.6 七新图型 plot 标记（barDir=bar/areaChart/stacked/radarChart/doughnutChart/waterfall 底座透明+累计口径）、形态与 percent 违规 400、端点 .pptx 冒烟、v1.11 标准版无 `<p:timing>`（即便误传 animate 也忽略）。M4b 测试在 `backend/tests/test_gif_builder.py`（直出与嵌入两路：GIF89a 魔数/n_frames/loop=0/duration、实底无 transparency、透明模式带 transparency 索引+disposal=2+alpha=0、slide 含图片 shape、transparent 非布尔 400、`/api/generate-gif` 返回 image/gif 与 chart-*.gif 文件名、非法入参 400）。validators 单测在 `backend/tests/test_validators.py`（V-9~V-12 与 percent 口径，最小表直造）。
-- 交付前用 test_run 跑静态检查 + 接口冒烟（已实现 `/api/health`、`/api/parse`、`/api/recommend`、`/api/generate-pptx`、`/api/generate-gif`、`/api/generate-animated-pptx`；多图 deck 端点 `/api/generate` 为后续里程碑）。recommend/generate-pptx 冒烟注意 pipeline 会给 curl 追加 `-w` 尾巴，落盘文件再 `json.load` 会 Extra data，需用 Python urllib 串联或提取纯 JSON；**`/api/recommend` 入参是裸 SemanticTable JSON（不要包 `{"table": ...}`）**。十三图型导出冒烟脚本：`python3 scripts/smoke_pptx_export.py`（逐型断言 PK 魔数/.pptx 文件名/plot 标记/无 External rels）。
+- 交付前用 test_run 跑静态检查 + 接口冒烟（已实现 `/api/health`、`/api/parse`、`/api/recommend`、`/api/generate-pptx`、`/api/generate-gif`、`/api/generate-animated-pptx`、`/api/stats`（v1.19，STATS_TOKEN 保护，冒烟验 404 行为即可）；多图 deck 端点 `/api/generate` 为后续里程碑）。recommend/generate-pptx 冒烟注意 pipeline 会给 curl 追加 `-w` 尾巴，落盘文件再 `json.load` 会 Extra data，需用 Python urllib 串联或提取纯 JSON；**`/api/recommend` 入参是裸 SemanticTable JSON（不要包 `{"table": ...}`）**。十三图型导出冒烟脚本：`python3 scripts/smoke_pptx_export.py`（逐型断言 PK 魔数/.pptx 文件名/plot 标记/无 External rels）。

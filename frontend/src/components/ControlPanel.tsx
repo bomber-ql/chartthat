@@ -21,10 +21,10 @@ interface ControlPanelProps {
   onRemove: (id: string) => void;
 }
 
-async function parseText(text: string, failMsg: string): Promise<SemanticTable> {
+async function parseText(text: string, failMsg: string, lang: string): Promise<SemanticTable> {
   const res = await fetch('/api/parse', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Lang': lang },
     body: JSON.stringify({ text }),
   });
   if (!res.ok) {
@@ -34,10 +34,10 @@ async function parseText(text: string, failMsg: string): Promise<SemanticTable> 
   return (await res.json()) as SemanticTable;
 }
 
-async function parseFile(file: File, failMsg: string): Promise<SemanticTable> {
+async function parseFile(file: File, failMsg: string, lang: string): Promise<SemanticTable> {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch('/api/parse', { method: 'POST', body: form });
+  const res = await fetch('/api/parse', { method: 'POST', headers: { 'X-Lang': lang }, body: form });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { message?: string } | null;
     throw new Error(body?.message ?? `${failMsg}（HTTP ${res.status}）`);
@@ -62,7 +62,7 @@ export default function ControlPanel({
   onToggleLabels,
   onRemove,
 }: ControlPanelProps) {
-  const { t, chartLabel } = useI18n();
+  const { t, lang, chartLabel } = useI18n();
   const [text, setText] = useState(initialText);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +103,7 @@ export default function ControlPanel({
           <button
             className="btn"
             disabled={loading || !text.trim()}
-            onClick={() => void run(() => parseText(text, t('parseFailed')))}
+            onClick={() => void run(() => parseText(text, t('parseFailed'), lang))}
           >
             {loading ? t('analyzing') : t('analyze')}
           </button>
@@ -113,7 +113,7 @@ export default function ControlPanel({
             onClick={() => {
               const sample = t('sampleData');
               setText(sample);
-              void run(() => parseText(sample, t('parseFailed')), sample);
+              void run(() => parseText(sample, t('parseFailed'), lang), sample);
             }}
           >
             {t('sample')}
@@ -125,7 +125,7 @@ export default function ControlPanel({
             style={{ display: 'none' }}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void run(() => parseFile(f, t('uploadFailed')));
+              if (f) void run(() => parseFile(f, t('uploadFailed'), lang));
               e.target.value = '';
             }}
           />

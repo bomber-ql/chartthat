@@ -52,7 +52,7 @@ export default function App() {
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Lang': lang },
         // v1.14：携带界面语言，后端 title/reasoning/降级模板按此语言产出；列名等数据保持原文
         body: JSON.stringify({ ...target, lang }),
       });
@@ -101,7 +101,7 @@ export default function App() {
       for (const s of targets) {
         const res = await fetch('/api/generate-pptx', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Lang': lang },
           body: JSON.stringify({
             chart_type: s.chart_type,
             title: s.title,
@@ -146,7 +146,7 @@ export default function App() {
         const frames = await captureFrames(s, theme, { transparent: transparentGif, showLabels });
         const res = await fetch('/api/generate-gif', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Lang': lang },
           body: JSON.stringify({ frames, frame_ms: 100, transparent: transparentGif }),
         });
         if (!res.ok) {

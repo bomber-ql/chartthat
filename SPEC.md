@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.18 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出随界面语言五语言原生 zh/en/fr/de/es），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
+> 版本：v1.19 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出随界面语言五语言原生 zh/en/fr/de/es），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态；新增轻量使用统计埋点（SQLite 单文件 + 受保护 /api/stats）
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.19：**轻量使用统计埋点（SQLite 单文件）**。①新增 `backend/app/analytics.py`：五个业务端点（parse/recommend/generate-pptx/generate-gif/generate-animated-pptx）在**成功响应**时各记一条事件到 SQLite（表 `events(id, ts, event, lang, country, meta)`，`ts` 为 UTC ISO8601）；存储位置由 `DATA_DIR` 决定（默认 `backend/data/`，生产容器固定 `/app/data` 并挂 named volume 持久化，容器重建不丢数据）。②**隐私红线**：不记录 IP、UA、Referer、请求体原文、用户表格数据、图表标题与列名；`lang` 取前端 `X-Lang` 请求头（recommend 以 body.lang 归一化值为准），`country` 仅取 Cloudflare `CF-IPCountry` 两位国家码（未走橙云代理时为 NULL），`meta` 仅放产品维度——parse：`{source: text|csv|xlsx|其他扩展名, rows, cols}`；recommend：`{degraded, count, chart_types[]}`；generate-pptx：`{chart_type, show_labels}`；generate-gif：`{frames, frame_ms, transparent}`；generate-animated-pptx：同 gif + `{has_title}`。③新增 `GET /api/stats`（§7.1）：`STATS_TOKEN` 未配置或 `?token=` 不匹配一律 404（不暴露端点存在性），返回累计/今日/近 30 天各事件计数、近 14 天按日分布、recommend 语言分布、PPTX 导出图型分布。④埋点写入失败静默降级（仅 warning 日志），绝不影响业务响应；单连接 + 模块级锁保证线程安全，写入为微秒级同步调用。
 - v1.18：**推荐产出扩为五语言原生**（替代 v1.17 的「非 zh 一律英文」回退）。①`lang` 归一化改为：zh/en/fr/de/es **直通**，仅非法/缺省值回退 `"en"`。②**LLM 路径**：fr/de/es 复用英文 system prompt + 追加一条目标语言指令（"EXCEPTION to rule 8: write BOTH title and reasoning in French/German/Spanish"，并重申列名/维度值保持原文不翻译）——主流 LLM 多语言输出质量可靠，无需维护三套完整 prompt；user prompt 骨架非 zh 一律英文。③**降级路径**：启发式降级标题模板（combo/line/area/stacked/slope/radar/bar/donut/scatter/pie 十组）、缺失系列提示语、降级说明、无数值列错误信息全部扩为 fr/de/es 三套（模板常量 `FALLBACK_TITLES` 五语言字典）；分隔符口径 zh 用全角「；：」，其余一律半角 "; " / ": "。④前端「数据不完整」徽标尾缀匹配同步扩为五语言（大小写不敏感）。⑤列名/categories/series.name 保持用户原文的约束（v1.14）不变。
 - v1.17：**出海多语言**。①前端界面语言由 zh/en 扩为**六语言** zh/en/fr/de/es（DESIGN.md 多语言节同步）；初始语言改为**检测浏览器语言**（`navigator.language` 前缀匹配 zh/fr/de/es，其余一律英文兜底——面向海外默认英文而非中文），用户手动切换后存 `localStorage dc-lang` 优先；顶栏语言二态切换按钮改为六语言下拉。②`/api/recommend` 的 `lang` 归一化规则修订：v1.14「缺省/非法值回退 zh」改为**仅 `"zh"` 走中文，其余一切取值（含 fr/de/es 及非法值）统一回退 `"en"`**（出海产品默认回退应为英文；欧洲语言用户的推荐文本以英文输出，远比中文可读）。LLM prompt、降级模板、缺失提示语仍维护 zh/en 两套，欧洲语言经回退复用英文套。③列名/维度值等数据原文不翻译的约束（v1.14）不变。
 - v1.16：①标准 PPTX 导出支持**数据标签开关**。GeneratePptxRequest 顶层新增可选 `show_labels`（默认 false）；为 true 时给原生可编辑 Chart 写入 `<c:dLbls>`：柱/条/线/面积/堆叠/斜率显值，饼/圆环/旭日显「类别名+值」，瀑布仅「增量」系列显值（透明底座不加），散点/雷达因 python-pptx 原生 dLbls 支持差而安全跳过（不报错）；数字格式沿用各序列 unit 轴口径（percent=`0.0%`、yi/wan 带单位、count=`General`）。标签是原生图表元素、在 PPT/WPS 可继续编辑，C-1 不违反。「显示数据标签」开关自此同时作用于预览、GIF 与标准 PPTX。②修复降级标题泄漏内部单位码：line/area/stacked/slope/radar 启发式标题不再拼接裸 unit（曾出现「产品线各期yi指标趋势」），单位只保留在坐标轴与数据标签上。
@@ -740,6 +741,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 | POST | `/api/generate-pptx` | GeneratePptxRequest（§5.6，单图 `{chart_type, config, data}`） | `.pptx` 文件流 | M4（已实现）；错误返回 ApiError + 4xx/5xx |
 | POST | `/api/generate-gif` | AnimatedFramesRequest（§5.6a，GIF 帧序列 + transparent?） | `.gif` 文件流 | M4b 动效直出（v1.12 主形态，R-6） |
 | POST | `/api/generate-animated-pptx` | AnimatedFramesRequest（§5.6a，GIF 帧序列） | `.pptx` 文件流 | M4b 嵌入版（v1.11，保留，R-6） |
+| GET | `/api/stats` | `?token=<STATS_TOKEN>` | 使用统计 JSON（§7.1） | v1.19 埋点查询；token 未配置或不匹配一律 404 |
 | POST | `/api/generate` | GenerateRequest（§5.6b，多图 deck） | `.pptx` 文件流 | 后续里程碑，MVP 未实现 |
 
 **通用约定：**
@@ -776,6 +778,25 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 ```
 
 > ChartSpec JSON 中 percent 值为小数形态（`0.112` / `-0.039`，§5.1），M4 写入 pptx 时直接使用该值、不再换算。
+
+### 7.1 使用统计（v1.19）
+
+`GET /api/stats?token=<STATS_TOKEN>` 返回匿名使用统计（埋点契约与隐私红线见修订记录 v1.19）：
+
+```json
+{
+  "totals":    { "parse": 120, "recommend": 98, "generate-pptx": 41, "generate-gif": 12, "generate-animated-pptx": 0 },
+  "today":     { "parse": 5, "recommend": 4 },
+  "last_30d":  { "parse": 60, "recommend": 52, "generate-pptx": 20 },
+  "daily":     [ { "day": "2026-10-23", "event": "parse", "n": 5 } ],
+  "langs":     { "zh": 30, "en": 50, "fr": 6 },
+  "chart_types": { "bar": 18, "combo": 12, "pie": 5 }
+}
+```
+
+- `daily` 为近 14 天（按 UTC 日期）逐日逐事件计数；`langs` 统计 recommend 事件的 lang 分布；`chart_types` 统计 generate-pptx 事件的图型分布。
+- `STATS_TOKEN` 环境变量未配置、或 `token` 不匹配，一律返回 404（不暴露端点存在性）。
+- 仅成功响应的业务请求计数；埋点失败静默降级，不影响业务。
 
 ---
 

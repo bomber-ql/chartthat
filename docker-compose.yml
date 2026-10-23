@@ -8,7 +8,9 @@ services:
     env_file: .env
     expose:
       - "8000"
-    # 单容器无状态；后续加 Postgres/Redis 时在此扩展 services
+    volumes:
+      - app_data:/app/data   # 使用统计 SQLite 持久化（SPEC v1.19），重建容器不丢数据
+    # 后续加 Postgres/Redis 时在此扩展 services
 
   caddy:
     image: caddy:2-alpine
@@ -26,3 +28,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  app_data:
