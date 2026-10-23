@@ -14,6 +14,14 @@
 - **左右分布单工作区**（本版核心变更）：左列固定 400px 控制台（数据输入 → 解析摘要 → 已选清单 → 导出），右列弹性画布（候选图表卡片网格）；顶部一条通栏品牌栏。三步流程收拢为同屏流水线，无页签跳转。
 - 右侧候选卡片网格：`repeat(auto-fill, minmax(320px, 1fr))`，按语义层（趋势 / 体量对比 / 变化率）分组，组标题为青色侧光条 + 大写英文标签。
 
+## 内容区与静态页（SEO / AdSense 审核，v1.21 起）
+- **页面滚动模型变更**：桌面端从「100vh 禁滚动应用壳」改为「首屏 100vh 应用壳（`.stage` = topbar + workspace，内部滚动行为不变）+ 下方内容区随 body 滚动」。背景光晕（`.shell::before`）与网格（`.bg-grid`）改 `position: fixed`，不随滚动。
+- **内容区静态直出**：开发故事摘要 / 十三图型速查 / FAQ 直接写在 `index.html` 的 `#root` 之外（不经 React 渲染，AdSense/Google 爬虫零渲染可见）；样式全走 CSS 变量，主题切换天然生效；**固定英文，不随界面语言切换**（SEO 目标语言）。
+- 组件语言：区块标题 `.c-title`（青色大写 + 左侧 3px 渐变侧光条）；图型速查 `.cg-card` 玻璃卡片（hover 上浮 2px + 边框提亮）；FAQ 用原生 `<details>` 手风琴（无 JS、SEO 友好），`+` 号旋转 45°。
+- **页脚 `.site-footer`**：玻璃顶边条——品牌渐变字 + 口号 / About·Privacy·GitHub 导航 / 版权行。
+- **独立静态页** `/about.html`（完整开发故事）、`/privacy.html`（隐私政策，诚实对应实际数据行为）：Vite 多页构建（rollupOptions.input），复用 styles.css；`<head>` 内嵌 localStorage `dc-theme` 主题检测脚本防闪烁；`.sp-*` 文章版式（760px 中栏、h2 侧光条、`.sp-back` 幽灵返回按钮）。
+- `index.html`：`lang="en"`（出海定位）；JSON-LD `WebApplication` 结构化数据（免费、十三图型、PPTX/GIF 卖点）。
+
 ## 响应式
 - **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流。
 - **≤640px（手机）**：候选卡片单列全宽（弃用 320px minmax，杜绝横向溢出）；顶栏压缩——状态只留圆点、品牌副标题省略号截断；隐藏四角括号装饰（小屏噪点）；各区块 padding/gap 收紧；预览面板头部允许折行——标题/提示文字占满整行、操作按钮换到下一行，避免提示文案被挤压成竖长条。

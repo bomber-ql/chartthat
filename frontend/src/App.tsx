@@ -168,12 +168,14 @@ export default function App() {
   return (
     <div className="shell">
       <div className="bg-grid" aria-hidden />
-      <span className="corner tl" aria-hidden />
-      <span className="corner tr" aria-hidden />
-      <span className="corner bl" aria-hidden />
-      <span className="corner br" aria-hidden />
+      {/* 首屏容器：topbar + workspace 维持 100vh 应用壳；下方内容区随 body 滚动（SEO 内容区） */}
+      <div className="stage">
+        <span className="corner tl" aria-hidden />
+        <span className="corner tr" aria-hidden />
+        <span className="corner bl" aria-hidden />
+        <span className="corner br" aria-hidden />
 
-      <header className="topbar">
+        <header className="topbar">
         <div className="brand">
           <span className="brand-logo"><Logo size={32} /></span>
           <div>
@@ -251,6 +253,7 @@ export default function App() {
           showLabels={showLabels}
         />
       </main>
+      </div>
     </div>
   );
 }

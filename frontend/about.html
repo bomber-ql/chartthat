@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Why ChartThat exists: an advertising professional got tired of prompting AI chatbots and installing plugins just to turn a table into an editable PowerPoint chart."
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>About — ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/">← Back to the tool</a>
+      </nav>
+
+      <article class="sp-article">
+        <h1>I built ChartThat because every other tool made a simple job feel like a project.</h1>
+        <p class="sp-sub">The story behind the tool · About</p>
+
+        <p>
+          I work in advertising. Most of my Fridays end the same way: a spreadsheet full of
+          numbers, a client pitch on Monday, and a deck full of charts that don't exist yet.
+        </p>
+
+        <p>
+          I tried everything. The AI chatbots wanted me to describe my CSV in a prompt, wait a
+          while, then paste a <strong>picture</strong> of a chart into my slide — a flat image,
+          impossible to restyle, useless the moment a number changed. The plugins wanted installs
+          and accounts. The BI tools wanted a data warehouse. One chart cost ten minutes and a
+          handful of tokens, when what I actually needed was almost embarrassingly simple:
+          <strong>a table in, a PowerPoint chart out.</strong>
+        </p>
+
+        <h2>So I built the tool I wanted</h2>
+        <p>
+          Paste text, a CSV, or an Excel sheet. ChartThat reads the shape of your data, suggests
+          the chart types that genuinely fit — thirteen of them, from combos to waterfalls — and
+          exports a <strong>native, double-click-to-edit PowerPoint chart</strong>. Or an animated
+          GIF, for the slides that need to move.
+        </p>
+        <p>
+          No sign-up. No chat window. Nothing to install. And your numbers stay yours — they are
+          processed to draw your charts, never stored, and never fed into someone else's
+          conversation.
+        </p>
+
+        <h2>What "native" means, and why it matters</h2>
+        <p>
+          Most tools hand you an image. ChartThat writes a real PowerPoint chart object into the
+          .pptx file. Double-click it in PowerPoint, WPS, or Keynote, and the data sheet opens —
+          change a number at 11pm the night before the pitch, and the chart redraws itself. That
+          one detail is the whole reason this tool exists.
+        </p>
+
+        <h2>Free, and staying that way</h2>
+        <p>
+          ChartThat is free to use — no account, no watermark, no trial period. If it saves your
+          Friday once, it has done its job. Sharing it with a colleague who also makes slides is
+          the best way to say thanks.
+        </p>
+
+        <p>
+          If your Friday has ever been ruined by a "can we just add a quick chart?", this one's
+          for you.
+        </p>
+
+        <p>
+          — The maker of ChartThat ·
+          <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+            >GitHub</a
+          >
+        </p>
+      </article>
+
+      <div class="sp-foot">© 2026 ChartThat · <a href="/privacy.html">Privacy</a></div>
+    </div>
+  </body>
+</html>

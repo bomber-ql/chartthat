@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,10 +29,161 @@
       content="Paste table data, get thirteen pro chart types — native editable PPTX or animated GIFs."
     />
     <meta name="twitter:image" content="https://chartthat.com/og.jpg" />
-      <title>ChartThat — Data in, charts out.</title>
+    <!-- 结构化数据：Google 富摘要 -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "ChartThat",
+        "url": "https://chartthat.com/",
+        "description": "Paste table data (text, CSV, Excel), get thirteen pro chart types. Export native editable PowerPoint charts or animated GIFs. Free, no sign-up.",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": "13 chart types (bar, line, area, combo, stacked, slope, scatter, waterfall, radar, pie, donut, sunburst); native editable PPTX export; animated GIF export"
+      }
+    </script>
+    <title>ChartThat — Data in, charts out.</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!--
+      内容区（SEO / AdSense 审核导向，固定英文，静态直出不经 React 渲染）。
+      主题切换仍生效：样式全部走 CSS 变量，data-theme 由 theme.tsx 写根节点。
+      文案如需修改，直接编辑本文件与 about.html。
+    -->
+    <div class="content">
+      <section class="c-block" aria-labelledby="c-about">
+        <h2 id="c-about" class="c-title">Built by someone who makes slides for a living</h2>
+        <div class="c-prose">
+          <p>
+            I work in advertising. Most of my Fridays end the same way: a spreadsheet full of
+            numbers, a client pitch on Monday, and a deck full of charts that don't exist yet.
+          </p>
+          <p>
+            I tried everything — AI chatbots that hand back flat <em>pictures</em> of charts,
+            plugins that want installs and accounts, BI tools that want a data warehouse. One
+            chart cost ten minutes and a handful of tokens, when what I actually needed was almost
+            embarrassingly simple: <strong>a table in, a PowerPoint chart out.</strong>
+          </p>
+          <p>
+            So I built ChartThat. Paste text, CSV, or Excel — get the chart types that genuinely
+            fit, exported as a native, double-click-to-edit PowerPoint chart. No sign-up, no chat
+            window, nothing to install.
+            <a class="c-link" href="/about.html">Read the full story →</a>
+          </p>
+        </div>
+      </section>
+
+      <section class="c-block" aria-labelledby="c-charts">
+        <h2 id="c-charts" class="c-title">Thirteen chart types, and when to use each</h2>
+        <div class="chart-guide">
+          <div class="cg-card">
+            <div class="cg-name">Bar (column)</div>
+            <div class="cg-use">Compare values across categories — the default answer to "which is biggest?"</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Horizontal bar</div>
+            <div class="cg-use">The same comparison, rotated — better when category names get long.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Line</div>
+            <div class="cg-use">A trend over time — monthly revenue, daily active users, anything with a clock.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Area</div>
+            <div class="cg-use">A trend with a sense of volume — cumulative traffic, market size, stock levels.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Combo (bar + line)</div>
+            <div class="cg-use">Two units on one chart — revenue bars with a growth-rate line on the second axis.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Stacked column</div>
+            <div class="cg-use">Part-to-whole across categories — channel mix per quarter, cost split per month.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Slope</div>
+            <div class="cg-use">Before vs after for many items — this year vs last year, per product or per market.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Scatter</div>
+            <div class="cg-use">The relationship between two metrics — price vs sales, spend vs reach.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Waterfall</div>
+            <div class="cg-use">How a total is built up or worn down — budget plans, profit bridges, headcount.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Radar</div>
+            <div class="cg-use">A profile across 3+ metrics — compare products or campaigns at a glance.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Pie</div>
+            <div class="cg-use">Share of total for a few categories — two to five slices work best.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Donut</div>
+            <div class="cg-use">A pie with breathing room — same job, more modern feel, space for a headline number.</div>
+          </div>
+          <div class="cg-card">
+            <div class="cg-name">Sunburst</div>
+            <div class="cg-use">Hierarchical share — region → country → city, all in one ring.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="c-block" aria-labelledby="c-faq">
+        <h2 id="c-faq" class="c-title">Frequently asked questions</h2>
+        <div class="faq">
+          <details class="faq-item">
+            <summary>Is ChartThat free?</summary>
+            <p>Yes — completely. No account, no watermark, no trial period, no "pro" chart types held hostage.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Is my data safe?</summary>
+            <p>Your table is processed only to build your charts and is never stored. Our own usage analytics count feature clicks only — no IP addresses, no table contents, no chart titles, no column names.</p>
+          </details>
+          <details class="faq-item">
+            <summary>What input formats are supported?</summary>
+            <p>Paste plain text or markdown tables directly, or upload .csv and .xlsx files. Missing values stay missing — they are never silently converted to zero.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Are the exported PowerPoint charts really editable?</summary>
+            <p>Yes. The export is a native PowerPoint chart object, not an image. Double-click it in PowerPoint, WPS, or Keynote to edit the underlying data — exactly like a chart you built by hand.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Which chart types can it generate?</summary>
+            <p>Thirteen: bar, horizontal bar, line, area, combo (bar + line), stacked column, slope, scatter, waterfall, radar, pie, donut, and sunburst — recommended based on the shape of your data.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I get animated charts?</summary>
+            <p>Yes — every chart can also be exported as a looping animated GIF, with optional data labels and a transparent background for dark slides.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Do I need to install anything or create an account?</summary>
+            <p>No. It runs entirely in your browser tab. Paste data, pick a chart, download the file — that is the whole workflow.</p>
+          </details>
+        </div>
+      </section>
+    </div>
+
+    <footer class="site-footer">
+      <div class="sf-inner">
+        <div class="sf-brand">
+          <span class="sf-name">ChartThat</span>
+          <span class="sf-tag">Data in, charts out.</span>
+        </div>
+        <nav class="sf-nav" aria-label="Footer">
+          <a href="/about.html">About</a>
+          <a href="/privacy.html">Privacy</a>
+          <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
+        <div class="sf-copy">© 2026 ChartThat — paste data, get charts.</div>
+      </div>
+    </footer>
   </body>
 </html>
