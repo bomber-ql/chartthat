@@ -103,7 +103,7 @@ const LAYER_LABELS: Record<Lang, Record<SemanticLayer, string>> = {
 };
 
 const zhStrings = {
-  brandSub: '数据给我，图表给你',
+  brandSub: '数据进，图表出',
   statusReady: '已生成 {n} 张候选',
   statusStandby: '待命',
   exportDone: '已下载 {n} 个文件。',
@@ -167,7 +167,7 @@ const zhStrings = {
 export type StringKey = keyof typeof zhStrings;
 
 const enStrings: Record<StringKey, string> = {
-  brandSub: 'Give us your data, we’ll chart that.',
+  brandSub: 'Data in, charts out.',
   statusReady: '{n} candidates ready',
   statusStandby: 'Standby',
   exportDone: 'Downloaded {n} file(s).',
@@ -229,7 +229,7 @@ const enStrings: Record<StringKey, string> = {
 };
 
 const frStrings: Record<StringKey, string> = {
-  brandSub: 'Donnez-nous vos données, on vous fait des graphiques.',
+  brandSub: 'Vos données, nos graphiques.',
   statusReady: '{n} graphiques prêts',
   statusStandby: 'En attente',
   exportDone: '{n} fichier(s) téléchargé(s).',
@@ -291,7 +291,7 @@ const frStrings: Record<StringKey, string> = {
 };
 
 const deStrings: Record<StringKey, string> = {
-  brandSub: 'Gib uns Daten, wir machen Diagramme draus.',
+  brandSub: 'Daten rein, Diagramme raus.',
   statusReady: '{n} Diagramme bereit',
   statusStandby: 'Standby',
   exportDone: '{n} Datei(en) heruntergeladen.',
@@ -353,7 +353,7 @@ const deStrings: Record<StringKey, string> = {
 };
 
 const esStrings: Record<StringKey, string> = {
-  brandSub: 'Danos tus datos, te damos gráficos.',
+  brandSub: 'Entran datos, salen gráficos.',
   statusReady: '{n} gráficos listos',
   statusStandby: 'En espera',
   exportDone: '{n} archivo(s) descargado(s).',

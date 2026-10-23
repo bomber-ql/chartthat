@@ -2,7 +2,7 @@
 
 ## 品牌
 - 产品名：**ChartThat**（chartthat.com）；顶栏品牌字为驼峰 `ChartThat`（品牌渐变字，字距收紧 0.02em，不再全大写拉开）。
-- 口号：人称交换式「数据给我，图表给你」，六语言化——英 `Give us your data, we'll chart that.`（chart that 双关品牌名）/ 法 «Donnez-nous vos données, on vous fait des graphiques.» / 德 „Gib uns Daten, wir machen Diagramme draus.“（du 口吻，亲和路线）/ 西 «Danos tus datos, te damos gráficos.»；置于顶栏副标题位（brandSub）与空态 hero，浏览器 title 跟随英文版。
+- 口号：极简交换式「数据进，图表出」（3+3 对仗，越短越好），六语言化——英 `Data in, charts out.` / 法 «Vos données, nos graphiques.» / 德 „Daten rein, Diagramme raus.“（rein/raus 地道口语）/ 西 «Entran datos, salen gráficos.»；置于顶栏副标题位（brandSub）与空态 hero，浏览器 title 跟随英文版。
 - 产品介绍：右列空态（首次到访第一眼）承载品牌 hero——大号产品名 + 口号 + 一句话介绍（粘贴数据→十三种图表→PPTX/GIF）+ 三枚特性胶囊（图型数 / 原生可编辑 PPTX / 动效 GIF），下方保留原空态引导。
 
 ## 气质与意象
