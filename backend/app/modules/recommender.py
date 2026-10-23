@@ -22,23 +22,109 @@ LAYERS = {"trend", "comparison", "rate"}
 MAX_RECOMMENDATIONS = 8
 
 # v1.14：title/reasoning/模板按界面语言输出；列名等数据始终保持原文。
-# v1.17：界面语言扩为 zh/en/fr/de/es，后端仍维护 zh/en 两套模板——
-# 仅 "zh" 走中文，其余一切取值（fr/de/es/非法值/缺省）统一回退英文（出海默认英文）。
-LANGS = ("zh", "en")
+# v1.18：推荐产出扩为五语言原生 zh/en/fr/de/es（非法/缺省回退 en）。
+# LLM 路径 fr/de/es 复用英文 prompt + 目标语言指令；降级模板/提示语五语言齐备。
+LANGS = ("zh", "en", "fr", "de", "es")
 DEFAULT_LANG = "en"
 INCOMPLETE_NOTE = {
     "zh": "该系列数据不完整，建议不纳入",
     "en": "Incomplete data for this series; exclude with caution",
+    "fr": "Données incomplètes pour cette série ; à exclure avec prudence",
+    "de": "Unvollständige Daten für diese Reihe; mit Vorsicht ausschließen",
+    "es": "Datos incompletos de esta serie; excluir con precaución",
 }
 DEGRADED_NOTE = {
     "zh": "启发式降级推荐（LLM 不可用或结果不完整）",
     "en": "Heuristic recommendation (LLM unavailable or incomplete)",
+    "fr": "Recommandation heuristique (LLM indisponible ou résultat incomplet)",
+    "de": "Heuristische Empfehlung (LLM nicht verfügbar oder unvollständig)",
+    "es": "Recomendación heurística (LLM no disponible o resultado incompleto)",
+}
+# fr/de/es 在 system prompt 中注入的目标语言名（覆盖英文模板第 8 条）
+LANG_DIRECTIVES = {"fr": "French", "de": "German", "es": "Spanish"}
+
+NO_NUMERIC_MSG = {
+    "zh": "数据中没有可绘图的数值列，无法推荐任何图表",
+    "en": "No plottable numeric columns in the data; cannot recommend any chart.",
+    "fr": "Aucune colonne numérique exploitable dans les données ; impossible de recommander un graphique.",
+    "de": "Keine darstellbaren numerischen Spalten in den Daten; keine Diagramme empfehlbar.",
+    "es": "No hay columnas numéricas utilizables en los datos; no se puede recomendar ningún gráfico.",
+}
+
+# v1.18：降级标题模板五语言。占位符 {dim}=维度列名、{m}/{m1}/{m2}=指标列名、{p}=百分比列名；
+# 列名原文经 format 注入，模板文字本身随语言。
+FALLBACK_TITLES = {
+    "zh": {
+        "combo_rate": "{dim}{m}规模与{p}",
+        "line_trend": "{dim}各期指标趋势",
+        "area_trend": "{dim}各期指标面积",
+        "stacked": "各{dim}指标堆叠构成",
+        "slope": "{dim}两期变化斜率",
+        "radar": "{dim}指标雷达",
+        "bar": "各{dim}{m}对比",
+        "donut": "各{dim}{m}占比构成",
+        "scatter": "{m1}与{m2}相关性",
+        "pie": "各{dim}{m}占比",
+    },
+    "en": {
+        "combo_rate": "{m} and {p} by {dim}",
+        "line_trend": "{dim} trend across periods",
+        "area_trend": "{dim} area across periods",
+        "stacked": "Stacked composition by {dim}",
+        "slope": "{dim} two-period slope",
+        "radar": "{dim} radar",
+        "bar": "{m} by {dim}",
+        "donut": "{m} share by {dim}",
+        "scatter": "{m1} vs {m2}",
+        "pie": "{m} proportion by {dim}",
+    },
+    "fr": {
+        "combo_rate": "{m} et {p} par {dim}",
+        "line_trend": "{dim} : tendance sur les périodes",
+        "area_trend": "{dim} : aires sur les périodes",
+        "stacked": "Composition empilée par {dim}",
+        "slope": "{dim} : pente sur deux périodes",
+        "radar": "Radar : {dim}",
+        "bar": "{m} par {dim}",
+        "donut": "Part de {m} par {dim}",
+        "scatter": "{m1} vs {m2}",
+        "pie": "Proportion de {m} par {dim}",
+    },
+    "de": {
+        "combo_rate": "{m} und {p} nach {dim}",
+        "line_trend": "{dim}: Trend über die Zeiträume",
+        "area_trend": "{dim}: Fläche über die Zeiträume",
+        "stacked": "Gestapelte Zusammensetzung nach {dim}",
+        "slope": "{dim}: Steigung über zwei Zeiträume",
+        "radar": "Radar: {dim}",
+        "bar": "{m} nach {dim}",
+        "donut": "{m}-Anteil nach {dim}",
+        "scatter": "{m1} vs {m2}",
+        "pie": "{m}-Verhältnis nach {dim}",
+    },
+    "es": {
+        "combo_rate": "{m} y {p} por {dim}",
+        "line_trend": "{dim}: tendencia por período",
+        "area_trend": "{dim}: área por período",
+        "stacked": "Composición apilada por {dim}",
+        "slope": "{dim}: pendiente entre dos períodos",
+        "radar": "Radar: {dim}",
+        "bar": "{m} por {dim}",
+        "donut": "Cuota de {m} por {dim}",
+        "scatter": "{m1} vs {m2}",
+        "pie": "Proporción de {m} por {dim}",
+    },
 }
 
 
+def _t(lang: str, key: str, **kw: str) -> str:
+    """取降级标题模板并注入列名原文（v1.18）。"""
+    return FALLBACK_TITLES[lang][key].format(**kw)
+
+
 def normalize_lang(lang: Any) -> str:
-    """归一化界面语言：仅 zh 走中文，其余（含 fr/de/es 与非法/缺省值）统一回退 en（v1.17）。"""
-    return "zh" if lang == "zh" else DEFAULT_LANG
+    """归一化界面语言：zh/en/fr/de/es 直通，非法/缺省值回退 en（v1.18）。"""
+    return lang if lang in LANGS else DEFAULT_LANG
 
 
 # LLM 可调用签名：(messages) -> 文本。测试通过注入 mock 替换。
@@ -106,7 +192,16 @@ Hard rules:
 
 
 def _system_prompt(lang: str) -> str:
-    return SYSTEM_PROMPT_EN if lang == "en" else SYSTEM_PROMPT_ZH
+    if lang == "zh":
+        return SYSTEM_PROMPT_ZH
+    if lang == "en":
+        return SYSTEM_PROMPT_EN
+    # v1.18：fr/de/es 复用英文模板，追加目标语言指令覆盖第 8 条（主流 LLM 多语言输出可靠）
+    return (
+        SYSTEM_PROMPT_EN
+        + f"\n10. EXCEPTION to rule 8: write BOTH title and reasoning in {LANG_DIRECTIVES[lang]}."
+        " Column names, dimension values and series names still stay verbatim (rule 5)."
+    )
 
 
 def _build_user_prompt(table: dict[str, Any], lang: str = DEFAULT_LANG) -> str:
@@ -117,7 +212,7 @@ def _build_user_prompt(table: dict[str, Any], lang: str = DEFAULT_LANG) -> str:
             f"- {c['name']}: role={c['role']}, unit={c['unit']}, "
             f"null_count={s['null_count']}, distinct={s['distinct_count']}"
         )
-    if lang == "en":
+    if lang != "zh":  # v1.18：非中文一律英文骨架（目标输出语言由 system prompt 指令控制）
         lines = ["Table schema summary:", *summary, "", "Sample rows (up to 10):"]
         lines.append(" | ".join(c["name"] for c in table["columns"]))
         for row in table["rows"][:10]:
@@ -312,8 +407,8 @@ def _infer_layer(chart_type: str, series: list[dict[str, Any]]) -> str:
 def _annotate_incomplete(spec: dict[str, Any], lang: str = DEFAULT_LANG) -> None:
     """SPEC §6 M3 规则 5：含 null 的系列确定性追加提示（v1.14 双语），禁止编造数值。"""
     note = INCOMPLETE_NOTE[lang]
-    sep = "; " if lang == "en" else "；"
-    prefix = ": " if lang == "en" else "："
+    sep = "；" if lang == "zh" else "; "   # v1.18：zh 全角，其余一律半角
+    prefix = "：" if lang == "zh" else ": "
     notes = [
         f"{s['source_column']}{prefix}{note}"
         for s in spec["series"]
@@ -397,9 +492,12 @@ def _fallback_specs(table: dict[str, Any], lang: str = DEFAULT_LANG) -> list[dic
 
     # rate：measure + percent → combo 双轴
     if measures and percents:
-        title_en = f"{measures[0]} and {percents[0]} by {dim}" if lang == "en" else \
-            f"{dim}{measures[0]}规模与{percents[0]}"
-        out.append(make("combo", title_en, [*measures[:2], percents[0]], "rate"))
+        out.append(make(
+            "combo",
+            _t(lang, "combo_rate", dim=dim, m=measures[0], p=percents[0]),
+            [*measures[:2], percents[0]],
+            "rate",
+        ))
 
     # trend：≥2 同单位 measure → line；恰两期补 slope；再补 area 变体
     unit_groups: dict[str, list[str]] = {}
@@ -407,32 +505,28 @@ def _fallback_specs(table: dict[str, Any], lang: str = DEFAULT_LANG) -> list[dic
         unit_groups.setdefault(_columns_by_name(table)[name]["unit"], []).append(name)
     for unit, names in unit_groups.items():
         if len(names) >= 2:
-            title_line = f"{dim} trend across periods" if lang == "en" else f"{dim}各期指标趋势"
-            title_area = f"{dim} area across periods" if lang == "en" else f"{dim}各期指标面积"
-            title_stack = f"Stacked composition by {dim}" if lang == "en" else f"各{dim}指标堆叠构成"
-            out.append(make("line", title_line, names[:4], "trend"))
-            out.append(make("area", title_area, names[:2], "trend"))
-            out.append(make("stacked", title_stack, names[:3], "comparison"))
+            out.append(make("line", _t(lang, "line_trend", dim=dim), names[:4], "trend"))
+            out.append(make("area", _t(lang, "area_trend", dim=dim), names[:2], "trend"))
+            out.append(make("stacked", _t(lang, "stacked", dim=dim), names[:3], "comparison"))
             if len(names) == 2:
-                title_slope = f"{dim} two-period slope" if lang == "en" else f"{dim}两期变化斜率"
-                out.append(make("slope", title_slope, names, "trend"))
+                out.append(make("slope", _t(lang, "slope", dim=dim), names, "trend"))
             if len(names) >= 3:
-                title_radar = f"{dim} radar" if lang == "en" else f"{dim}指标雷达"
-                out.append(make("radar", title_radar, names[:5], "comparison"))
+                out.append(make("radar", _t(lang, "radar", dim=dim), names[:5], "comparison"))
             break
 
     # comparison：bar（每实体一个 measure）+ 占比类
     if measures:
-        title_bar = f"{measures[0]} by {dim}" if lang == "en" else f"各{dim}{measures[0]}对比"
-        title_donut = f"{measures[0]} share by {dim}" if lang == "en" else f"各{dim}{measures[0]}占比构成"
-        out.append(make("bar", title_bar, [measures[0]], "comparison"))
-        out.append(make("donut", title_donut, [measures[0]], "comparison"))
+        out.append(make("bar", _t(lang, "bar", dim=dim, m=measures[0]), [measures[0]], "comparison"))
+        out.append(make("donut", _t(lang, "donut", dim=dim, m=measures[0]), [measures[0]], "comparison"))
         if len(measures) >= 2:
-            title_scatter = f"{measures[0]} vs {measures[1]}" if lang == "en" else f"{measures[0]}与{measures[1]}相关性"
-            out.append(make("scatter", title_scatter, measures[:2], "comparison"))
+            out.append(make(
+                "scatter",
+                _t(lang, "scatter", m1=measures[0], m2=measures[1]),
+                measures[:2],
+                "comparison",
+            ))
         else:
-            title_pie = f"{measures[0]} proportion by {dim}" if lang == "en" else f"各{dim}{measures[0]}占比"
-            out.append(make("pie", title_pie, [measures[0]], "comparison"))
+            out.append(make("pie", _t(lang, "pie", dim=dim, m=measures[0]), [measures[0]], "comparison"))
 
     # 只过 validator 保护
     return [s for s in out if not validate_chart_spec(s, table)]
@@ -481,8 +575,8 @@ def recommend_charts(
 
     llm_call 可注入（测试 mock）；默认走真实 OpenAI 兼容接口。
     未配置 key / 调用失败 / 两轮解析失败时降级，degraded=True。
-    lang（v1.14/v1.17）决定 title/reasoning 与降级模板语言：仅 "zh" 走中文，
-    其余取值（含 fr/de/es 与非法值）统一回退英文；列名等数据保持原文。
+    lang（v1.14/v1.18）决定 title/reasoning 与降级模板语言：zh/en/fr/de/es 直通，
+    非法/缺省值回退英文；fr/de/es 经 prompt 语言指令产出目标语言；列名等数据保持原文。
     """
     lang = normalize_lang(lang)
     llm_call = llm_call or call_llm
@@ -498,11 +592,11 @@ def recommend_charts(
     for attempt in range(2):  # 初次 + 重试 1 次（SPEC C-5）
         try:
             retry_nudge = (
-                f"The previous output was unusable ({last_error or 'unknown error'}); "
-                "output ONLY a bare JSON array following the rules."
-                if lang == "en"
-                else f"上一次输出无法使用（{last_error or '未知错误'}），"
-                     "请严格按规则只输出裸 JSON 数组。"
+                f"上一次输出无法使用（{last_error or '未知错误'}），"
+                "请严格按规则只输出裸 JSON 数组。"
+                if lang == "zh"
+                else f"The previous output was unusable ({last_error or 'unknown error'}); "
+                     "output ONLY a bare JSON array following the rules."
             )
             raw = llm_call(messages if attempt == 0 else messages + [
                 {"role": "user", "content": retry_nudge},
@@ -529,9 +623,6 @@ def recommend_charts(
         specs = _ensure_layers(specs, table, lang)
 
     if not specs:
-        msg = ("No plottable numeric columns in the data; cannot recommend any chart."
-               if lang == "en"
-               else "数据中没有可绘图的数值列，无法推荐任何图表")
-        raise RecommendationError(msg)
+        raise RecommendationError(NO_NUMERIC_MSG[lang])
 
     return {"recommendations": _dedupe(specs), "degraded": degraded}

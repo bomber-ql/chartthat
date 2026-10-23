@@ -2,7 +2,7 @@
 
 ## 品牌
 - 产品名：**ChartThat**（chartthat.com）；顶栏品牌字为驼峰 `ChartThat`（品牌渐变字，字距收紧 0.02em，不再全大写拉开）。
-- 口号：`Got data? Chart that.`（六语言化：中「有数据？图它」/ 法 «Des données ? Faites-en un graphique.» / 德 „Daten da? Diagramm draus.“ / 西 «¿Tienes datos? Haz un gráfico.»），置于顶栏副标题位（brandSub）。
+- 口号：`Got data? Chart that.`（六语言化：中「数据变图表，就这么简单」——不用「图它」式强行动词化 / 法 «Des données ? Faites-en un graphique.» / 德 „Daten da? Diagramm draus.“ / 西 «¿Tienes datos? Haz un gráfico.»），置于顶栏副标题位（brandSub）。
 - 产品介绍：右列空态（首次到访第一眼）承载品牌 hero——大号产品名 + 口号 + 一句话介绍（粘贴数据→十三种图表→PPTX/GIF）+ 三枚特性胶囊（图型数 / 原生可编辑 PPTX / 动效 GIF），下方保留原空态引导。
 
 ## 气质与意象
@@ -56,8 +56,8 @@
 ## 多语言（i18n）
 - 六语言界面：中文 / English / Français / Deutsch / Español（SPEC v1.17 出海多语言）；顶栏语言下拉（母语名标签，复用 `.tgl` 胶囊 + 自绘小三角），`localStorage` 持久化。
 - 初始语言：**检测浏览器语言**（`navigator.language` 前缀匹配 zh/fr/de/es，其余一律英文兜底——面向海外默认英文而非中文）；用户手动选择优先于检测结果。
-- 范围：仅界面框架文案（按钮/标题/状态/提示/图型与语义层标签/示例数据表头）；数据驱动内容（图表标题、reasoning、列名、维度值）保持后端原文不翻译。
-- 后端推荐产出只有中/英两套模板：界面 fr/de/es 时 `/api/recommend` 的 lang 由后端归一化回退 en（欧洲语言用户看英文推荐文本，远比中文可读）。
+- 范围：仅界面框架文案（按钮/标题/状态/提示/图型与语义层标签/示例数据表头）；列名、维度值等用户数据内容始终保持原文不翻译。
+- 推荐产出（v1.18）：图表标题/reasoning 按界面语言**五语言原生**——LLM 路径 fr/de/es 经 prompt 语言指令产出目标语言；降级模板/缺失提示同样五语言。语言与内容语言一致，不混搭。
 - 文案集中于 `frontend/src/i18n.tsx` 字典（六语言全量），组件一律经 `useI18n()` 取词，禁止散落硬编码。
 
 ## 设计禁忌

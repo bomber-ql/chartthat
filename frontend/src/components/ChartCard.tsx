@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import type { ChartSpec } from '../types';
-import { INCOMPLETE_TAIL, INCOMPLETE_TAIL_EN } from '../types';
+import { INCOMPLETE_TAILS } from '../types';
 import { applyDataLabels, specToOption } from '../utils/specToOption';
 import { useTheme } from '../theme';
 import { useI18n } from '../i18n';
@@ -49,8 +49,8 @@ export default function ChartCard({ spec, selected, onSelect, showLabels = false
     chart.setOption(option, true);
   };
 
-  // v1.17：后端 lang 归一化为 zh/其余→en，徽标判断同样二分；大小写不敏感以兼容提示语在句中/句首
-  const incompleteTail = lang === 'zh' ? INCOMPLETE_TAIL : INCOMPLETE_TAIL_EN;
+  // v1.18：后端按界面语言产出五语言提示语，徽标判断同步按 lang 取尾缀；大小写不敏感以兼容提示语在句中/句首
+  const incompleteTail = INCOMPLETE_TAILS[lang] ?? INCOMPLETE_TAILS.en;
   const incomplete = spec.reasoning.toLowerCase().includes(incompleteTail.toLowerCase());
 
   return (

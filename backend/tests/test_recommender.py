@@ -327,7 +327,7 @@ def test_english_fallback_titles_and_note(table: dict[str, Any]) -> None:
 
 
 def test_invalid_lang_falls_back_to_en(table: dict[str, Any]) -> None:
-    """v1.17：仅 zh 走中文，fr/de/es 及非法值统一回退英文（出海默认英文）。"""
+    """v1.18：五语言直通，非法/缺省值回退英文。"""
     import json
 
     captured: list[dict[str, str]] = []
@@ -336,19 +336,68 @@ def test_invalid_lang_falls_back_to_en(table: dict[str, Any]) -> None:
         captured.extend(messages)
         return json.dumps([_combo_item()], ensure_ascii=False)
 
-    result = recommend_charts(table, llm_call=llm, lang="fr")  # type: ignore[arg-type]
+    result = recommend_charts(table, llm_call=llm, lang="xx")
     assert result["degraded"] is False
     assert result["recommendations"][0]["chart_type"] == "combo"
-    # 回退英文的判别依据：system prompt 为英文模板
+    # 回退英文的判别依据：system prompt 为英文模板且无语言指令注入
     assert captured[0]["content"].startswith("You are a data-chart recommendation engine")
+    assert "EXCEPTION to rule 8" not in captured[0]["content"]
+
+
+def test_european_lang_injects_language_directive(table: dict[str, Any]) -> None:
+    """v1.18：fr/de/es 复用英文 prompt + 目标语言指令（title/reasoning 用目标语言）。"""
+    import json
+
+    captured: list[dict[str, str]] = []
+
+    def llm(messages: list[dict[str, str]]) -> str:
+        captured.extend(messages)
+        return json.dumps([_combo_item()], ensure_ascii=False)
+
+    recommend_charts(table, llm_call=llm, lang="fr")
+    system_prompt = captured[0]["content"]
+    assert system_prompt.startswith("You are a data-chart recommendation engine")
+    assert "in French" in system_prompt  # 语言指令已注入
+
+    # user prompt 非中文骨架（走英文骨架）
+    assert "Table schema summary" in captured[1]["content"]
+
+
+def test_french_fallback_titles_and_note(table: dict[str, Any]) -> None:
+    """v1.18：LLM 不可用 → 法语降级标题/说明 + 列名原文。"""
+    def llm(_m: list[dict[str, str]]) -> str:
+        raise RuntimeError("llm down")
+
+    result = recommend_charts(table, llm_call=llm, lang="fr")
+    assert result["degraded"] is True
+    recs = result["recommendations"]
+    assert recs
+    for spec in recs:
+        assert spec["reasoning"].startswith("Recommandation heuristique")
+        french_words = ("par", "tendance", "empilée", "pente", "radar",
+                        "vs", "proportion", "part de", "aires")
+        assert any(w in spec["title"].lower() for w in french_words), spec["title"]
+
+
+def test_french_lang_incomplete_note_is_french(table: dict[str, Any]) -> None:
+    import json
+
+    def llm(_m: list[dict[str, str]]) -> str:
+        item = _combo_item(with_dau=True)
+        item["reasoning"] = "Volume et croissance sur deux axes"
+        return json.dumps([item], ensure_ascii=False)
+
+    spec = recommend_charts(table, llm_call=llm, lang="fr")["recommendations"][0]
+    assert INCOMPLETE_NOTE["fr"] in spec["reasoning"]
+    assert "2024 DAU" in spec["reasoning"]  # 列名仍原文
 
 
 def test_normalize_lang_only_zh_kept() -> None:
-    """v1.17：归一化规则——仅 "zh" 保留，其余一律 en。"""
+    """v1.18：归一化规则——五语言直通，非法/缺省值回退 en。"""
     assert normalize_lang("zh") == "zh"
     assert normalize_lang("en") == "en"
-    assert normalize_lang("fr") == "en"
-    assert normalize_lang("de") == "en"
-    assert normalize_lang("es") == "en"
+    assert normalize_lang("fr") == "fr"
+    assert normalize_lang("de") == "de"
+    assert normalize_lang("es") == "es"
     assert normalize_lang("xx") == "en"
     assert normalize_lang(None) == "en"

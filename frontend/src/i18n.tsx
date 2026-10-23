@@ -103,7 +103,7 @@ const LAYER_LABELS: Record<Lang, Record<SemanticLayer, string>> = {
 };
 
 const zhStrings = {
-  brandSub: '有数据？图它',
+  brandSub: '数据变图表，就这么简单',
   statusReady: '已生成 {n} 张候选',
   statusStandby: '待命',
   exportDone: '已下载 {n} 个文件。',
