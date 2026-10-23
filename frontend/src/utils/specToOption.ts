@@ -521,24 +521,80 @@ export function applyDataLabels(option: EChartsOption, spec: ChartSpec, theme: T
     serie.label = { ...prev, ...label };
   });
 
-  // 数值接近时，同一类目位置的多系列标签会完全叠在一起（折线/面积/斜率最明显）。
-  // 启用 ECharts 5 内置标签避让：笛卡尔系沿 Y 轴上下错开；条形图（hbar）沿 X 轴错开。
-  // 同时作用于预览卡片与 GIF 采帧（同一 option 管线）。
-  const CARTESIAN_TYPES = new Set<ChartSpec['chart_type']>([
-    'bar',
-    'hbar',
-    'line',
-    'area',
-    'combo',
-    'stacked',
-    'slope',
-    'waterfall',
-  ]);
-  if (CARTESIAN_TYPES.has(spec.chart_type)) {
+  // 数值接近时，同一类目位置的多系列标签会完全叠在一起。柱形族（bar/hbar/combo/stacked/
+  // waterfall）用 ECharts 5 内置 moveOverlap 避让（Y 向，hbar 用 shiftX）；注意 moveOverlap
+  // 对折线标签不生效（折线标签位置固定、不支持漂移），line/area/slope 走下方的手工避让。
+  // 两者同时作用于预览卡片与 GIF 采帧（同一 option 管线）。
+  const MOVE_OVERLAP_TYPES = new Set<ChartSpec['chart_type']>(['bar', 'hbar', 'combo', 'stacked', 'waterfall']);
+  if (MOVE_OVERLAP_TYPES.has(spec.chart_type)) {
     option.labelLayout = { moveOverlap: spec.chart_type === 'hbar' ? 'shiftX' : 'shiftY' };
+  }
+  if (LINE_LIKE) {
+    separateLineLabels(option, spec);
+  }
+  if (MOVE_OVERLAP_TYPES.has(spec.chart_type) || LINE_LIKE) {
     // 顶部多留一点空间，错开的标签（top 位置再上移）不顶到 legend/画布边缘
     if (option.grid && !Array.isArray(option.grid)) {
       option.grid = { ...option.grid, top: 34 };
+    }
+  }
+}
+
+// 折线族（line/area/slope）标签避让：逐类目比较各系列数值，差值小于阈值（约一个标签高度
+// 对应的值域跨度）视为冲突——最高值保持默认 top，其余交替移到数据点下方（bottom），仍冲突
+// 则按名次递增 distance 继续外推。只改写 option 内的 data 副本（逐系列 slice），不污染
+// spec.series 原数组（标准 pptx 导出直接走 spec JSON，不能被 {value,label} 对象污染）。
+function separateLineLabels(option: EChartsOption, spec: ChartSpec): void {
+  const list = (Array.isArray(option.series) ? option.series : []) as Array<Record<string, unknown>>;
+  if (!list.length) return;
+  let min = Infinity;
+  let max = -Infinity;
+  spec.series.forEach((s) => {
+    s.data.forEach((v) => {
+      if (typeof v === 'number' && !Number.isNaN(v)) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+    });
+  });
+  if (!Number.isFinite(min) || max - min <= 0) return;
+  // 标签 9px 行高约 12px；轴 scale:true 留边距后显示值域 ≈ 数据值域 ×1.25，
+  // 缩略图绘图区约 100~130px → 一个标签高约占数据值域 12~14%，阈值取 14% 保覆盖
+  const thr = (max - min) * 0.14;
+  for (let i = 0; i < spec.categories.length; i++) {
+    const pts: Array<{ si: number; v: number }> = [];
+    spec.series.forEach((s, si) => {
+      const v = s.data[i];
+      if (typeof v === 'number' && !Number.isNaN(v)) pts.push({ si, v });
+    });
+    if (pts.length < 2) continue;
+    pts.sort((a, b) => b.v - a.v);
+    // 相邻差 < thr 的连续段归为同一冲突组
+    let k = 0;
+    while (k < pts.length) {
+      let j = k;
+      while (j + 1 < pts.length && pts[j].v - pts[j + 1].v < thr) j++;
+      const group = pts.slice(k, j + 1);
+      if (group.length > 1) {
+        group.forEach((p, rank) => {
+          if (rank === 0) return; // 组内最高值保持默认 top 不动
+          const serie = list[p.si];
+          const src = spec.series[p.si];
+          if (!serie || !src) return;
+          const arr = Array.isArray(serie.data) ? (serie.data as Array<unknown>).slice() : [];
+          while (arr.length < src.data.length) arr.push(src.data[arr.length] ?? null);
+          const raw = src.data[i];
+          const above = rank % 2 === 0; // 偶数名次仍放上方、奇数名次放下方，逐级加距
+          arr[i] = {
+            value: typeof raw === 'number' && !Number.isNaN(raw) ? raw : null,
+            label: above
+              ? { position: 'top', distance: 4 + Math.floor(rank / 2) * 13 }
+              : { position: 'bottom', distance: 4 + Math.floor((rank - 1) / 2) * 13 },
+          };
+          serie.data = arr;
+        });
+      }
+      k = j + 1;
     }
   }
 }
