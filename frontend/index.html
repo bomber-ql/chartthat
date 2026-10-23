@@ -55,7 +55,7 @@
       主题切换仍生效：样式全部走 CSS 变量，data-theme 由 theme.tsx 写根节点。
       文案如需修改，直接编辑本文件与 about.html。
     -->
-    <div class="content">
+    <div class="content" id="site-content">
       <section class="c-block" aria-labelledby="c-about">
         <h2 id="c-about" class="c-title">Built by someone who makes slides for a living</h2>
         <div class="c-prose">
@@ -64,17 +64,39 @@
             numbers, a client pitch on Monday, and a deck full of charts that don't exist yet.
           </p>
           <p>
-            I tried everything — AI chatbots that hand back flat <em>pictures</em> of charts,
-            plugins that want installs and accounts, BI tools that want a data warehouse. One
-            chart cost ten minutes and a handful of tokens, when what I actually needed was almost
+            I tried everything. AI chatbots wanted a prompt and returned a <strong>picture</strong>
+            of a chart — flat, uneditable, useless the moment a number changed. Plugins wanted
+            installs and accounts. BI tools wanted a data warehouse. What I actually needed was
             embarrassingly simple: <strong>a table in, a PowerPoint chart out.</strong>
           </p>
           <p>
-            So I built ChartThat. Paste text, CSV, or Excel — get the chart types that genuinely
-            fit, exported as a native, double-click-to-edit PowerPoint chart. No sign-up, no chat
-            window, nothing to install.
-            <a class="c-link" href="/about.html">Read the full story →</a>
+            So I built it. Paste your data, get thirteen kinds of genuinely editable charts,
+            exported as native PowerPoint objects or animated GIFs. No sign-up, no chat window,
+            nothing to install — and your numbers are
+            <strong>never stored, never fed into someone else&rsquo;s conversation.</strong>
           </p>
+          <p><a class="c-link" href="/about.html">Read the full story →</a></p>
+        </div>
+      </section>
+
+      <section class="c-block" aria-labelledby="c-how">
+        <h2 id="c-how" class="c-title">Three steps. Thirty seconds.</h2>
+        <div class="how-steps">
+          <div class="how-step">
+            <div class="how-num">01</div>
+            <div class="how-title">Paste your data</div>
+            <div class="how-desc">Plain text, a CSV file, or an Excel sheet — headers on top, numbers below. That&rsquo;s all the formatting it needs.</div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">02</div>
+            <div class="how-title">Pick a chart</div>
+            <div class="how-desc">ChartThat reads your table&rsquo;s semantics and recommends the types that genuinely fit — trend, comparison, or rate — with a one-line reason for each.</div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">03</div>
+            <div class="how-title">Export to your deck</div>
+            <div class="how-desc">Download a native, editable PowerPoint chart or a looping animated GIF. No watermark, no sign-up, no detours.</div>
+          </div>
         </div>
       </section>
 
@@ -82,56 +104,169 @@
         <h2 id="c-charts" class="c-title">Thirteen chart types, and when to use each</h2>
         <div class="chart-guide">
           <div class="cg-card">
-            <div class="cg-name">Bar (column)</div>
-            <div class="cg-use">Compare values across categories — the default answer to "which is biggest?"</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7.5 20v-6M12.5 20V7M17.5 20v-9"/></svg></span>
+              <div class="cg-name">Bar</div>
+            </div>
+            <div class="cg-use">Compare values across categories — the default answer to &ldquo;which is biggest?&rdquo;</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category column + 1–3 numeric columns</div>
+              <div class="cg-eg">e.g. quarterly revenue by product line</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Horizontal bar</div>
-            <div class="cg-use">The same comparison, rotated — better when category names get long.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M4 7.5h9M4 12.5h13M4 17.5h6"/></svg></span>
+              <div class="cg-name">H-Bar</div>
+            </div>
+            <div class="cg-use">Same comparison, rotated. Better when category names get long.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category column + 1–3 numeric columns</div>
+              <div class="cg-eg">e.g. brand awareness by campaign name</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Line</div>
-            <div class="cg-use">A trend over time — monthly revenue, daily active users, anything with a clock.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M4 15l5-5.5 4 3 7-8"/></svg></span>
+              <div class="cg-name">Line</div>
+            </div>
+            <div class="cg-use">Show a trend over time — the workhorse for anything with a date axis.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 time column + 1–4 numeric columns</div>
+              <div class="cg-eg">e.g. monthly active users over a year</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Area</div>
-            <div class="cg-use">A trend with a sense of volume — cumulative traffic, market size, stock levels.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l5-5.5 4 3 7-8V20H4z" fill="currentColor" stroke="none" opacity=".18"/><path d="M4 20h16"/><path d="M4 15l5-5.5 4 3 7-8"/></svg></span>
+              <div class="cg-name">Area</div>
+            </div>
+            <div class="cg-use">A trend with a sense of volume — good for cumulative or total trends.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 time column + 1–3 numeric columns</div>
+              <div class="cg-eg">e.g. cumulative sign-ups by month</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Combo (bar + line)</div>
-            <div class="cg-use">Two units on one chart — revenue bars with a growth-rate line on the second axis.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M8 20v-6M16 20v-4"/><path d="M4 11l5-4 4 2.5L20 4"/></svg></span>
+              <div class="cg-name">Combo</div>
+            </div>
+            <div class="cg-use">Two units, one chart: bars for volume, a line for the rate that explains it.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category/time column + numeric columns + 1 % column</div>
+              <div class="cg-eg">e.g. revenue bars with a growth-rate line</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Stacked column</div>
-            <div class="cg-use">Part-to-whole across categories — channel mix per quarter, cost split per month.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7.5 20v-4M7.5 14.5V9M12.5 20v-3M12.5 15.5V6M17.5 20v-5M17.5 13.5v-4"/></svg></span>
+              <div class="cg-name">Stacked</div>
+            </div>
+            <div class="cg-use">Part-to-whole across categories — totals and their composition at once.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category column + 2+ numeric columns (same unit)</div>
+              <div class="cg-eg">e.g. sales by channel, stacked per quarter</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Slope</div>
-            <div class="cg-use">Before vs after for many items — this year vs last year, per product or per market.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="1.3"/><circle cx="6" cy="15" r="1.3"/><circle cx="18" cy="5" r="1.3"/><circle cx="18" cy="17" r="1.3"/><path d="M7.3 7.4l9.4-2M7.3 15.4l9.4 1.8"/></svg></span>
+              <div class="cg-name">Slope</div>
+            </div>
+            <div class="cg-use">Before vs after for many items — slopes make winners and losers obvious.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 item column + exactly 2 period columns</div>
+              <div class="cg-eg">e.g. this year vs last year, per product</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Scatter</div>
-            <div class="cg-use">The relationship between two metrics — price vs sales, spend vs reach.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><circle cx="9" cy="14" r="1.3"/><circle cx="12" cy="9" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="18" cy="6" r="1.3"/></svg></span>
+              <div class="cg-name">Scatter</div>
+            </div>
+            <div class="cg-use">Relationship between two metrics — correlation, clusters, outliers.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>2 numeric columns (+ optional label)</div>
+              <div class="cg-eg">e.g. ad spend vs conversions per campaign</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Waterfall</div>
-            <div class="cg-use">How a total is built up or worn down — budget plans, profit bridges, headcount.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><rect x="5" y="13" width="3.4" height="7" rx=".6"/><rect x="10.3" y="8" width="3.4" height="5" rx=".6"/><rect x="15.6" y="4" width="3.4" height="4" rx=".6"/></svg></span>
+              <div class="cg-name">Waterfall</div>
+            </div>
+            <div class="cg-use">How a total is built up or worn down, step by step.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 stage column + 1 numeric column (deltas)</div>
+              <div class="cg-eg">e.g. budget from plan to actual, item by item</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Radar</div>
-            <div class="cg-use">A profile across 3+ metrics — compare products or campaigns at a glance.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l7.5 5.5-2.9 8.8H7.4L4.5 9z"/><path d="M12 8l3.8 2.8-1.4 4.4H9.6L8.2 10.8z"/></svg></span>
+              <div class="cg-name">Radar</div>
+            </div>
+            <div class="cg-use">A profile across 3+ metrics — compare entities at a glance.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>3+ numeric columns (same unit) + 1 label column</div>
+              <div class="cg-eg">e.g. two products scored on five attributes</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Pie</div>
-            <div class="cg-use">Share of total for a few categories — two to five slices work best.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 12V4M12 12l6.5 5"/></svg></span>
+              <div class="cg-name">Pie</div>
+            </div>
+            <div class="cg-use">Share of total for a few categories — best kept to 2–5 slices.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category column + 1 numeric column</div>
+              <div class="cg-eg">e.g. market share of the top four brands</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Donut</div>
-            <div class="cg-use">A pie with breathing room — same job, more modern feel, space for a headline number.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/><path d="M12 4v4.6"/></svg></span>
+              <div class="cg-name">Donut</div>
+            </div>
+            <div class="cg-use">A pie with breathing room — same job, lighter look.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>1 category column + 1 numeric column</div>
+              <div class="cg-eg">e.g. traffic share by source</div>
+            </div>
           </div>
           <div class="cg-card">
-            <div class="cg-name">Sunburst</div>
-            <div class="cg-use">Hierarchical share — region → country → city, all in one ring.</div>
+            <div class="cg-head">
+              <span class="cg-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.6"/><path d="M12 4v4.4M19.5 9l-4 2.3M17 18.5l-3.2-3"/></svg></span>
+              <div class="cg-name">Sunburst</div>
+            </div>
+            <div class="cg-use">Hierarchical share — a whole and its parts, ring by ring.</div>
+            <div class="cg-meta">
+              <div class="cg-needs"><span class="cg-tag">Needs</span>2 category columns + 1 numeric column</div>
+              <div class="cg-eg">e.g. sales by region, then by country</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="c-block" aria-labelledby="c-cases">
+        <h2 id="c-cases" class="c-title">Made for people who live in decks</h2>
+        <div class="case-grid">
+          <div class="case-card">
+            <div class="case-title">Consultants</div>
+            <div class="case-desc">Turn the client&rsquo;s spreadsheet into exhibit-ready charts before the Monday steering committee.</div>
+          </div>
+          <div class="case-card">
+            <div class="case-title">Marketing &amp; advertising</div>
+            <div class="case-desc">Campaign results, budget breakdowns, media mix — from report table to client slide in one paste.</div>
+          </div>
+          <div class="case-card">
+            <div class="case-title">Operations &amp; product</div>
+            <div class="case-desc">Weekly metrics, funnels, and before/after comparisons that keep up with the numbers.</div>
+          </div>
+          <div class="case-card">
+            <div class="case-title">Analysts &amp; students</div>
+            <div class="case-desc">See thirteen ways to show the same table, then take the editable file into your report.</div>
           </div>
         </div>
       </section>
@@ -140,32 +275,40 @@
         <h2 id="c-faq" class="c-title">Frequently asked questions</h2>
         <div class="faq">
           <details class="faq-item">
-            <summary>Is ChartThat free?</summary>
-            <p>Yes — completely. No account, no watermark, no trial period, no "pro" chart types held hostage.</p>
+            <summary>Is ChartThat really free?</summary>
+            <p>Yes — completely. No account, no watermark, no trial period, no hidden limits. It runs on a small server that costs less than a coffee per month, and that&rsquo;s fine.</p>
           </details>
           <details class="faq-item">
-            <summary>Is my data safe?</summary>
-            <p>Your table is processed only to build your charts and is never stored. Our own usage analytics count feature clicks only — no IP addresses, no table contents, no chart titles, no column names.</p>
+            <summary>Is my data safe here?</summary>
+            <p>Your table is processed in memory, only to build your charts. We <strong>never store</strong> your data, chart titles, or column names — our own statistics count feature usage only, with no IP addresses and no user content. <a class="c-link" href="/privacy.html">Read our privacy policy</a></p>
           </details>
           <details class="faq-item">
             <summary>What input formats are supported?</summary>
-            <p>Paste plain text or markdown tables directly, or upload .csv and .xlsx files. Missing values stay missing — they are never silently converted to zero.</p>
+            <p>Paste plain text or a markdown table, or upload a <strong>.csv</strong> or <strong>.xlsx</strong> file. Put headers in the first row and numbers below — ChartThat detects types, units, percentages, and missing values on its own.</p>
           </details>
           <details class="faq-item">
             <summary>Are the exported PowerPoint charts really editable?</summary>
-            <p>Yes. The export is a native PowerPoint chart object, not an image. Double-click it in PowerPoint, WPS, or Keynote to edit the underlying data — exactly like a chart you built by hand.</p>
+            <p>Yes. The .pptx file contains a <strong>native PowerPoint chart object</strong>, not an image. Double-click it in PowerPoint, WPS, or Keynote to edit the data and restyle it with your own theme.</p>
           </details>
           <details class="faq-item">
             <summary>Which chart types can it generate?</summary>
-            <p>Thirteen: bar, horizontal bar, line, area, combo (bar + line), stacked column, slope, scatter, waterfall, radar, pie, donut, and sunburst — recommended based on the shape of your data.</p>
+            <p>Thirteen: bar, horizontal bar, line, area, combo (bar + line on dual axes), stacked, slope, scatter, waterfall, radar, pie, donut, and sunburst. The guide above shows when to use each.</p>
           </details>
           <details class="faq-item">
-            <summary>Can I get animated charts?</summary>
-            <p>Yes — every chart can also be exported as a looping animated GIF, with optional data labels and a transparent background for dark slides.</p>
+            <summary>Can I export animated charts?</summary>
+            <p>Yes — any chart can be downloaded as a <strong>looping animated GIF</strong>, with optional data labels and a solid or transparent background. GIFs play in every slide tool without plugins.</p>
           </details>
           <details class="faq-item">
-            <summary>Do I need to install anything or create an account?</summary>
-            <p>No. It runs entirely in your browser tab. Paste data, pick a chart, download the file — that is the whole workflow.</p>
+            <summary>Which languages does the interface support?</summary>
+            <p>中文, English, Français, Deutsch, and Español. The interface follows your browser language automatically, and chart titles are written in the language you use.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Does it work with WPS and older PowerPoint versions?</summary>
+            <p>Any tool that opens .pptx works — Microsoft PowerPoint 2013+, WPS Office, Keynote, Google Slides. Charts stay editable everywhere, including WPS, with no broken-link prompts.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I use the exported files commercially?</summary>
+            <p>Absolutely. Your data is yours and your charts are yours — client work, reports, publications, no attribution required.</p>
           </details>
         </div>
       </section>

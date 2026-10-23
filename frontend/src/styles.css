@@ -1246,6 +1246,158 @@ body {
   color: var(--dim);
 }
 
+/* ---- 锚点平滑滚动 ---- */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ---- 页头内容链接（About / GitHub）---- */
+.tb-link {
+  color: var(--dim-hi);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 160ms var(--ease);
+}
+.tb-link:hover {
+  color: var(--accent);
+}
+.tb-icon {
+  display: flex;
+  align-items: center;
+  color: var(--dim-hi);
+  transition: color 160ms var(--ease), transform 160ms var(--ease);
+}
+.tb-icon:hover {
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.tb-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* ---- How it works ---- */
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.how-step {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  padding: 20px 18px 16px;
+}
+.how-num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: .12em;
+  margin-bottom: 10px;
+}
+.how-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 7px;
+}
+.how-desc {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+
+/* ---- 图型卡增强：示意图 + 数据要求/示例 ---- */
+.cg-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+.cg-head .cg-name {
+  margin-bottom: 0;
+}
+.cg-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.cg-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.cg-meta {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cg-needs {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.55;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.cg-tag {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: .85;
+}
+.cg-eg {
+  font-size: 11.5px;
+  color: var(--dim);
+  opacity: .8;
+  line-height: 1.55;
+  font-style: italic;
+}
+
+/* ---- 人群场景 ---- */
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+.case-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  padding: 18px;
+  transition: border-color 180ms var(--ease), transform 180ms var(--ease);
+}
+.case-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  transform: translateY(-2px);
+}
+.case-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 7px;
+}
+.case-desc {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.7;
+}
+
 /* ---- 页脚 ---- */
 .site-footer {
   position: relative;
@@ -1389,6 +1541,45 @@ body {
 .sp-article a {
   color: var(--accent);
 }
+.sp-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 20px;
+  font-size: 13.5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sp-table th,
+.sp-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+}
+.sp-table tbody tr:last-child th,
+.sp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.sp-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--dim-hi);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.sp-table tbody th {
+  font-weight: 600;
+  color: var(--dim-hi);
+  white-space: nowrap;
+}
+.sp-table thead th:last-child,
+.sp-table tbody tr td:last-child {
+  color: var(--text);
+}
+.sp-table tbody tr td:last-child {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
 .sp-foot {
   margin-top: 56px;
   padding-top: 20px;
@@ -1418,6 +1609,10 @@ body {
   }
   .blk-foot {
     position: static;
+  }
+  /* 步骤三列在平板宽度下过挤，改单列 */
+  .how-steps {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1521,6 +1716,9 @@ body {
     gap: 44px;
   }
   .chart-guide {
+    grid-template-columns: 1fr;
+  }
+  .case-grid {
     grid-template-columns: 1fr;
   }
   .sf-inner {

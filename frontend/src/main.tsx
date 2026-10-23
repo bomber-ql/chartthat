@@ -10,6 +10,10 @@ if (!container) {
   throw new Error('root container #root not found');
 }
 
+// v1.22 内容区双轨：清空 index.html 内嵌的静态英文 SEO 内容（爬虫可见），
+// 浏览器端由 App 经 createPortal 渲染五语言版本到同一容器。
+document.getElementById('site-content')?.replaceChildren();
+
 createRoot(container).render(
   <React.StrictMode>
     <ThemeProvider>

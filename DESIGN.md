@@ -16,15 +16,17 @@
 
 ## 内容区与静态页（SEO / AdSense 审核，v1.21 起）
 - **页面滚动模型变更**：桌面端从「100vh 禁滚动应用壳」改为「首屏 100vh 应用壳（`.stage` = topbar + workspace，内部滚动行为不变）+ 下方内容区随 body 滚动」。背景光晕（`.shell::before`）与网格（`.bg-grid`）改 `position: fixed`，不随滚动。
-- **内容区静态直出**：开发故事摘要 / 十三图型速查 / FAQ 直接写在 `index.html` 的 `#root` 之外（不经 React 渲染，AdSense/Google 爬虫零渲染可见）；样式全走 CSS 变量，主题切换天然生效；**固定英文，不随界面语言切换**（SEO 目标语言）。
-- 组件语言：区块标题 `.c-title`（青色大写 + 左侧 3px 渐变侧光条）；图型速查 `.cg-card` 玻璃卡片（hover 上浮 2px + 边框提亮）；FAQ 用原生 `<details>` 手风琴（无 JS、SEO 友好），`+` 号旋转 45°。
+- **内容区多语言双轨制（v1.22）**：`index.html` 的 `#root` 之外、`<div id="site-content">` 内嵌**静态英文版**（爬虫零渲染可见，SEO 基底）；React 启动时 `main.tsx` 清空容器，`App.tsx` 用 `createPortal` 把 `<SiteContent/>` 渲染回同一容器（同树共享 I18nProvider），按界面语言呈现**五语言版**。View Source 恒为英文，用户所见随界面语言。文案单一事实源是 `SiteContent.tsx` 的 `SITE_COPY` 五语言字典；静态英文版必须与其 `en` 分支逐字一致。
+- **内容区五大区块**：开发故事（3 段，**强调** 转 strong）→ How it works（3 步骤卡 `.how-step`，等宽数字编号 01/02/03）→ 十三图型速查 → 人群场景（`.case-card` 4 卡：咨询/营销广告/运营产品/分析学生）→ FAQ 9 条。
+- 组件语言：区块标题 `.c-title`（青色大写 + 左侧 3px 渐变侧光条）；图型速查 `.cg-card` 玻璃卡片（hover 上浮 2px + 边框提亮）——卡头 `.cg-head` = `.cg-icon`（24px 线性 SVG 示意图，青色描边圆角小方块，13 图型各一，组件 `ICONS` 与静态版同 path）+ `.cg-name`，卡尾 `.cg-meta`（虚线分隔，`.cg-needs` 数据要求带青色小标签 `.cg-tag` + `.cg-eg` 斜体示例）；FAQ 用原生 `<details>` 手风琴（无 JS、SEO 友好），`+` 号旋转 45°。
+- **页头内容链接**：topbar 右侧「About」锚点（`.tb-link`，指向 `#site-content`，`html{scroll-behavior:smooth}`）+ GitHub 图标（`.tb-icon`）。
 - **页脚 `.site-footer`**：玻璃顶边条——品牌渐变字 + 口号 / About·Privacy·GitHub 导航 / 版权行。
-- **独立静态页** `/about.html`（完整开发故事）、`/privacy.html`（隐私政策，诚实对应实际数据行为）：Vite 多页构建（rollupOptions.input），复用 styles.css；`<head>` 内嵌 localStorage `dc-theme` 主题检测脚本防闪烁；`.sp-*` 文章版式（760px 中栏、h2 侧光条、`.sp-back` 幽灵返回按钮）。
-- `index.html`：`lang="en"`（出海定位）；JSON-LD `WebApplication` 结构化数据（免费、十三图型、PPTX/GIF 卖点）。
+- **独立静态页** `/about.html`（完整开发故事 + `.sp-table` 对比表 vs AI 聊天机器人/插件/BI 工具——末列 ChartThat 青色高亮）、`/privacy.html`（隐私政策，诚实对应实际数据行为；含 Contact 段指向 GitHub Issues）：Vite 多页构建（rollupOptions.input），复用 styles.css；`<head>` 内嵌 localStorage `dc-theme` 主题检测脚本防闪烁；`.sp-*` 文章版式（760px 中栏、h2 侧光条、`.sp-back` 幽灵返回按钮）。
+- `index.html`：`lang="en"`（出海定位）；JSON-LD `WebApplication` 结构化数据（免费、十三图型、PPTX/GIF 卖点）；`public/robots.txt` + `public/sitemap.xml`（3 URL，Vite 原样入 dist）。
 
 ## 响应式
-- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流。
-- **≤640px（手机）**：候选卡片单列全宽（弃用 320px minmax，杜绝横向溢出）；顶栏压缩——状态只留圆点、品牌副标题省略号截断；隐藏四角括号装饰（小屏噪点）；各区块 padding/gap 收紧；预览面板头部允许折行——标题/提示文字占满整行、操作按钮换到下一行，避免提示文案被挤压成竖长条。
+- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流；How it works 三步骤卡改单列。
+- **≤640px（手机）**：候选卡片单列全宽（弃用 320px minmax，杜绝横向溢出）；顶栏压缩——状态只留圆点、品牌副标题省略号截断；隐藏四角括号装饰（小屏噪点）；各区块 padding/gap 收紧；预览面板头部允许折行——标题/提示文字占满整行、操作按钮换到下一行，避免提示文案被挤压成竖长条；人群场景卡改单列。
 
 ## 色彩（深色科技感）
 - 底色：深空 `#060a13`，面板玻璃 `rgba(13,20,36,.72)` + 12px 背景模糊。
