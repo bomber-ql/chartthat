@@ -22,8 +22,10 @@ LAYERS = {"trend", "comparison", "rate"}
 MAX_RECOMMENDATIONS = 8
 
 # v1.14：title/reasoning/模板按界面语言输出；列名等数据始终保持原文。
+# v1.17：界面语言扩为 zh/en/fr/de/es，后端仍维护 zh/en 两套模板——
+# 仅 "zh" 走中文，其余一切取值（fr/de/es/非法值/缺省）统一回退英文（出海默认英文）。
 LANGS = ("zh", "en")
-DEFAULT_LANG = "zh"
+DEFAULT_LANG = "en"
 INCOMPLETE_NOTE = {
     "zh": "该系列数据不完整，建议不纳入",
     "en": "Incomplete data for this series; exclude with caution",
@@ -35,8 +37,8 @@ DEGRADED_NOTE = {
 
 
 def normalize_lang(lang: Any) -> str:
-    """归一化界面语言，非法/缺省回退 zh。"""
-    return lang if lang in LANGS else DEFAULT_LANG
+    """归一化界面语言：仅 zh 走中文，其余（含 fr/de/es 与非法/缺省值）统一回退 en（v1.17）。"""
+    return "zh" if lang == "zh" else DEFAULT_LANG
 
 
 # LLM 可调用签名：(messages) -> 文本。测试通过注入 mock 替换。
@@ -479,7 +481,8 @@ def recommend_charts(
 
     llm_call 可注入（测试 mock）；默认走真实 OpenAI 兼容接口。
     未配置 key / 调用失败 / 两轮解析失败时降级，degraded=True。
-    lang（zh/en，v1.14）决定 title/reasoning 与降级模板语言；列名等数据保持原文。
+    lang（v1.14/v1.17）决定 title/reasoning 与降级模板语言：仅 "zh" 走中文，
+    其余取值（含 fr/de/es 与非法值）统一回退英文；列名等数据保持原文。
     """
     lang = normalize_lang(lang)
     llm_call = llm_call or call_llm

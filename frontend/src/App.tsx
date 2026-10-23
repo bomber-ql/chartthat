@@ -3,7 +3,8 @@ import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
 import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
 import { useTheme } from './theme';
-import { useI18n } from './i18n';
+import { useI18n, LANG_OPTIONS } from './i18n';
+import type { Lang } from './i18n';
 import { captureFrames } from './utils/captureFrames';
 
 /** M4 支持导出的图型（SPEC v1.6 起十三型全覆盖；waterfall 透明底座等价、sunburst 降级圆环，见 §11 R-5） */
@@ -14,7 +15,7 @@ const EXPORTABLE = new Set([
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
-  const { lang, toggleLang, t } = useI18n();
+  const { lang, setLang, t } = useI18n();
   const [table, setTable] = useState<SemanticTable | null>(null);
   const [initialText, setInitialText] = useState('');
   const [recs, setRecs] = useState<ChartSpec[] | null>(null);
@@ -203,14 +204,19 @@ export default function App() {
               </svg>
             )}
           </button>
-          <button
-            className="tgl"
-            onClick={toggleLang}
+          <select
+            className="tgl lang-select"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
             title={t('langToggle')}
             aria-label={t('langToggle')}
           >
-            {lang === 'zh' ? 'EN' : '中'}
-          </button>
+            {LANG_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </div>
       </header>
 

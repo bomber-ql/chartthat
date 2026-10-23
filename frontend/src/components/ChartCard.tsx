@@ -49,7 +49,9 @@ export default function ChartCard({ spec, selected, onSelect, showLabels = false
     chart.setOption(option, true);
   };
 
-  const incomplete = spec.reasoning.includes(lang === 'en' ? INCOMPLETE_TAIL_EN : INCOMPLETE_TAIL);
+  // v1.17：后端 lang 归一化为 zh/其余→en，徽标判断同样二分；大小写不敏感以兼容提示语在句中/句首
+  const incompleteTail = lang === 'zh' ? INCOMPLETE_TAIL : INCOMPLETE_TAIL_EN;
+  const incomplete = spec.reasoning.toLowerCase().includes(incompleteTail.toLowerCase());
 
   return (
     <article

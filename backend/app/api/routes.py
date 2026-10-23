@@ -110,8 +110,9 @@ async def recommend_endpoint(request: Request) -> JSONResponse:
             raise ParseError("VALIDATION_FAILED", "请求体不是合法 JSON") from exc
         if not _is_semantic_table(body):
             raise ParseError("VALIDATION_FAILED", "请求体必须为 SemanticTable：{columns:[...], rows:[...]}")
-        # v1.14：可选界面语言（与 columns/rows 同级），决定 title/reasoning 语言；列名等数据保持原文
-        lang = body.get("lang", "zh")
+        # v1.14/v1.17：可选界面语言（与 columns/rows 同级），决定 title/reasoning 语言；
+        # 列名等数据保持原文。缺省/非 zh 一律回退英文（出海默认英文）
+        lang = body.get("lang", "en")
         table = {k: v for k, v in body.items() if k != "lang"}
         # recommend_charts 为同步实现（内部 httpx.Client），交由线程池执行
         result = await anyio.to_thread.run_sync(

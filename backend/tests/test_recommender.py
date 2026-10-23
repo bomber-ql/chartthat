@@ -14,6 +14,7 @@ from app.modules import parse_input
 from app.modules.recommender import (
     INCOMPLETE_NOTE,
     RecommendationError,
+    normalize_lang,
     parse_llm_json,
     recommend_charts,
 )
@@ -240,7 +241,8 @@ def test_incomplete_series_annotation(table: dict[str, Any]) -> None:
     def llm(_m: list[dict[str, str]]) -> str:
         return json.dumps([_combo_item(with_dau=True)], ensure_ascii=False)
 
-    spec = recommend_charts(table, llm_call=llm)["recommendations"][0]
+    # v1.17 起缺省 lang 为 en，中文断言需显式 lang="zh"
+    spec = recommend_charts(table, llm_call=llm, lang="zh")["recommendations"][0]
     dau = next(s for s in spec["series"] if s["source_column"] == "2024 DAU")
     assert dau["data"][0] is None and dau["data"][5] is None  # 微信/小红书
     assert dau["data"][1] == 7.0                              # 抖音完整
@@ -257,7 +259,8 @@ def test_annotation_not_duplicated(table: dict[str, Any]) -> None:
         item["reasoning"] = f"DAU 缺失较多，{INCOMPLETE_NOTE['zh']}"
         return json.dumps([item], ensure_ascii=False)
 
-    spec = recommend_charts(table, llm_call=llm)["recommendations"][0]
+    # v1.17 起缺省 lang 为 en，中文断言需显式 lang="zh"
+    spec = recommend_charts(table, llm_call=llm, lang="zh")["recommendations"][0]
     assert spec["reasoning"].count(INCOMPLETE_NOTE["zh"]) == 1
 
 
@@ -323,12 +326,29 @@ def test_english_fallback_titles_and_note(table: dict[str, Any]) -> None:
         assert any(w in spec["title"] for w in english_words), spec["title"]
 
 
-def test_invalid_lang_falls_back_to_zh(table: dict[str, Any]) -> None:
+def test_invalid_lang_falls_back_to_en(table: dict[str, Any]) -> None:
+    """v1.17：仅 zh 走中文，fr/de/es 及非法值统一回退英文（出海默认英文）。"""
     import json
 
-    def llm(_m: list[dict[str, str]]) -> str:
+    captured: list[dict[str, str]] = []
+
+    def llm(messages: list[dict[str, str]]) -> str:
+        captured.extend(messages)
         return json.dumps([_combo_item()], ensure_ascii=False)
 
     result = recommend_charts(table, llm_call=llm, lang="fr")  # type: ignore[arg-type]
     assert result["degraded"] is False
     assert result["recommendations"][0]["chart_type"] == "combo"
+    # 回退英文的判别依据：system prompt 为英文模板
+    assert captured[0]["content"].startswith("You are a data-chart recommendation engine")
+
+
+def test_normalize_lang_only_zh_kept() -> None:
+    """v1.17：归一化规则——仅 "zh" 保留，其余一律 en。"""
+    assert normalize_lang("zh") == "zh"
+    assert normalize_lang("en") == "en"
+    assert normalize_lang("fr") == "en"
+    assert normalize_lang("de") == "en"
+    assert normalize_lang("es") == "en"
+    assert normalize_lang("xx") == "en"
+    assert normalize_lang(None) == "en"

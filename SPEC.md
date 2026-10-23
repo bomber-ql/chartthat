@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.16 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出可随界面语言 zh/en），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
+> 版本：v1.17 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出随界面语言，zh 中文 / 其余一律英文），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.17：**出海多语言**。①前端界面语言由 zh/en 扩为**六语言** zh/en/fr/de/es（DESIGN.md 多语言节同步）；初始语言改为**检测浏览器语言**（`navigator.language` 前缀匹配 zh/fr/de/es，其余一律英文兜底——面向海外默认英文而非中文），用户手动切换后存 `localStorage dc-lang` 优先；顶栏语言二态切换按钮改为六语言下拉。②`/api/recommend` 的 `lang` 归一化规则修订：v1.14「缺省/非法值回退 zh」改为**仅 `"zh"` 走中文，其余一切取值（含 fr/de/es 及非法值）统一回退 `"en"`**（出海产品默认回退应为英文；欧洲语言用户的推荐文本以英文输出，远比中文可读）。LLM prompt、降级模板、缺失提示语仍维护 zh/en 两套，欧洲语言经回退复用英文套。③列名/维度值等数据原文不翻译的约束（v1.14）不变。
 - v1.16：①标准 PPTX 导出支持**数据标签开关**。GeneratePptxRequest 顶层新增可选 `show_labels`（默认 false）；为 true 时给原生可编辑 Chart 写入 `<c:dLbls>`：柱/条/线/面积/堆叠/斜率显值，饼/圆环/旭日显「类别名+值」，瀑布仅「增量」系列显值（透明底座不加），散点/雷达因 python-pptx 原生 dLbls 支持差而安全跳过（不报错）；数字格式沿用各序列 unit 轴口径（percent=`0.0%`、yi/wan 带单位、count=`General`）。标签是原生图表元素、在 PPT/WPS 可继续编辑，C-1 不违反。「显示数据标签」开关自此同时作用于预览、GIF 与标准 PPTX。②修复降级标题泄漏内部单位码：line/area/stacked/slope/radar 启发式标题不再拼接裸 unit（曾出现「产品线各期yi指标趋势」），单位只保留在坐标轴与数据标签上。
 - v1.15：「显示数据标签」开关经 App→PreviewPanel→ChartCard 透传，预览卡片与 GIF 采帧共用 `applyDataLabels`，勾选即显、取消即隐（所见即所得）；标准 pptx 当时仍不带标签（v1.16 补齐）。
 - v1.14：**推荐产出跟随界面语言**。`/api/recommend` 入参在裸 SemanticTable 基础上新增可选 `lang`（`"zh"`（默认）/`"en"`；兼容旧调用，缺省/非法值回退 zh）。`lang="en"` 时：LLM system prompt 指示 **title 与 reasoning 一律用英文输出**；LLM 不可用时的启发式降级标题/说明、缺失系列固定提示语均切换为英文模板（中文：「该系列数据不完整，建议不纳入」；英文：`"Incomplete data for this series; exclude with caution"`；降级说明英文：`"Heuristic recommendation (LLM unavailable or incomplete)"`）。**列名、categories（维度取值）、series.name 等数据驱动内容始终保持用户原文不翻译**（C-5 投影依据，翻译会破坏列引用匹配）；翻译范围仅限 title/reasoning 等模型/模板生成的说明性文本。前端按当前 i18n 语言在推荐请求中携带 `lang`。
@@ -653,7 +654,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 2. LLM 响应校验链：容错 JSON parse（先直接 parse；失败剥离 Markdown 围栏再 parse；兼容 `{"recommendations":[...]}` 包装形态）→ §5.5 元素 Schema 逐条校验 → 引用完整性（列名存在、role 合法）。parse 或整体校验失败时，携带错误信息**重试 1 次（最多调用 2 次）**；单条推荐非法仅丢弃该条并记 warning，不整体重试。
 3. **轴与形态归一**：LLM 可省略 `axis`——percent 列后端强制 `axis=secondary` 且（combo 内）`kind=line`，其余默认 `primary`；与 LLM 显式指定冲突且违反 V-3/V-4 时，以后端强制规则为准。
 4. **数据投影**：后端按 `config.dimension` + `config.series[].column` 从 SemanticTable 取真实数据填充 `categories` 与 `data`（null 原样保留，C-3），生成完整 ChartSpec（§5.4），过 V-1~V-8；不过则丢弃该条。
-5. **缺失系列提示（确定性，不依赖 LLM 是否写出）**：投影后任一 `series.data` 含 null，则在该 ChartSpec 的 `reasoning` 末尾**原样追加**规定提示语（v1.14：`lang="en"` 时为 `Incomplete data for this series; exclude with caution`，否则为中文「该系列数据不完整，建议不纳入」；LLM 的 reasoning 已包含对应语言的该短语时不重复追加；多系列缺失时逐系列以「列名：」/`"column: "` 前缀注明）。**禁止**为缺失值编造任何数值（A-3.6）。
+5. **缺失系列提示（确定性，不依赖 LLM 是否写出）**：投影后任一 `series.data` 含 null，则在该 ChartSpec 的 `reasoning` 末尾**原样追加**规定提示语（v1.14/v1.17：归一化后 `lang="zh"` 为中文「该系列数据不完整，建议不纳入」，其余一律英文 `Incomplete data for this series; exclude with caution`；LLM 的 reasoning 已包含对应语言的该短语时不重复追加；多系列缺失时逐系列以「列名：」/`"column: "` 前缀注明）。**禁止**为缺失值编造任何数值（A-3.6）。
 6. **语义层覆盖**：每条 ChartSpec 的 `semantic_layer` 取 LLM 值（非法/缺失时由后端推断：含 percent 副轴→`rate`；line/slope 且≥2 期同单位→`trend`；否则→`comparison`）。LLM 结果若未同时覆盖 trend / comparison / rate 三层（且数据支持），用降级策略补齐缺失层。
 7. **降级策略**（LLM 失败或覆盖不全时的启发式兜底，按数据条件产出）：
    - 有 measure + percent → `combo`（measure bar 主轴 + percent line 副轴，`rate`）；
@@ -734,7 +735,7 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 |---|---|---|---|---|
 | GET | `/api/health` | - | `{"status":"ok"}` | 健康检查 |
 | POST | `/api/parse` | `multipart/form-data`（`file`）**或** JSON `{"text": string, "sheet_name"?: string}` | SemanticTable（§5.3） | M1+M2 串联，一次调用（已实现） |
-| POST | `/api/recommend` | SemanticTable，可选顶层 `lang: "zh"\|"en"`（默认 zh；可与 `columns/rows` 同级，兼容裸表） | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3；`lang` 决定 title/reasoning 与降级模板语言（v1.14），列名等数据保持原文 |
+| POST | `/api/recommend` | SemanticTable，可选顶层 `lang`（v1.17：仅 `"zh"` 走中文，其余取值/缺省统一回退 `"en"`；可与 `columns/rows` 同级，兼容裸表） | `{"recommendations": ChartSpec[], "degraded": boolean}` | M3；`lang` 决定 title/reasoning 与降级模板语言（v1.14/v1.17），列名等数据保持原文 |
 | POST | `/api/generate-pptx` | GeneratePptxRequest（§5.6，单图 `{chart_type, config, data}`） | `.pptx` 文件流 | M4（已实现）；错误返回 ApiError + 4xx/5xx |
 | POST | `/api/generate-gif` | AnimatedFramesRequest（§5.6a，GIF 帧序列 + transparent?） | `.gif` 文件流 | M4b 动效直出（v1.12 主形态，R-6） |
 | POST | `/api/generate-animated-pptx` | AnimatedFramesRequest（§5.6a，GIF 帧序列） | `.pptx` 文件流 | M4b 嵌入版（v1.11，保留，R-6） |
