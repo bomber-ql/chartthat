@@ -1,7 +1,10 @@
 // ChartThat 品牌标记：对话气泡 + 上升折线（"Chart that!" 的口语祈使感）。
-// 站内使用，随深/浅主题自适应：描边取 currentColor，折线固定品牌青蓝渐变。
+// 站内使用，随深/浅主题自适应：描边取主题变量，折线固定品牌青蓝渐变。
+import { useId } from 'react';
+
 export default function Logo({ size = 34 }: { size?: number }) {
-  const gid = 'logo-grad';
+  // 页面存在多个实例（顶栏/hero），渐变 id 必须唯一，否则都引用第一个定义。
+  const gid = useId();
   return (
     <svg
       width={size}

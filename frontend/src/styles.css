@@ -12,7 +12,8 @@
   --line: rgba(56, 189, 248, 0.14);
   --line-hi: rgba(56, 189, 248, 0.42);
   --text: #e2e8f0;
-  --dim: #93a1bd; /* 小字对比度提升（原 #7c8aa5 在深底 11-12px 偏暗） */
+  --dim: #a8b6cf; /* 小字对比度再提升（#7c8aa5 → #93a1bd → #a8b6cf，深底 11-12px 达 ~8:1） */
+  --dim-hi: #c3cde0; /* hero 介绍等强调级次级文字 */
   --danger: #fb7185;
   --amber: #fbbf24;
   --glow: 0 0 24px rgba(34, 211, 238, 0.22);
@@ -76,6 +77,7 @@
   --line-hi: rgba(8, 145, 178, 0.45);
   --text: #0f1c2e;
   --dim: #4a5a73;
+  --dim-hi: #384763;
   --danger: #e11d48;
   --amber: #d97706;
   --glow: 0 0 14px rgba(8, 145, 178, 0.16);
@@ -853,17 +855,26 @@ body {
   background-clip: text;
   color: transparent;
 }
+.hero-logo {
+  display: inline-flex;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 14px rgba(34, 211, 238, 0.35));
+}
+[data-theme='light'] .hero-logo {
+  filter: drop-shadow(0 6px 14px rgba(8, 145, 178, 0.25));
+}
 .hero-tag {
   margin: 0;
   font-size: 15px;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: 0.04em;
 }
 .hero-intro {
   margin: 2px 0 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.8;
-  color: var(--dim);
+  color: var(--dim-hi);
 }
 .hero-feats {
   display: flex;
@@ -874,12 +885,12 @@ body {
 }
 .hero-feats span {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   padding: 4px 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--chip-bg);
-  color: var(--dim);
+  color: var(--dim-hi);
 }
 
 @keyframes float {
@@ -1136,7 +1147,11 @@ body {
     font-size: 26px;
   }
   .hero-intro {
-    font-size: 12px;
+    font-size: 13px;
+  }
+  .hero-logo svg {
+    width: 48px;
+    height: 48px;
   }
   .brand-sub {
     font-size: 10px;

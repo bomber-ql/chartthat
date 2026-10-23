@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChartSpec, SemanticLayer, SemanticTable } from '../types';
 import { useI18n } from '../i18n';
 import ChartCard from './ChartCard';
+import Logo from './Logo';
 
 interface PreviewPanelProps {
   table: SemanticTable | null;
@@ -125,6 +126,9 @@ export default function PreviewPanel({
       {!table ? (
         <div className="empty">
           <div className="hero">
+            <span className="hero-logo" aria-hidden>
+              <Logo size={58} />
+            </span>
             <strong className="hero-name">ChartThat</strong>
             <p className="hero-tag">{t('brandSub')}</p>
             <p className="hero-intro">{t('heroIntro')}</p>
