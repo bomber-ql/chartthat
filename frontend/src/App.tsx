@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ChartSpec, RecommendResponse, SemanticTable } from './types';
 import ControlPanel from './components/ControlPanel';
 import PreviewPanel from './components/PreviewPanel';
+import Logo from './components/Logo';
 import { useTheme } from './theme';
 import { useI18n, LANG_OPTIONS } from './i18n';
 import type { Lang } from './i18n';
@@ -174,7 +175,7 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden />
+          <span className="brand-logo"><Logo size={32} /></span>
           <div>
             <h1>ChartThat</h1>
             <p className="brand-sub">{t('brandSub')}</p>

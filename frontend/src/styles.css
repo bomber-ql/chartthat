@@ -12,7 +12,7 @@
   --line: rgba(56, 189, 248, 0.14);
   --line-hi: rgba(56, 189, 248, 0.42);
   --text: #e2e8f0;
-  --dim: #7c8aa5;
+  --dim: #93a1bd; /* 小字对比度提升（原 #7c8aa5 在深底 11-12px 偏暗） */
   --danger: #fb7185;
   --amber: #fbbf24;
   --glow: 0 0 24px rgba(34, 211, 238, 0.22);
@@ -30,7 +30,7 @@
   --accent-border: rgba(34, 211, 238, 0.35);
   --accent-bg: rgba(34, 211, 238, 0.08);
   --input-bg: rgba(6, 10, 19, 0.75);
-  --placeholder: #45536e;
+  --placeholder: #64748f;
   --focus-glow: inset 0 0 0 1px rgba(34, 211, 238, 0.25), 0 0 18px rgba(34, 211, 238, 0.1);
   --btn-bg: rgba(56, 189, 248, 0.12);
   --btn-bg-hover: rgba(56, 189, 248, 0.2);
@@ -75,7 +75,7 @@
   --line: rgba(8, 145, 178, 0.16);
   --line-hi: rgba(8, 145, 178, 0.45);
   --text: #0f1c2e;
-  --dim: #5b6b82;
+  --dim: #4a5a73;
   --danger: #e11d48;
   --amber: #d97706;
   --glow: 0 0 14px rgba(8, 145, 178, 0.16);
@@ -204,23 +204,13 @@ body {
   gap: 12px;
 }
 
-.brand-mark {
+.brand-logo {
+  display: grid;
+  place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
-  background: var(--grad);
-  box-shadow: var(--glow);
-  position: relative;
-}
-.brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 8px;
-  border-radius: 4px;
-  background:
-    linear-gradient(var(--bg), var(--bg)) padding-box,
-    repeating-linear-gradient(90deg, var(--accent) 0 3px, transparent 3px 7px);
-  opacity: 0.9;
+  flex: none;
+  filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.28));
 }
 
 .brand h1 {
@@ -1134,10 +1124,9 @@ body {
     gap: 9px;
     min-width: 0;
   }
-  .brand-mark {
+  .brand-logo {
     width: 30px;
     height: 30px;
-    flex: none;
   }
   .brand h1 {
     font-size: 14px;
