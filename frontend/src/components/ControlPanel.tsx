@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ChartSpec, SemanticTable } from '../types';
 import { useI18n } from '../i18n';
+import ShareButtons from './ShareButtons';
 
 interface ControlPanelProps {
   table: SemanticTable | null;
@@ -224,6 +225,7 @@ export default function ControlPanel({
         {exportMsg && <p className="notice">{exportMsg}</p>}
         <p className="muted tiny">{t('exportHint')}</p>
         <p className="muted tiny">{t('exportGifHint')}</p>
+        <ShareButtons />
       </section>
     </aside>
   );

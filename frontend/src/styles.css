@@ -329,6 +329,53 @@ body {
   color: var(--text);
 }
 
+/* 分享按钮行（导出区底部，控制台风格文字徽章） */
+.share-row {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.share-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.share-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.share-btn {
+  min-width: 34px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color 0.18s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.18s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.share-btn:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  transform: translateY(-1px);
+}
+.share-btn-copy {
+  min-width: 0;
+  font-size: 11px;
+}
+
 /* ---- 工作区：左右分布 ---- */
 .workspace {
   position: relative;
