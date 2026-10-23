@@ -126,6 +126,12 @@ def get_stats() -> dict[str, Any]:
         ).fetchall()
         chart_types = {str(ct): int(n) for ct, n in type_rows if ct is not None}
 
+        country_rows = conn.execute(
+            "SELECT country, COUNT(*) FROM events WHERE country IS NOT NULL "
+            "GROUP BY country ORDER BY COUNT(*) DESC"
+        ).fetchall()
+        countries = {str(c): int(n) for c, n in country_rows}
+
     return {
         "totals": totals,
         "today": today,
@@ -133,4 +139,5 @@ def get_stats() -> dict[str, Any]:
         "daily": daily,
         "langs": langs,
         "chart_types": chart_types,
+        "countries": countries,
     }

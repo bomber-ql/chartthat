@@ -76,6 +76,7 @@ def test_record_and_stats_roundtrip(tmp_path: Path) -> None:
     assert stats["last_30d"]["generate-pptx"] == 2
     assert stats["langs"] == {"en": 1}  # langs 仅统计 recommend 事件
     assert stats["chart_types"] == {"bar": 1, "combo": 1}
+    assert stats["countries"] == {"DE": 1}  # countries 统计全量事件（v1.20），NULL 不计入
     assert {d["event"] for d in stats["daily"]} == {"parse", "recommend", "generate-pptx"}
 
 
@@ -119,7 +120,7 @@ def test_stats_200_with_correct_token(monkeypatch: pytest.MonkeyPatch) -> None:
     assert res.status_code == 200
     body: dict[str, Any] = res.json()
     assert body["totals"] == {"parse": 1}
-    assert set(body) == {"totals", "today", "last_30d", "daily", "langs", "chart_types"}
+    assert set(body) == {"totals", "today", "last_30d", "daily", "langs", "chart_types", "countries"}
 
 
 # --------------------------------------------------------------------------- #
