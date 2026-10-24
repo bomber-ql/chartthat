@@ -98,3 +98,4 @@ logs/
 
 # 用户上传的截图（不入库）
 assets/
+.codegraph
