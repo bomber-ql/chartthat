@@ -4,9 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
+      // 主题 + 语言预检测（与主应用 i18n 规则一致：dc-lang 优先，浏览器前缀其次，英文兜底）。
+      // data-lang 在首帧前写入 <html>，CSS 据此显隐语言块，无闪烁。
       try {
         if (localStorage.getItem('dc-theme') === 'light')
           document.documentElement.dataset.theme = 'light';
+        var lang = localStorage.getItem('dc-lang') || '';
+        if (!/^(zh|en|fr|de|es)$/.test(lang)) {
+          var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || 'en')
+            .toLowerCase()
+            .split('-')[0];
+          lang = /^(zh|fr|de|es)$/.test(nav) ? nav : 'en';
+        }
+        document.documentElement.dataset.lang = lang;
       } catch (e) {}
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -22,112 +32,556 @@
     <div class="sp-wrap">
       <nav class="sp-nav">
         <a class="sp-brand" href="/">ChartThat</a>
-        <a class="sp-back" href="/">← Back to the tool</a>
+        <a class="sp-back" href="/" id="sp-back">← Back to the tool</a>
       </nav>
 
       <article class="sp-article">
-        <h1>I built ChartThat because every other tool made a simple job feel like a project.</h1>
-        <p class="sp-sub">The story behind the tool · About</p>
+        <div data-lang-block="en">
+          <h1>I built ChartThat because every other tool made a simple job feel like a project.</h1>
+          <p class="sp-sub">The story behind the tool · About</p>
 
-        <p>
-          I work in advertising. Most of my Fridays end the same way: a spreadsheet full of
-          numbers, a client pitch on Monday, and a deck full of charts that don't exist yet.
-        </p>
+          <p>
+            I work in advertising. Most of my Fridays end the same way: a spreadsheet full of
+            numbers, a client pitch on Monday, and a deck full of charts that don't exist yet.
+          </p>
 
-        <p>
-          I tried everything. The AI chatbots wanted me to describe my CSV in a prompt, wait a
-          while, then paste a <strong>picture</strong> of a chart into my slide — a flat image,
-          impossible to restyle, useless the moment a number changed. The plugins wanted installs
-          and accounts. The BI tools wanted a data warehouse. One chart cost ten minutes and a
-          handful of tokens, when what I actually needed was almost embarrassingly simple:
-          <strong>a table in, a PowerPoint chart out.</strong>
-        </p>
+          <p>
+            I tried everything. The AI chatbots wanted me to describe my CSV in a prompt, wait a
+            while, then paste a <strong>picture</strong> of a chart into my slide — a flat image,
+            impossible to restyle, useless the moment a number changed. The plugins wanted installs
+            and accounts. The BI tools wanted a data warehouse. One chart cost ten minutes and a
+            handful of tokens, when what I actually needed was almost embarrassingly simple:
+            <strong>a table in, a PowerPoint chart out.</strong>
+          </p>
 
-        <h2>So I built the tool I wanted</h2>
-        <p>
-          Paste text, a CSV, or an Excel sheet. ChartThat reads the shape of your data, suggests
-          the chart types that genuinely fit — thirteen of them, from combos to waterfalls — and
-          exports a <strong>native, double-click-to-edit PowerPoint chart</strong>. Or an animated
-          GIF, for the slides that need to move.
-        </p>
-        <p>
-          No sign-up. No chat window. Nothing to install. And your numbers stay yours — they are
-          processed to draw your charts, never stored, and never fed into someone else's
-          conversation.
-        </p>
+          <h2>So I built the tool I wanted</h2>
+          <p>
+            Paste text, a CSV, or an Excel sheet. ChartThat reads the shape of your data, suggests
+            the chart types that genuinely fit — thirteen of them, from combos to waterfalls — and
+            exports a <strong>native, double-click-to-edit PowerPoint chart</strong>. Or an animated
+            GIF, for the slides that need to move.
+          </p>
+          <p>
+            No sign-up. No chat window. Nothing to install. And your numbers stay yours — they are
+            processed to draw your charts, never stored, and never fed into someone else's
+            conversation.
+          </p>
 
-        <h2>How it compares</h2>
-        <table class="sp-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>AI chatbots</th>
-              <th>Plugins</th>
-              <th>BI tools</th>
-              <th>ChartThat</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>You get</th>
-              <td>A picture of a chart</td>
-              <td>An editable chart</td>
-              <td>A dashboard</td>
-              <td><strong>A native PPTX chart + GIF</strong></td>
-            </tr>
-            <tr>
-              <th>Setup</th>
-              <td>Prompts and waiting</td>
-              <td>Installs and accounts</td>
-              <td>A data warehouse</td>
-              <td><strong>None — paste and go</strong></td>
-            </tr>
-            <tr>
-              <th>Cost</th>
-              <td>Tokens per chart</td>
-              <td>License fees</td>
-              <td>Enterprise pricing</td>
-              <td><strong>Free</strong></td>
-            </tr>
-            <tr>
-              <th>Restyle in your deck</th>
-              <td>No</td>
-              <td>Yes</td>
-              <td>No</td>
-              <td><strong>Yes</strong></td>
-            </tr>
-          </tbody>
-        </table>
+          <h2>How it compares</h2>
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>AI chatbots</th>
+                <th>Plugins</th>
+                <th>BI tools</th>
+                <th>ChartThat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>You get</th>
+                <td>A picture of a chart</td>
+                <td>An editable chart</td>
+                <td>A dashboard</td>
+                <td><strong>A native PPTX chart + GIF</strong></td>
+              </tr>
+              <tr>
+                <th>Setup</th>
+                <td>Prompts and waiting</td>
+                <td>Installs and accounts</td>
+                <td>A data warehouse</td>
+                <td><strong>None — paste and go</strong></td>
+              </tr>
+              <tr>
+                <th>Cost</th>
+                <td>Tokens per chart</td>
+                <td>License fees</td>
+                <td>Enterprise pricing</td>
+                <td><strong>Free</strong></td>
+              </tr>
+              <tr>
+                <th>Restyle in your deck</th>
+                <td>No</td>
+                <td>Yes</td>
+                <td>No</td>
+                <td><strong>Yes</strong></td>
+              </tr>
+            </tbody>
+          </table>
 
-        <h2>What "native" means, and why it matters</h2>
-        <p>
-          Most tools hand you an image. ChartThat writes a real PowerPoint chart object into the
-          .pptx file. Double-click it in PowerPoint, WPS, or Keynote, and the data sheet opens —
-          change a number at 11pm the night before the pitch, and the chart redraws itself. That
-          one detail is the whole reason this tool exists.
-        </p>
+          <h2>What "native" means, and why it matters</h2>
+          <p>
+            Most tools hand you an image. ChartThat writes a real PowerPoint chart object into the
+            .pptx file. Double-click it in PowerPoint, WPS, or Keynote, and the data sheet opens —
+            change a number at 11pm the night before the pitch, and the chart redraws itself. That
+            one detail is the whole reason this tool exists.
+          </p>
 
-        <h2>Free, and staying that way</h2>
-        <p>
-          ChartThat is free to use — no account, no watermark, no trial period. If it saves your
-          Friday once, it has done its job. Sharing it with a colleague who also makes slides is
-          the best way to say thanks.
-        </p>
+          <h2>Free, and staying that way</h2>
+          <p>
+            ChartThat is free to use — no account, no watermark, no trial period. If it saves your
+            Friday once, it has done its job. Sharing it with a colleague who also makes slides is
+            the best way to say thanks.
+          </p>
 
-        <p>
-          If your Friday has ever been ruined by a "can we just add a quick chart?", this one's
-          for you.
-        </p>
+          <p>
+            If your Friday has ever been ruined by a "can we just add a quick chart?", this one's
+            for you.
+          </p>
 
-        <p>
-          — The maker of ChartThat ·
-          <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
-            >GitHub</a
-          >
-        </p>
+          <p>
+            — The maker of ChartThat ·
+            <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </p>
+        </div>
+
+        <div data-lang-block="zh">
+          <h1>我开发 ChartThat，是因为别的工具都把一件小事搞成了大工程。</h1>
+          <p class="sp-sub">这个工具的由来 · 关于</p>
+
+          <p>
+            我做广告营销。大多数周五的收尾都一模一样：一张塞满数字的表格，周一要交的提案，和一整套还不存在的图表。
+          </p>
+
+          <p>
+            我什么都试过。AI 聊天工具要我写提示词描述 CSV，等上半天，然后往幻灯片里贴一张图表的<strong>图片</strong>——一张死图，没法改样式，数字一变就作废。插件要安装、要注册。BI
+            工具要数据仓库。做一张图要花十分钟、烧一把 token，而我真正需要的简单到不好意思说：<strong>表格进去，PPT 图表出来。</strong>
+          </p>
+
+          <h2>所以我自己做了这个工具</h2>
+          <p>
+            粘贴文本、CSV 或 Excel 表格。ChartThat 读懂数据的结构，推荐真正合适的图型——十三种，从组合图到瀑布图——然后导出<strong>原生、双击就能编辑的 PowerPoint 图表</strong>。需要动起来的页面，还有循环播放的 GIF。
+          </p>
+          <p>
+            不用注册。没有对话框。没有要安装的东西。你的数字也始终是你的——只用来画你的图表，不留存，也不会被喂给别人的对话。
+          </p>
+
+          <h2>和其他工具比一比</h2>
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>AI 聊天工具</th>
+                <th>插件</th>
+                <th>BI 工具</th>
+                <th>ChartThat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>你得到</th>
+                <td>一张图表图片</td>
+                <td>可编辑图表</td>
+                <td>一个仪表板</td>
+                <td><strong>原生 PPTX 图表 + GIF</strong></td>
+              </tr>
+              <tr>
+                <th>准备工作</th>
+                <td>写提示词然后等</td>
+                <td>安装和注册</td>
+                <td>搭数据仓库</td>
+                <td><strong>不用——粘贴就行</strong></td>
+              </tr>
+              <tr>
+                <th>成本</th>
+                <td>按图烧 token</td>
+                <td>授权费</td>
+                <td>企业级报价</td>
+                <td><strong>免费</strong></td>
+              </tr>
+              <tr>
+                <th>在 PPT 里改样式</th>
+                <td>不行</td>
+                <td>可以</td>
+                <td>不行</td>
+                <td><strong>可以</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>"原生"是什么意思，为什么重要</h2>
+          <p>
+            大多数工具给你的是一张图片。ChartThat 写进 .pptx 文件的是真正的 PowerPoint 图表对象。在 PowerPoint、WPS 或 Keynote 里双击它，数据表就打开了——提案前夜十一点改个数字，图表自己重画。这个工具存在的全部理由，就是这一个细节。
+          </p>
+
+          <h2>免费，而且会一直免费</h2>
+          <p>
+            ChartThat 免费使用——没有账号、没有水印、没有试用期。如果它拯救了你的某一个周五，它的使命就达成了。把它分享给同样要做 PPT 的同事，就是最好的感谢。
+          </p>
+
+          <p>
+            如果你的周五也曾被一句"能不能顺手加个图？"毁掉，这个工具就是为你做的。
+          </p>
+
+          <p>
+            — ChartThat 的开发者 ·
+            <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </p>
+        </div>
+
+        <div data-lang-block="fr">
+          <h1>J'ai créé ChartThat parce que tous les autres outils transformaient une tâche simple en projet.</h1>
+          <p class="sp-sub">L'histoire derrière l'outil · À propos</p>
+
+          <p>
+            Je travaille dans la publicité. La plupart de mes vendredis se terminent de la même
+            façon : un tableur plein de chiffres, une présentation client lundi, et un jeu de
+            slides rempli de graphiques qui n'existent pas encore.
+          </p>
+
+          <p>
+            J'ai tout essayé. Les chatbots IA me demandaient de décrire mon CSV dans un prompt,
+            d'attendre, puis de coller une <strong>image</strong> de graphique dans ma slide — une
+            image figée, impossible à restyler, inutile dès qu'un chiffre changeait. Les plugins
+            exigeaient des installations et des comptes. Les outils BI voulaient un entrepôt de
+            données. Un graphique coûtait dix minutes et une poignée de tokens, alors que mon
+            besoin était presque gênant de simplicité :
+            <strong>un tableau qui entre, un graphique PowerPoint qui sort.</strong>
+          </p>
+
+          <h2>J'ai donc construit l'outil que je voulais</h2>
+          <p>
+            Collez du texte, un CSV ou un fichier Excel. ChartThat lit la structure de vos données,
+            suggère les types de graphiques vraiment adaptés — treize au total, des combos aux
+            cascades — et exporte un <strong>graphique PowerPoint natif, modifiable d'un
+            double-clic</strong>. Ou un GIF animé, pour les slides qui doivent bouger.
+          </p>
+          <p>
+            Pas d'inscription. Pas de fenêtre de chat. Rien à installer. Et vos chiffres restent
+            les vôtres — ils servent à dessiner vos graphiques, ne sont jamais stockés, ni injectés
+            dans la conversation de quelqu'un d'autre.
+          </p>
+
+          <h2>Comment il se compare</h2>
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Chatbots IA</th>
+                <th>Plugins</th>
+                <th>Outils BI</th>
+                <th>ChartThat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Ce que vous obtenez</th>
+                <td>Une image de graphique</td>
+                <td>Un graphique modifiable</td>
+                <td>Un tableau de bord</td>
+                <td><strong>Un graphique PPTX natif + GIF</strong></td>
+              </tr>
+              <tr>
+                <th>Mise en route</th>
+                <td>Des prompts et de l'attente</td>
+                <td>Des installations et des comptes</td>
+                <td>Un entrepôt de données</td>
+                <td><strong>Aucune — collez et c'est parti</strong></td>
+              </tr>
+              <tr>
+                <th>Coût</th>
+                <td>Des tokens par graphique</td>
+                <td>Des licences</td>
+                <td>Des tarifs entreprise</td>
+                <td><strong>Gratuit</strong></td>
+              </tr>
+              <tr>
+                <th>Restyler dans vos slides</th>
+                <td>Non</td>
+                <td>Oui</td>
+                <td>Non</td>
+                <td><strong>Oui</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Ce que « natif » signifie, et pourquoi c'est important</h2>
+          <p>
+            La plupart des outils vous remettent une image. ChartThat écrit un véritable objet
+            graphique PowerPoint dans le fichier .pptx. Double-cliquez dessus dans PowerPoint, WPS
+            ou Keynote, et la feuille de données s'ouvre — changez un chiffre à 23 h la veille de
+            la présentation, et le graphique se redessine tout seul. Ce détail est la seule raison
+            d'être de cet outil.
+          </p>
+
+          <h2>Gratuit, et ça le restera</h2>
+          <p>
+            ChartThat est gratuit — pas de compte, pas de filigrane, pas de période d'essai. S'il
+            sauve votre vendredi une seule fois, il a fait son travail. Le partager avec un
+            collègue qui fait aussi des slides est la plus belle façon de dire merci.
+          </p>
+
+          <p>
+            Si votre vendredi a déjà été gâché par un « on pourrait juste ajouter un petit
+            graphique ? », celui-ci est pour vous.
+          </p>
+
+          <p>
+            — Le créateur de ChartThat ·
+            <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </p>
+        </div>
+
+        <div data-lang-block="de">
+          <h1>Ich habe ChartThat gebaut, weil jedes andere Tool aus einer einfachen Aufgabe ein Projekt gemacht hat.</h1>
+          <p class="sp-sub">Die Geschichte hinter dem Tool · Über</p>
+
+          <p>
+            Ich arbeite im Marketing. Die meisten meiner Freitage enden gleich: eine Tabelle voller
+            Zahlen, eine Kundenpräsentation am Montag und ein Deck voller Diagramme, die noch nicht
+            existieren.
+          </p>
+
+          <p>
+            Ich habe alles ausprobiert. Die KI-Chatbots wollten, dass ich meine CSV in einem Prompt
+            beschreibe, warte und dann ein <strong>Bild</strong> eines Diagramms in meine Folie
+            einfüge — ein flaches Bild, nicht umgestaltbar, nutzlos, sobald sich eine Zahl änderte.
+            Die Plugins wollten Installationen und Konten. Die BI-Tools wollten ein Data Warehouse.
+            Ein Diagramm kostete zehn Minuten und eine Handvoll Tokens, dabei war mein eigentliches
+            Bedürfnis fast peinlich einfach:
+            <strong>Tabelle rein, PowerPoint-Diagramm raus.</strong>
+          </p>
+
+          <h2>Also habe ich das Tool gebaut, das ich wollte</h2>
+          <p>
+            Fügen Sie Text, eine CSV oder eine Excel-Tabelle ein. ChartThat liest die Struktur Ihrer
+            Daten, schlägt die wirklich passenden Diagrammtypen vor — dreizehn an der Zahl, von
+            Combos bis Waterfalls — und exportiert ein
+            <strong>natives, per Doppelklick bearbeitbares PowerPoint-Diagramm</strong>. Oder ein
+            animiertes GIF, für die Folien, die sich bewegen sollen.
+          </p>
+          <p>
+            Keine Anmeldung. Kein Chatfenster. Nichts zu installieren. Und Ihre Zahlen bleiben Ihre
+            — sie werden verarbeitet, um Ihre Diagramme zu zeichnen, niemals gespeichert und
+            niemals in fremde Unterhaltungen gefüttert.
+          </p>
+
+          <h2>Der Vergleich</h2>
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>KI-Chatbots</th>
+                <th>Plugins</th>
+                <th>BI-Tools</th>
+                <th>ChartThat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Was Sie bekommen</th>
+                <td>Ein Bild eines Diagramms</td>
+                <td>Ein bearbeitbares Diagramm</td>
+                <td>Ein Dashboard</td>
+                <td><strong>Ein natives PPTX-Diagramm + GIF</strong></td>
+              </tr>
+              <tr>
+                <th>Einrichtung</th>
+                <td>Prompts und Warten</td>
+                <td>Installationen und Konten</td>
+                <td>Ein Data Warehouse</td>
+                <td><strong>Keine — einfügen und los</strong></td>
+              </tr>
+              <tr>
+                <th>Kosten</th>
+                <td>Tokens pro Diagramm</td>
+                <td>Lizenzgebühren</td>
+                <td>Enterprise-Preise</td>
+                <td><strong>Kostenlos</strong></td>
+              </tr>
+              <tr>
+                <th>Im Deck umgestalten</th>
+                <td>Nein</td>
+                <td>Ja</td>
+                <td>Nein</td>
+                <td><strong>Ja</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Was „nativ" bedeutet — und warum es zählt</h2>
+          <p>
+            Die meisten Tools geben Ihnen ein Bild. ChartThat schreibt ein echtes
+            PowerPoint-Diagrammobjekt in die .pptx-Datei. Doppelklicken Sie es in PowerPoint, WPS
+            oder Keynote, und das Datenblatt öffnet sich — ändern Sie um 23 Uhr vor der
+            Präsentation noch eine Zahl, und das Diagramm zeichnet sich neu. Dieses eine Detail ist
+            der ganze Grund, warum dieses Tool existiert.
+          </p>
+
+          <h2>Kostenlos — und so bleibt es</h2>
+          <p>
+            ChartThat ist kostenlos — kein Konto, kein Wasserzeichen, keine Testphase. Wenn es
+            Ihren Freitag ein einziges Mal rettet, hat es seine Aufgabe erfüllt. Es mit einem
+            Kollegen zu teilen, der auch Folien baut, ist der schönste Dank.
+          </p>
+
+          <p>
+            Wenn Ihr Freitag je von einem „Können wir nicht kurz noch ein Diagramm einfügen?"
+            ruiniert wurde — dieses Tool ist für Sie.
+          </p>
+
+          <p>
+            — Der Macher von ChartThat ·
+            <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </p>
+        </div>
+
+        <div data-lang-block="es">
+          <h1>Creé ChartThat porque todas las demás herramientas convertían una tarea simple en un proyecto.</h1>
+          <p class="sp-sub">La historia detrás de la herramienta · Acerca de</p>
+
+          <p>
+            Trabajo en publicidad. La mayoría de mis viernes terminan igual: una hoja de cálculo
+            llena de números, una presentación para el lunes y un mazo de diapositivas lleno de
+            gráficos que aún no existen.
+          </p>
+
+          <p>
+            Lo probé todo. Los chatbots de IA me pedían describir mi CSV en un prompt, esperar, y
+            luego pegar una <strong>imagen</strong> de un gráfico en mi diapositiva — una imagen
+            plana, imposible de restilizar, inútil en cuanto cambiaba un número. Los plugins pedían
+            instalaciones y cuentas. Las herramientas de BI pedían un almacén de datos. Un gráfico
+            costaba diez minutos y un puñado de tokens, cuando lo que necesitaba era casi
+            vergonzosamente simple:
+            <strong>entra una tabla, sale un gráfico de PowerPoint.</strong>
+          </p>
+
+          <h2>Así que construí la herramienta que quería</h2>
+          <p>
+            Pega texto, un CSV o un Excel. ChartThat lee la estructura de tus datos, sugiere los
+            tipos de gráficos que de verdad encajan — trece, desde combos hasta cascadas — y
+            exporta un <strong>gráfico de PowerPoint nativo, editable con doble clic</strong>. O un
+            GIF animado, para las diapositivas que necesitan moverse.
+          </p>
+          <p>
+            Sin registro. Sin ventana de chat. Nada que instalar. Y tus números siguen siendo tuyos
+            — se procesan para dibujar tus gráficos, nunca se almacenan y nunca alimentan la
+            conversación de otra persona.
+          </p>
+
+          <h2>Cómo se compara</h2>
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Chatbots de IA</th>
+                <th>Plugins</th>
+                <th>Herramientas BI</th>
+                <th>ChartThat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Lo que obtienes</th>
+                <td>Una imagen de un gráfico</td>
+                <td>Un gráfico editable</td>
+                <td>Un panel</td>
+                <td><strong>Un gráfico PPTX nativo + GIF</strong></td>
+              </tr>
+              <tr>
+                <th>Preparación</th>
+                <td>Prompts y esperas</td>
+                <td>Instalaciones y cuentas</td>
+                <td>Un almacén de datos</td>
+                <td><strong>Ninguna — pega y listo</strong></td>
+              </tr>
+              <tr>
+                <th>Coste</th>
+                <td>Tokens por gráfico</td>
+                <td>Licencias</td>
+                <td>Precios empresariales</td>
+                <td><strong>Gratis</strong></td>
+              </tr>
+              <tr>
+                <th>Restilizar en tu presentación</th>
+                <td>No</td>
+                <td>Sí</td>
+                <td>No</td>
+                <td><strong>Sí</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Qué significa «nativo» y por qué importa</h2>
+          <p>
+            La mayoría de las herramientas te entregan una imagen. ChartThat escribe un objeto de
+            gráfico real de PowerPoint dentro del .pptx. Haz doble clic en PowerPoint, WPS o
+            Keynote y la hoja de datos se abre — cambia un número a las 11 de la noche antes de la
+            presentación y el gráfico se redibuja solo. Ese único detalle es toda la razón de ser
+            de esta herramienta.
+          </p>
+
+          <h2>Gratis, y así seguirá</h2>
+          <p>
+            ChartThat es gratis — sin cuenta, sin marca de agua, sin periodo de prueba. Si te salva
+            el viernes una sola vez, ha cumplido su misión. Compartirlo con un colega que también
+            hace diapositivas es la mejor forma de dar las gracias.
+          </p>
+
+          <p>
+            Si algún viernes tuyo se arruinó con un «¿podemos añadir un gráfico rapidito?», este es
+            para ti.
+          </p>
+
+          <p>
+            — El creador de ChartThat ·
+            <a href="https://github.com/bomber-ql/chartthat" target="_blank" rel="noopener noreferrer"
+              >GitHub</a
+            >
+          </p>
+        </div>
       </article>
 
       <div class="sp-foot">© 2026 ChartThat · <a href="/privacy.html">Privacy</a></div>
     </div>
+
+    <script>
+      // 按检测语言更新导航文案、title 与 meta description（内容块由 CSS 显隐）。
+      (function () {
+        var lang = document.documentElement.dataset.lang || 'en';
+        var I18N = {
+          en: {
+            back: '← Back to the tool',
+            title: 'About — ChartThat',
+            desc: 'Why ChartThat exists: an advertising professional got tired of prompting AI chatbots and installing plugins just to turn a table into an editable PowerPoint chart.',
+          },
+          zh: {
+            back: '← 返回工具',
+            title: '关于 — ChartThat',
+            desc: 'ChartThat 的由来：一个广告人受够了——为了把表格变成可编辑的 PPT 图表，还要写提示词、装插件。',
+          },
+          fr: {
+            back: "← Retour à l'outil",
+            title: 'À propos — ChartThat',
+            desc: "Pourquoi ChartThat existe : un publicitaire fatigué d'écrire des prompts et d'installer des plugins juste pour transformer un tableau en graphique PowerPoint modifiable.",
+          },
+          de: {
+            back: '← Zurück zum Tool',
+            title: 'Über — ChartThat',
+            desc: 'Warum es ChartThat gibt: Ein Werber hatte es satt, Prompts zu schreiben und Plugins zu installieren, nur um aus einer Tabelle ein bearbeitbares PowerPoint-Diagramm zu machen.',
+          },
+          es: {
+            back: '← Volver a la herramienta',
+            title: 'Acerca de — ChartThat',
+            desc: 'Por qué existe ChartThat: un publicitario cansado de escribir prompts e instalar plugins solo para convertir una tabla en un gráfico de PowerPoint editable.',
+          },
+        };
+        var m = I18N[lang] || I18N.en;
+        var back = document.getElementById('sp-back');
+        if (back) back.textContent = m.back;
+        document.title = m.title;
+        var meta = document.querySelector('meta[name="description"]');
+        if (meta) meta.setAttribute('content', m.desc);
+      })();
+    </script>
   </body>
 </html>

@@ -330,13 +330,22 @@ function waterfallOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   } as EChartsOption;
 }
 
+// 雷达 indicator 上限取"友好数"（1/2/5×10^n 序列中 ≥v 的最小值），
+// 避免 max=6/1.2 这类值被 5 段切分后刻度不可读（ECharts alignTicks 警告）。
+function niceCeil(v: number): number {
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  const base = 10 ** Math.floor(Math.log10(v));
+  const f = v / base;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * base;
+}
+
 // radar（雷达图，V-11 ≥3 序列同单位禁 percent）：类目为维度指标，多序列互比。
 function radarOption(spec: ChartSpec, T: ThemeTokens): EChartsOption {
   const maxVal = Math.max(
     0,
     ...spec.series.flatMap((s) => s.data.filter((v): v is number => typeof v === 'number')),
   );
-  const top = maxVal > 0 ? maxVal * 1.2 : 1;
+  const top = maxVal > 0 ? niceCeil(maxVal * 1.2) : 1;
   const indicator = spec.categories.map((c) => ({ name: c, max: top }));
   return {
     ...ANIM,

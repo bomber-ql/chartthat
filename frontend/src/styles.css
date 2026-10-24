@@ -1276,26 +1276,44 @@ html {
   height: 19px;
 }
 
-/* ---- How it works ---- */
-.how-steps {
+/* ---- How it works：左三步纵向 + 右优势栏 ---- */
+.how-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 42px;
+  align-items: start;
+}
+.how-steps {
+  display: flex;
+  flex-direction: column;
 }
 .how-step {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  padding: 20px 18px 16px;
+  position: relative;
+  display: flex;
+  gap: 18px;
+  padding: 18px 4px;
+}
+.how-step + .how-step {
+  border-top: 1px dashed var(--line);
+}
+.how-step:first-child {
+  padding-top: 6px;
 }
 .how-num {
+  flex: none;
+  width: 44px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 22px;
   font-weight: 600;
-  color: var(--accent);
-  letter-spacing: .12em;
-  margin-bottom: 10px;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-top: 1px;
+}
+.how-body {
+  min-width: 0;
 }
 .how-title {
   font-size: 15px;
@@ -1307,6 +1325,45 @@ html {
   font-size: 13px;
   color: var(--dim);
   line-height: 1.7;
+}
+.perks {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  padding: 22px 20px;
+  position: sticky;
+  top: 20px;
+}
+.perks-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+.perks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.perks li {
+  display: flex;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--dim-hi);
+  line-height: 1.6;
+}
+.perks li svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  color: var(--accent);
 }
 
 /* ---- 图型卡增强：示意图 + 数据要求/示例 ---- */
@@ -1396,6 +1453,29 @@ html {
   font-size: 13px;
   color: var(--dim);
   line-height: 1.7;
+}
+.case-art {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+/* ---- 静态页多语言块（about/privacy）：按 <html data-lang> 显隐，默认英文（爬虫基底） ---- */
+[data-lang-block] {
+  display: none;
+}
+html:not([data-lang]) [data-lang-block='en'],
+html[data-lang='en'] [data-lang-block='en'],
+html[data-lang='zh'] [data-lang-block='zh'],
+html[data-lang='fr'] [data-lang-block='fr'],
+html[data-lang='de'] [data-lang-block='de'],
+html[data-lang='es'] [data-lang-block='es'] {
+  display: block;
 }
 
 /* ---- 页脚 ---- */
@@ -1648,9 +1728,13 @@ html {
   .blk-foot {
     position: static;
   }
-  /* 步骤三列在平板宽度下过挤，改单列 */
-  .how-steps {
+  /* How 区块分栏在平板宽度下收为单列，优势栏不再吸顶 */
+  .how-grid {
     grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .perks {
+    position: static;
   }
 }
 

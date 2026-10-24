@@ -16,6 +16,9 @@ const GUIDE_ORDER: ChartType[] = [
   'scatter', 'waterfall', 'radar', 'pie', 'donut', 'sunburst',
 ];
 
+// 人群场景卡插画（AI 生成，扁平商务风，与故事区同色系），顺序对应 SITE_COPY.cases
+const CASE_ART = ['/case-consultant.jpg', '/case-marketer.jpg', '/case-operator.jpg', '/case-analyst.jpg'];
+
 interface GuideItem {
   use: string;
   needs: string;
@@ -36,6 +39,7 @@ interface SiteCopy {
   storyArtAlt: [string, string];
   howTitle: string;
   howSteps: { title: string; desc: string }[];
+  perks: { title: string; items: string[] };
   guideTitle: string;
   needsLabel: string;
   guide: GuideItem[];
@@ -64,6 +68,16 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { title: 'Pick a chart', desc: 'ChartThat reads your table\u2019s semantics and recommends the types that genuinely fit — trend, comparison, or rate — with a one-line reason for each.' },
       { title: 'Export to your deck', desc: 'Download a native, editable PowerPoint chart or a looping animated GIF. No watermark, no sign-up, no detours.' },
     ],
+    perks: {
+      title: 'Why it sticks',
+      items: [
+        'Paste to chart in about ten seconds',
+        'Thirteen chart types, matched to your data',
+        'Native PPTX — double-click to edit, right in your deck',
+        'No sign-up, nothing to install, nothing stored',
+        'Free. No watermark, no trial clock',
+      ],
+    },
     guideTitle: 'Thirteen chart types, and when to use each',
     needsLabel: 'Needs',
     guide: [
@@ -116,6 +130,16 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { title: '挑选图表', desc: 'ChartThat 读懂表格语义，推荐真正合适的图型——趋势、对比或比率——每个都附一句推荐理由。' },
       { title: '导出进 PPT', desc: '下载原生可编辑的 PowerPoint 图表，或循环播放的动效 GIF。无水印、不注册、不绕路。' },
     ],
+    perks: {
+      title: '为什么值得常驻',
+      items: [
+        '粘贴到出图，十秒左右',
+        '十三种图型，按数据语义匹配',
+        '原生 PPTX——幻灯片里双击就能改数换色',
+        '免注册、免安装、数据不留存',
+        '免费，无水印，没有试用期',
+      ],
+    },
     guideTitle: '十三种图表，以及各自的最佳场景',
     needsLabel: '数据要求',
     guide: [
@@ -171,6 +195,16 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { title: 'Choisissez un graphique', desc: 'ChartThat lit la sémantique de votre tableau et recommande les types vraiment adaptés — tendance, comparaison ou taux — avec une raison en une ligne pour chacun.' },
       { title: 'Exportez vers vos slides', desc: 'Téléchargez un graphique PowerPoint natif et modifiable, ou un GIF animé en boucle. Sans filigrane, sans inscription, sans détour.' },
     ],
+    perks: {
+      title: 'Pourquoi on y revient',
+      items: [
+        'Du collage au graphique en dix secondes',
+        'Treize types de graphiques, adaptés à vos données',
+        'PPTX natif — double-clic pour modifier, directement dans vos slides',
+        'Aucun compte, rien à installer, rien de stocké',
+        'Gratuit. Sans filigrane ni compte à rebours d’essai',
+      ],
+    },
     guideTitle: 'Treize types de graphiques, et quand les utiliser',
     needsLabel: 'Requiert',
     guide: [
@@ -226,6 +260,16 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { title: 'Diagramm wählen', desc: 'ChartThat liest die Semantik Ihrer Tabelle und empfiehlt die wirklich passenden Typen — Trend, Vergleich oder Rate — jeweils mit einer einzeiligen Begründung.' },
       { title: 'Ins Deck exportieren', desc: 'Laden Sie ein natives, editierbares PowerPoint-Diagramm oder ein animiertes GIF in Schleife herunter. Ohne Wasserzeichen, ohne Anmeldung, ohne Umwege.' },
     ],
+    perks: {
+      title: 'Warum es hängen bleibt',
+      items: [
+        'Vom Einfügen zum Diagramm in etwa zehn Sekunden',
+        'Dreizehn Diagrammtypen, passend zu Ihren Daten',
+        'Natives PPTX — per Doppelklick direkt im Deck bearbeiten',
+        'Keine Anmeldung, nichts zu installieren, nichts gespeichert',
+        'Kostenlos. Ohne Wasserzeichen, ohne Testphase',
+      ],
+    },
     guideTitle: 'Dreizehn Diagrammtypen — und wann man sie einsetzt',
     needsLabel: 'Benötigt',
     guide: [
@@ -281,6 +325,16 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { title: 'Elige un gráfico', desc: 'ChartThat lee la semántica de tu tabla y recomienda los tipos que de verdad encajan — tendencia, comparación o tasa — con una razón de una línea para cada uno.' },
       { title: 'Exporta a tu presentación', desc: 'Descarga un gráfico de PowerPoint nativo y editable, o un GIF animado en bucle. Sin marca de agua, sin registro, sin rodeos.' },
     ],
+    perks: {
+      title: 'Por qué engancha',
+      items: [
+        'Del pegado al gráfico en unos diez segundos',
+        'Trece tipos de gráficos, según tus datos',
+        'PPTX nativo: doble clic para editar, directo en tu presentación',
+        'Sin registro, sin instalación, sin guardar nada',
+        'Gratis. Sin marca de agua ni cuenta atrás de prueba',
+      ],
+    },
     guideTitle: 'Trece tipos de gráficos y cuándo usar cada uno',
     needsLabel: 'Requiere',
     guide: [
@@ -367,14 +421,31 @@ export function SiteContent() {
 
       <section className="c-block">
         <h2 className="c-title">{copy.howTitle}</h2>
-        <div className="how-steps">
-          {copy.howSteps.map((s, i) => (
-            <div className="how-step" key={i}>
-              <div className="how-num">{String(i + 1).padStart(2, '0')}</div>
-              <div className="how-title">{s.title}</div>
-              <div className="how-desc">{s.desc}</div>
-            </div>
-          ))}
+        <div className="how-grid">
+          <div className="how-steps">
+            {copy.howSteps.map((s, i) => (
+              <div className="how-step" key={i}>
+                <div className="how-num">{String(i + 1).padStart(2, '0')}</div>
+                <div className="how-body">
+                  <div className="how-title">{s.title}</div>
+                  <div className="how-desc">{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <aside className="perks">
+            <div className="perks-title">{copy.perks.title}</div>
+            <ul>
+              {copy.perks.items.map((item, i) => (
+                <li key={i}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4.5 12.5l5 5 10-11" />
+                  </svg>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </div>
       </section>
 
@@ -406,6 +477,14 @@ export function SiteContent() {
         <div className="case-grid">
           {copy.cases.map((c, i) => (
             <div className="case-card" key={i}>
+              <img
+                className="case-art"
+                src={CASE_ART[i % CASE_ART.length]}
+                width="2048"
+                height="1365"
+                loading="lazy"
+                alt={c.title}
+              />
               <div className="case-title">{c.title}</div>
               <div className="case-desc">{c.desc}</div>
             </div>
