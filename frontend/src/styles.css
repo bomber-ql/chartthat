@@ -1667,6 +1667,15 @@ html[data-lang='es'] [data-lang-block='es'] {
   font-size: 12px;
   color: var(--dim);
 }
+.sp-art {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 20px 0 26px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
 
 /* 故事区分栏（文字 + 插画） */
 .story-grid {

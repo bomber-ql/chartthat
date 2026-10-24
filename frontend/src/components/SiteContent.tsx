@@ -36,7 +36,7 @@ interface SiteCopy {
   storyTitle: string;
   story: string[];
   storyMore: string;
-  storyArtAlt: [string, string];
+  storyArtAlt: string;
   howTitle: string;
   howSteps: { title: string; desc: string }[];
   perks: { title: string; items: string[] };
@@ -58,10 +58,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'So I built it. Paste your data, get thirteen kinds of genuinely editable charts, exported as native PowerPoint objects or animated GIFs. No sign-up, no chat window, nothing to install — and your numbers are **never stored, never fed into someone else\u2019s conversation.**',
     ],
     storyMore: 'Read the full story →',
-    storyArtAlt: [
-      'Late at night, a marketer buried in presentation slides and printed charts',
-      'Spreadsheet data flowing in on the left, finished chart slides coming out on the right',
-    ],
+    storyArtAlt: 'Late at night, a marketer buried in presentation slides and printed charts',
     howTitle: 'Three steps. Thirty seconds.',
     howSteps: [
       { title: 'Paste your data', desc: 'Plain text, a CSV file, or an Excel sheet — headers on top, numbers below. That\u2019s all the formatting it needs.' },
@@ -123,7 +120,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       '没人做，那就自己做一个。粘贴数据，生成十三种真正可编辑的图表，导出原生 PowerPoint 图表或动效 GIF。不用注册、不用对话、不用安装——你的数据**不存储，也不发给任何人。**',
     ],
     storyMore: '阅读完整故事 →',
-    storyArtAlt: ['深夜里被 PPT 和图表稿包围的营销人', '左侧表格数据流入，右侧输出做好的图表幻灯片'],
+    storyArtAlt: '深夜里被 PPT 和图表稿包围的营销人',
     howTitle: '三步，三十秒。',
     howSteps: [
       { title: '粘贴数据', desc: '纯文本、CSV 或 Excel 文件——首行表头、下面数字，格式要求就这么多。' },
@@ -185,10 +182,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Alors je l\u2019ai construit. Collez vos données, obtenez treize types de graphiques vraiment modifiables, exportés en objets PowerPoint natifs ou en GIF animés. Sans inscription, sans fenêtre de chat, sans rien installer — et vos chiffres ne sont **jamais stockés, jamais envoyés dans la conversation de quelqu\u2019un d\u2019autre.**',
     ],
     storyMore: 'Lire toute l\u2019histoire →',
-    storyArtAlt: [
-      'Tard le soir, un marketeur submergé par ses slides et ses graphiques imprimés',
-      'Les données du tableur entrent à gauche, les slides de graphiques sortent à droite',
-    ],
+    storyArtAlt: 'Tard le soir, un marketeur submergé par ses slides et ses graphiques imprimés',
     howTitle: 'Trois étapes. Trente secondes.',
     howSteps: [
       { title: 'Collez vos données', desc: 'Texte brut, CSV ou fichier Excel — en-têtes en haut, chiffres en dessous. C\u2019est tout le formatage requis.' },
@@ -250,10 +244,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Also habe ich es selbst gebaut. Daten einfügen, dreizehn wirklich editierbare Diagrammtypen bekommen, exportiert als native PowerPoint-Objekte oder animierte GIFs. Ohne Anmeldung, ohne Chatfenster, ohne Installation — und Ihre Zahlen werden **nie gespeichert und nie in fremde Konversationen gefüttert.**',
     ],
     storyMore: 'Die ganze Geschichte lesen →',
-    storyArtAlt: [
-      'Spät in der Nacht: ein Marketingmensch, begraben unter Folien und ausgedruckten Diagrammen',
-      'Links fließen Tabellendaten hinein, rechts kommen fertige Diagrammfolien heraus',
-    ],
+    storyArtAlt: 'Spät in der Nacht: ein Marketingmensch, begraben unter Folien und ausgedruckten Diagrammen',
     howTitle: 'Drei Schritte. Dreißig Sekunden.',
     howSteps: [
       { title: 'Daten einfügen', desc: 'Reiner Text, CSV oder Excel — Kopfzeile oben, Zahlen darunter. Mehr Formatierung braucht es nicht.' },
@@ -315,10 +306,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Así que lo construí. Pega tus datos, obtén trece tipos de gráficos realmente editables, exportados como objetos nativos de PowerPoint o GIF animados. Sin registro, sin ventana de chat, sin instalar nada — y tus números **nunca se almacenan ni acaban en la conversación de otro.**',
     ],
     storyMore: 'Leer la historia completa →',
-    storyArtAlt: [
-      'Tarde por la noche, un publicista sepultado entre diapositivas y gráficos impresos',
-      'Los datos de la tabla entran a la izquierda y salen diapositivas con gráficos a la derecha',
-    ],
+    storyArtAlt: 'Tarde por la noche, un publicista sepultado entre diapositivas y gráficos impresos',
     howTitle: 'Tres pasos. Treinta segundos.',
     howSteps: [
       { title: 'Pega tus datos', desc: 'Texto plano, un CSV o un Excel — encabezados arriba, números debajo. Es todo el formato que necesita.' },
@@ -405,14 +393,7 @@ export function SiteContent() {
               src="/story-pain.jpg"
               width={2048}
               height={1365}
-              alt={copy.storyArtAlt[0]}
-              loading="lazy"
-            />
-            <img
-              src="/story-flow.jpg"
-              width={2048}
-              height={1365}
-              alt={copy.storyArtAlt[1]}
+              alt={copy.storyArtAlt}
               loading="lazy"
             />
           </div>
