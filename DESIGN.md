@@ -17,15 +17,17 @@
 ## 内容区与静态页（SEO / AdSense 审核，v1.21 起）
 - **页面滚动模型变更**：桌面端从「100vh 禁滚动应用壳」改为「首屏 100vh 应用壳（`.stage` = topbar + workspace，内部滚动行为不变）+ 下方内容区随 body 滚动」。背景光晕（`.shell::before`）与网格（`.bg-grid`）改 `position: fixed`，不随滚动。
 - **内容区多语言双轨制（v1.22）**：`index.html` 的 `#root` 之外、`<div id="site-content">` 内嵌**静态英文版**（爬虫零渲染可见，SEO 基底）；React 启动时 `main.tsx` 清空容器，`App.tsx` 用 `createPortal` 把 `<SiteContent/>` 渲染回同一容器（同树共享 I18nProvider），按界面语言呈现**五语言版**。View Source 恒为英文，用户所见随界面语言。文案单一事实源是 `SiteContent.tsx` 的 `SITE_COPY` 五语言字典；静态英文版必须与其 `en` 分支逐字一致。
+- **内容区布局（v1.23 加宽）**：容器与页脚 `max-width: 1400px`（与工作区同边距贯通，消除「全宽顶栏+居中孤岛」断层）；文字栏仍限宽保可读（`.c-prose` 740px、`.faq` 860px）；人群场景 4 列一排。
 - **内容区五大区块**：开发故事（3 段，**强调** 转 strong）→ How it works（3 步骤卡 `.how-step`，等宽数字编号 01/02/03）→ 十三图型速查 → 人群场景（`.case-card` 4 卡：咨询/营销广告/运营产品/分析学生）→ FAQ 9 条。
-- 组件语言：区块标题 `.c-title`（青色大写 + 左侧 3px 渐变侧光条）；图型速查 `.cg-card` 玻璃卡片（hover 上浮 2px + 边框提亮）——卡头 `.cg-head` = `.cg-icon`（24px 线性 SVG 示意图，青色描边圆角小方块，13 图型各一，组件 `ICONS` 与静态版同 path）+ `.cg-name`，卡尾 `.cg-meta`（虚线分隔，`.cg-needs` 数据要求带青色小标签 `.cg-tag` + `.cg-eg` 斜体示例）；FAQ 用原生 `<details>` 手风琴（无 JS、SEO 友好），`+` 号旋转 45°。
+- **故事区插画（v1.23）**：`.story-grid` 左文右图（7fr/5fr），右栏两张 AI 生成扁平商务插画 `/story-pain.jpg`（痛点：深夜被 PPT 图表包围）与 `/story-flow.jpg`（解法：表格流入、图表幻灯片流出）——深蓝底 + 青色点缀贴合深空控制台，2048×1365 JPEG（原 2048² 中心裁 3:2，quality 82，各 ~200KB），`width/height` 防 CLS + `loading="lazy"`，alt 五语言入 `SITE_COPY.storyArtAlt`；静态英文版同结构同图片。
+- 组件语言：区块标题 `.c-title`（青色大写 + 左侧 3px 渐变侧光条）；图型速查 `.cg-card` 玻璃卡片（hover 上浮 2px + 边框提亮）——**卡头为真实 ECharts 迷你演示（v1.23）**：React 版 `ChartMini`（demo spec 与迷你化覆写在 `utils/chartMiniData.ts`：隐藏坐标轴/图例/标签/交互、网格贴边、silent，纯形态展示；`specToOption` 同管线双主题联动；入场播一次绘制动画 + hover 重播，`prefers-reduced-motion` 停播；内置固定 demo 数据不走生成管线）；**静态英文版保留 `.cg-head` = `.cg-icon`（24px 线性 SVG）+ `.cg-name`**（爬虫基底零渲染可见）；卡尾 `.cg-meta`（虚线分隔，`.cg-needs` 数据要求带青色小标签 `.cg-tag` + `.cg-eg` 斜体示例）；FAQ 用原生 `<details>` 手风琴（无 JS、SEO 友好），`+` 号旋转 45°。
 - **页头内容链接**：topbar 右侧「About」锚点（`.tb-link`，指向 `#site-content`，`html{scroll-behavior:smooth}`）+ GitHub 图标（`.tb-icon`）。
 - **页脚 `.site-footer`**：玻璃顶边条——品牌渐变字 + 口号 / About·Privacy·GitHub 导航 / 版权行。
 - **独立静态页** `/about.html`（完整开发故事 + `.sp-table` 对比表 vs AI 聊天机器人/插件/BI 工具——末列 ChartThat 青色高亮）、`/privacy.html`（隐私政策，诚实对应实际数据行为；含 Contact 段指向 GitHub Issues）：Vite 多页构建（rollupOptions.input），复用 styles.css；`<head>` 内嵌 localStorage `dc-theme` 主题检测脚本防闪烁；`.sp-*` 文章版式（760px 中栏、h2 侧光条、`.sp-back` 幽灵返回按钮）。
 - `index.html`：`lang="en"`（出海定位）；JSON-LD `WebApplication` 结构化数据（免费、十三图型、PPTX/GIF 卖点）；`public/robots.txt` + `public/sitemap.xml`（3 URL，Vite 原样入 dist）。
 
 ## 响应式
-- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流；How it works 三步骤卡改单列。
+- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流；How it works 三步骤卡改单列；故事区 `.story-grid` 改单列（插画落文字下）；人群场景 4 列降 2 列。
 - **≤640px（手机）**：候选卡片单列全宽（弃用 320px minmax，杜绝横向溢出）；顶栏压缩——状态只留圆点、品牌副标题省略号截断；隐藏四角括号装饰（小屏噪点）；各区块 padding/gap 收紧；预览面板头部允许折行——标题/提示文字占满整行、操作按钮换到下一行，避免提示文案被挤压成竖长条；人群场景卡改单列。
 
 ## 色彩（深色科技感）

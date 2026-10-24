@@ -1113,7 +1113,7 @@ body {
 .content {
   position: relative;
   z-index: 2;
-  max-width: 1080px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 76px 26px 44px;
   display: flex;
@@ -1371,7 +1371,7 @@ html {
 /* ---- 人群场景 ---- */
 .case-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
 .case-card {
@@ -1407,7 +1407,7 @@ html {
   backdrop-filter: blur(12px);
 }
 .sf-inner {
-  max-width: 1080px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px 26px;
   display: flex;
@@ -1588,6 +1588,37 @@ html {
   color: var(--dim);
 }
 
+/* 故事区分栏（文字 + 插画） */
+.story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 42px;
+  align-items: center;
+}
+.story-art {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.story-art img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+/* 图型卡迷你演示（真实 ECharts 渲染形态，替代手绘示意图） */
+.cg-demo {
+  height: 92px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background-image: var(--grid-bg);
+  background-size: 22px 22px;
+  overflow: hidden;
+}
+
 /* ---- 响应式 ---- */
 /* 平板/小桌面（≤1080px）：左右工作区改为上下单列 */
 @media (max-width: 1080px) {
@@ -1595,6 +1626,13 @@ html {
     grid-template-columns: 1fr;
     /* 自然文档流：整页随 body 滚动，工作区不得内部滚动（否则候选区在移动端显示不完整） */
     overflow: visible;
+  }
+  .story-grid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .case-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   .stage {
     height: auto;

@@ -9,105 +9,12 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../i18n';
 import type { Lang } from '../i18n';
 import type { ChartType } from '../types';
+import ChartMini from './ChartMini';
 
 const GUIDE_ORDER: ChartType[] = [
   'bar', 'hbar', 'line', 'area', 'combo', 'stacked', 'slope',
   'scatter', 'waterfall', 'radar', 'pie', 'donut', 'sunburst',
 ];
-
-/** 十三图型迷你示意图（24px 线性，currentColor） */
-const ICONS: Record<ChartType, ReactNode> = {
-  bar: (
-    <>
-      <path d="M4 20h16" />
-      <path d="M7.5 20v-6M12.5 20V7M17.5 20v-9" />
-    </>
-  ),
-  hbar: (
-    <>
-      <path d="M4 4v16" />
-      <path d="M4 7.5h9M4 12.5h13M4 17.5h6" />
-    </>
-  ),
-  line: (
-    <>
-      <path d="M4 20h16" />
-      <path d="M4 15l5-5.5 4 3 7-8" />
-    </>
-  ),
-  area: (
-    <>
-      <path d="M4 15l5-5.5 4 3 7-8V20H4z" fill="currentColor" stroke="none" opacity=".18" />
-      <path d="M4 20h16" />
-      <path d="M4 15l5-5.5 4 3 7-8" />
-    </>
-  ),
-  combo: (
-    <>
-      <path d="M4 20h16" />
-      <path d="M8 20v-6M16 20v-4" />
-      <path d="M4 11l5-4 4 2.5L20 4" />
-    </>
-  ),
-  stacked: (
-    <>
-      <path d="M4 20h16" />
-      <path d="M7.5 20v-4M7.5 14.5V9M12.5 20v-3M12.5 15.5V6M17.5 20v-5M17.5 13.5v-4" />
-    </>
-  ),
-  slope: (
-    <>
-      <circle cx="6" cy="7" r="1.3" />
-      <circle cx="6" cy="15" r="1.3" />
-      <circle cx="18" cy="5" r="1.3" />
-      <circle cx="18" cy="17" r="1.3" />
-      <path d="M7.3 7.4l9.4-2M7.3 15.4l9.4 1.8" />
-    </>
-  ),
-  scatter: (
-    <>
-      <path d="M4 4v16h16" />
-      <circle cx="9" cy="14" r="1.3" />
-      <circle cx="12" cy="9" r="1.3" />
-      <circle cx="15" cy="12" r="1.3" />
-      <circle cx="18" cy="6" r="1.3" />
-    </>
-  ),
-  waterfall: (
-    <>
-      <path d="M3 20h18" />
-      <rect x="5" y="13" width="3.4" height="7" rx=".6" />
-      <rect x="10.3" y="8" width="3.4" height="5" rx=".6" />
-      <rect x="15.6" y="4" width="3.4" height="4" rx=".6" />
-    </>
-  ),
-  radar: (
-    <>
-      <path d="M12 3.5l7.5 5.5-2.9 8.8H7.4L4.5 9z" />
-      <path d="M12 8l3.8 2.8-1.4 4.4H9.6L8.2 10.8z" />
-    </>
-  ),
-  pie: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 12V4M12 12l6.5 5" />
-    </>
-  ),
-  donut: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="3.4" />
-      <path d="M12 4v4.6" />
-    </>
-  ),
-  sunburst: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="3.6" />
-      <path d="M12 4v4.4M19.5 9l-4 2.3M17 18.5l-3.2-3" />
-    </>
-  ),
-};
 
 interface GuideItem {
   use: string;
@@ -126,6 +33,7 @@ interface SiteCopy {
   storyTitle: string;
   story: string[];
   storyMore: string;
+  storyArtAlt: [string, string];
   howTitle: string;
   howSteps: { title: string; desc: string }[];
   guideTitle: string;
@@ -146,6 +54,10 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'So I built it. Paste your data, get thirteen kinds of genuinely editable charts, exported as native PowerPoint objects or animated GIFs. No sign-up, no chat window, nothing to install — and your numbers are **never stored, never fed into someone else\u2019s conversation.**',
     ],
     storyMore: 'Read the full story →',
+    storyArtAlt: [
+      'Late at night, a marketer buried in presentation slides and printed charts',
+      'Spreadsheet data flowing in on the left, finished chart slides coming out on the right',
+    ],
     howTitle: 'Three steps. Thirty seconds.',
     howSteps: [
       { title: 'Paste your data', desc: 'Plain text, a CSV file, or an Excel sheet — headers on top, numbers below. That\u2019s all the formatting it needs.' },
@@ -197,6 +109,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       '没人做，那就自己做一个。粘贴数据，生成十三种真正可编辑的图表，导出原生 PowerPoint 图表或动效 GIF。不用注册、不用对话、不用安装——你的数据**不存储，也不发给任何人。**',
     ],
     storyMore: '阅读完整故事 →',
+    storyArtAlt: ['深夜里被 PPT 和图表稿包围的营销人', '左侧表格数据流入，右侧输出做好的图表幻灯片'],
     howTitle: '三步，三十秒。',
     howSteps: [
       { title: '粘贴数据', desc: '纯文本、CSV 或 Excel 文件——首行表头、下面数字，格式要求就这么多。' },
@@ -248,6 +161,10 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Alors je l\u2019ai construit. Collez vos données, obtenez treize types de graphiques vraiment modifiables, exportés en objets PowerPoint natifs ou en GIF animés. Sans inscription, sans fenêtre de chat, sans rien installer — et vos chiffres ne sont **jamais stockés, jamais envoyés dans la conversation de quelqu\u2019un d\u2019autre.**',
     ],
     storyMore: 'Lire toute l\u2019histoire →',
+    storyArtAlt: [
+      'Tard le soir, un marketeur submergé par ses slides et ses graphiques imprimés',
+      'Les données du tableur entrent à gauche, les slides de graphiques sortent à droite',
+    ],
     howTitle: 'Trois étapes. Trente secondes.',
     howSteps: [
       { title: 'Collez vos données', desc: 'Texte brut, CSV ou fichier Excel — en-têtes en haut, chiffres en dessous. C\u2019est tout le formatage requis.' },
@@ -299,6 +216,10 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Also habe ich es selbst gebaut. Daten einfügen, dreizehn wirklich editierbare Diagrammtypen bekommen, exportiert als native PowerPoint-Objekte oder animierte GIFs. Ohne Anmeldung, ohne Chatfenster, ohne Installation — und Ihre Zahlen werden **nie gespeichert und nie in fremde Konversationen gefüttert.**',
     ],
     storyMore: 'Die ganze Geschichte lesen →',
+    storyArtAlt: [
+      'Spät in der Nacht: ein Marketingmensch, begraben unter Folien und ausgedruckten Diagrammen',
+      'Links fließen Tabellendaten hinein, rechts kommen fertige Diagrammfolien heraus',
+    ],
     howTitle: 'Drei Schritte. Dreißig Sekunden.',
     howSteps: [
       { title: 'Daten einfügen', desc: 'Reiner Text, CSV oder Excel — Kopfzeile oben, Zahlen darunter. Mehr Formatierung braucht es nicht.' },
@@ -350,6 +271,10 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       'Así que lo construí. Pega tus datos, obtén trece tipos de gráficos realmente editables, exportados como objetos nativos de PowerPoint o GIF animados. Sin registro, sin ventana de chat, sin instalar nada — y tus números **nunca se almacenan ni acaban en la conversación de otro.**',
     ],
     storyMore: 'Leer la historia completa →',
+    storyArtAlt: [
+      'Tarde por la noche, un publicista sepultado entre diapositivas y gráficos impresos',
+      'Los datos de la tabla entran a la izquierda y salen diapositivas con gráficos a la derecha',
+    ],
     howTitle: 'Tres pasos. Treinta segundos.',
     howSteps: [
       { title: 'Pega tus datos', desc: 'Texto plano, un CSV o un Excel — encabezados arriba, números debajo. Es todo el formato que necesita.' },
@@ -410,15 +335,33 @@ export function SiteContent() {
     <>
       <section className="c-block">
         <h2 className="c-title">{copy.storyTitle}</h2>
-        <div className="c-prose">
-          {copy.story.map((p, i) => (
-            <p key={i}>{rich(p)}</p>
-          ))}
-          <p>
-            <a className="c-link" href="/about.html">
-              {copy.storyMore}
-            </a>
-          </p>
+        <div className="story-grid">
+          <div className="c-prose">
+            {copy.story.map((p, i) => (
+              <p key={i}>{rich(p)}</p>
+            ))}
+            <p>
+              <a className="c-link" href="/about.html">
+                {copy.storyMore}
+              </a>
+            </p>
+          </div>
+          <div className="story-art">
+            <img
+              src="/story-pain.jpg"
+              width={2048}
+              height={1365}
+              alt={copy.storyArtAlt[0]}
+              loading="lazy"
+            />
+            <img
+              src="/story-flow.jpg"
+              width={2048}
+              height={1365}
+              alt={copy.storyArtAlt[1]}
+              loading="lazy"
+            />
+          </div>
         </div>
       </section>
 
@@ -442,21 +385,8 @@ export function SiteContent() {
             const g = copy.guide[i];
             return (
               <div className="cg-card" key={type}>
-                <div className="cg-head">
-                  <span className="cg-icon" aria-hidden="true">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      {ICONS[type]}
-                    </svg>
-                  </span>
-                  <div className="cg-name">{chartLabel(type)}</div>
-                </div>
+                <ChartMini type={type} />
+                <div className="cg-name">{chartLabel(type)}</div>
                 <div className="cg-use">{g.use}</div>
                 <div className="cg-meta">
                   <div className="cg-needs">
