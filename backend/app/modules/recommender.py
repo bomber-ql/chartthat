@@ -250,6 +250,56 @@ def call_llm(messages: list[dict[str, str]]) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+def _coze_text(content: Any) -> str:
+    """SDK 响应 content 可能是 str / list[str] / list[dict]，统一提取为文本。"""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        if content and isinstance(content[0], str):
+            return " ".join(content)
+        return " ".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+    return str(content)
+
+
+def _call_llm_coze(messages: list[dict[str, str]]) -> str:
+    """开发沙箱内置 LLM（coze-coding-dev-sdk，仅开发环境可用）。
+
+    生产镜像不安装该依赖，可选导入失败时抛 RecommendationError 走降级。
+    """
+    try:
+        from coze_coding_dev_sdk import LLMClient
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    except ImportError as exc:
+        raise RecommendationError(
+            "LLM_PROVIDER=coze 需要 coze-coding-dev-sdk（仅开发沙箱内置）"
+        ) from exc
+
+    role_map = {"system": SystemMessage, "user": HumanMessage, "assistant": AIMessage}
+    lc_messages = [
+        role_map.get(m.get("role", "user"), HumanMessage)(content=m.get("content", ""))
+        for m in messages
+    ]
+    # llm_model 若是 OpenAI 系模型名（如默认 gpt-4o-mini），对内置 SDK 无意义，
+    # 此时不传 model 走 SDK 默认模型；显式配置了 doubao/kimi 等模型名才透传。
+    model = settings.llm_model
+    kwargs: dict[str, Any] = {"temperature": 0.2}
+    if model.startswith(("doubao", "kimi")):
+        kwargs["model"] = model
+    resp = LLMClient().invoke(messages=lc_messages, **kwargs)
+    return _coze_text(resp.content)
+
+
+def _default_llm_call(messages: list[dict[str, str]]) -> str:
+    """按 LLM_PROVIDER 分发：coze=沙箱内置 SDK；否则 OpenAI 兼容 HTTP。"""
+    if settings.llm_provider == "coze":
+        return _call_llm_coze(messages)
+    return call_llm(messages)
+
+
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
 
 
@@ -580,7 +630,7 @@ def recommend_charts(
     非法/缺省值回退英文；fr/de/es 经 prompt 语言指令产出目标语言；列名等数据保持原文。
     """
     lang = normalize_lang(lang)
-    llm_call = llm_call or call_llm
+    llm_call = llm_call or _default_llm_call
     messages = [
         {"role": "system", "content": _system_prompt(lang)},
         {"role": "user", "content": _build_user_prompt(table, lang)},

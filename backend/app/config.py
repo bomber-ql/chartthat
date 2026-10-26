@@ -19,6 +19,9 @@ class Settings:
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    # LLM provider：openai=OpenAI 兼容 HTTP（默认，生产 DeepSeek）；
+    # coze=开发沙箱内置 LLM SDK（仅开发环境可用，生产镜像无此依赖，勿在生产开启）
+    llm_provider: str = os.getenv("LLM_PROVIDER", "openai")
     cors_origins: tuple[str, ...] = tuple(_cors_origins())
     backend_port: int = int(os.getenv("BACKEND_PORT", "8000"))
 

@@ -9,6 +9,11 @@ mkdir -p "$LOG_DIR"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 export DEPLOY_RUN_PORT="${DEPLOY_RUN_PORT:-5000}"
 
+# 本地开发默认使用沙箱内置 LLM（doubao lite，无需 API key，便于真实联调）；
+# 生产部署走 .env（LLM_PROVIDER 缺省 openai + DeepSeek 配置），两者互不影响。
+export LLM_PROVIDER="${LLM_PROVIDER:-coze}"
+export LLM_MODEL="${LLM_MODEL:-doubao-seed-2-0-lite-260215}"
+
 echo "[dev] starting FastAPI on 127.0.0.1:${BACKEND_PORT}"
 cd "$ROOT/backend"
 (
