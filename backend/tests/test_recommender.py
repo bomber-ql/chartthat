@@ -401,3 +401,18 @@ def test_normalize_lang_only_zh_kept() -> None:
     assert normalize_lang("es") == "es"
     assert normalize_lang("xx") == "en"
     assert normalize_lang(None) == "en"
+
+
+def test_table_without_stats_does_not_500() -> None:
+    """回归：外部直接构造的表可能缺 stats 字段，prompt 构造必须容错
+    （LLM 不可用时走降级返回 200，而非 KeyError 500）。"""
+    table: dict[str, Any] = {
+        "columns": [
+            {"name": "月份", "role": "dimension", "unit": "text"},
+            {"name": "销量", "role": "measure", "unit": "count"},
+        ],
+        "rows": [["一月", 10], ["二月", 20], ["三月", 15]],
+    }
+    result = recommend_charts(table, lang="en")
+    assert result["degraded"] is True
+    assert len(result["recommendations"]) >= 1

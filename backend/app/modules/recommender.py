@@ -207,10 +207,11 @@ def _system_prompt(lang: str) -> str:
 def _build_user_prompt(table: dict[str, Any], lang: str = DEFAULT_LANG) -> str:
     summary = []
     for c in table["columns"]:
-        s = c["stats"]
+        # 防御：外部直接构造的表可能缺 stats（正常链路 M2 输出必有），容错避免 500
+        s = c.get("stats") or {}
         summary.append(
-            f"- {c['name']}: role={c['role']}, unit={c['unit']}, "
-            f"null_count={s['null_count']}, distinct={s['distinct_count']}"
+            f"- {c['name']}: role={c['role']}, unit={c.get('unit', 'count')}, "
+            f"null_count={s.get('null_count', '?')}, distinct={s.get('distinct_count', '?')}"
         )
     if lang != "zh":  # v1.18：非中文一律英文骨架（目标输出语言由 system prompt 指令控制）
         lines = ["Table schema summary:", *summary, "", "Sample rows (up to 10):"]
