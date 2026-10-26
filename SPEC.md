@@ -1,9 +1,10 @@
 # SPEC.md — 智能数据图表 PPT 生成器
 
-> 版本：v1.20 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出随界面语言五语言原生 zh/en/fr/de/es），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态；轻量使用统计埋点（SQLite 单文件 + 受保护 /api/stats）
+> 版本：v1.24 ｜ 状态：M1/M2 已实现，M3 已实现（推荐产出随界面语言五语言原生 zh/en/fr/de/es），M4 单图 PPT 导出已实现（十三图型全覆盖、可选原生数据标签 show_labels），动效产物支持直出 GIF（实底跟随主题 / 可选二元透明）与嵌入 pptx 两种形态；轻量使用统计埋点（SQLite 单文件 + 受保护 /api/stats）；API 滥用防护（分端点 IP 限流 429 + 请求体硬上限 413 + CORS 同源收紧，§7.2）
 > 读者：AI 编程工具 / 实现工程师。实现过程中任何与本文档冲突的决策，必须先回写本文档再编码。
 
 **修订记录**
+- v1.24：**API 滥用防护（§7.2）**。无登录产品不加鉴权（破坏零摩擦且挡不住脚本），改为纯 ASGI 中间件层防护：①`RateLimitMiddleware` 固定窗口（60s）按「客户端 IP × 端点档位」计数——recommend 20、gif/animated-pptx 15、pptx 20、parse 30、其他 /api 60 兜底，health/stats/静态资源豁免、环回豁免；超限 429 + `Retry-After` + `RATE_LIMITED`；身份取 `CF-Connecting-IP`→XFF 首段→peer（app 仅 Caddy 回源故 CF 头可信）；进程内 dict+Lock+惰性 GC，`RATE_LIMIT_ENABLED` 开关。②`BodySizeLimitMiddleware` 请求体硬上限 `MAX_REQUEST_BYTES`（默认 15MB）：content-length 预检 + chunked receive 流式累计，超限 413 `PAYLOAD_TOO_LARGE`。③CORS 默认同源收紧：`CORS_ORIGINS` 缺省不放行跨域，白名单显式配置，`*` 显式可用但不带 credentials。④防线配套 Cloudflare 边缘速率规则与 LLM 供应商账单硬上限（部署文档）。
 - v1.20：`/api/stats` 响应新增 `countries` 字段——全量事件按 `country`（CF-IPCountry 两位国家码）分组的计数分布，补足出海产品的国家维度漏斗（Cloudflare Analytics 只有页面访问量，给不了"哪国用户导出了多少 PPTX"）；未走橙云代理时 country 全为 NULL，该字段为空对象。
 - v1.19：**轻量使用统计埋点（SQLite 单文件）**。①新增 `backend/app/analytics.py`：五个业务端点（parse/recommend/generate-pptx/generate-gif/generate-animated-pptx）在**成功响应**时各记一条事件到 SQLite（表 `events(id, ts, event, lang, country, meta)`，`ts` 为 UTC ISO8601）；存储位置由 `DATA_DIR` 决定（默认 `backend/data/`，生产容器固定 `/app/data` 并挂 named volume 持久化，容器重建不丢数据）。②**隐私红线**：不记录 IP、UA、Referer、请求体原文、用户表格数据、图表标题与列名；`lang` 取前端 `X-Lang` 请求头（recommend 以 body.lang 归一化值为准），`country` 仅取 Cloudflare `CF-IPCountry` 两位国家码（未走橙云代理时为 NULL），`meta` 仅放产品维度——parse：`{source: text|csv|xlsx|其他扩展名, rows, cols}`；recommend：`{degraded, count, chart_types[]}`；generate-pptx：`{chart_type, show_labels}`；generate-gif：`{frames, frame_ms, transparent}`；generate-animated-pptx：同 gif + `{has_title}`。③新增 `GET /api/stats`（§7.1）：`STATS_TOKEN` 未配置或 `?token=` 不匹配一律 404（不暴露端点存在性），返回累计/今日/近 30 天各事件计数、近 14 天按日分布、recommend 语言分布、PPTX 导出图型分布。④埋点写入失败静默降级（仅 warning 日志），绝不影响业务响应；单连接 + 模块级锁保证线程安全，写入为微秒级同步调用。
 - v1.18：**推荐产出扩为五语言原生**（替代 v1.17 的「非 zh 一律英文」回退）。①`lang` 归一化改为：zh/en/fr/de/es **直通**，仅非法/缺省值回退 `"en"`。②**LLM 路径**：fr/de/es 复用英文 system prompt + 追加一条目标语言指令（"EXCEPTION to rule 8: write BOTH title and reasoning in French/German/Spanish"，并重申列名/维度值保持原文不翻译）——主流 LLM 多语言输出质量可靠，无需维护三套完整 prompt；user prompt 骨架非 zh 一律英文。③**降级路径**：启发式降级标题模板（combo/line/area/stacked/slope/radar/bar/donut/scatter/pie 十组）、缺失系列提示语、降级说明、无数值列错误信息全部扩为 fr/de/es 三套（模板常量 `FALLBACK_TITLES` 五语言字典）；分隔符口径 zh 用全角「；：」，其余一律半角 "; " / ": "。④前端「数据不完整」徽标尾缀匹配同步扩为五语言（大小写不敏感）。⑤列名/categories/series.name 保持用户原文的约束（v1.14）不变。
@@ -747,8 +748,9 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 
 **通用约定：**
 - 所有错误响应统一为 ApiError（§5.7），HTTP 状态码语义化（400 参数/校验错误，413 超限，502 LLM 失败且降级亦失败，500 其他）。
-- 后端配置 CORS，允许前端开发源。
-- 请求体大小限制 10MB。
+- CORS 生产默认同源收紧（`CORS_ORIGINS` 白名单，v1.24），开发环境由 Vite `/api` 代理规避跨域。
+- 请求体硬上限 15MB（`MAX_REQUEST_BYTES`，超限 413，v1.24 §7.2）；解析端点文件上传自身另限 10MB。
+- 所有业务端点受按 IP 分档位速率限制（超限 429，v1.24 §7.2）。
 
 **`/api/recommend` 响应示例（基于 §12 夹具的 combo 推荐）：**
 
@@ -799,6 +801,29 @@ LLM 只引用列、不给数据（C-5）。**LLM 必须输出裸 JSON 数组**�
 - `daily` 为近 14 天（按 UTC 日期）逐日逐事件计数；`langs` 统计 recommend 事件的 lang 分布；`chart_types` 统计 generate-pptx 事件的图型分布；`countries`（v1.20）统计全量事件的 country 分布（NULL 不计入，未走橙云代理时为空对象）。
 - `STATS_TOKEN` 环境变量未配置、或 `token` 不匹配，一律返回 404（不暴露端点存在性）。
 - 仅成功响应的业务请求计数；埋点失败静默降级，不影响业务。
+
+### 7.2 API 滥用防护（v1.24）
+
+无登录产品的防线不是鉴权（会破坏零摩擦卖点且挡不住脚本），而是**边缘 + 源站双层速率/体积限制 + LLM 账单硬上限**。源站层为纯 ASGI 中间件（`backend/app/security.py`），不依赖外部服务：
+
+- **固定窗口限流（60 秒窗口，按客户端 IP + 端点档位独立计数）**：
+
+| 端点 | 上限（次/60s/IP） | 理由 |
+|---|---|---|
+| `/api/recommend` | 20 | 最贵：可能触发 LLM token 计费 |
+| `/api/generate-gif` | 15 | CPU/内存密集（PIL 合成 ~20 帧） |
+| `/api/generate-animated-pptx` | 15 | 同上 |
+| `/api/generate-pptx` | 20 | python-pptx/ablechart 构造成本 |
+| `/api/parse` | 30 | 纯本地解析，较宽松 |
+| 其他 `/api/*` | 60（全局兜底） | - |
+| `/api/health`、`/api/stats`、`/healthz`、静态资源 | 不计数 | 探活/受 token 保护/无成本 |
+
+- 超限返回 `429 Too Many Requests`，body 为 ApiError `{"code":"RATE_LIMITED","message":...,"details":{"retry_after_seconds":n}}`，带 `Retry-After` 响应头。
+- 客户端身份提取顺序：`CF-Connecting-IP`（Cloudflare 注入，app 端口不对宿主发布、仅经 Caddy 回源，该头可信）→ `X-Forwarded-For` 首段 → 直连 peer；环回地址豁免（容器内网探活/本地测试）。
+- 计数器为进程内 dict + Lock + 惰性 GC（单容器足够；未来多副本再换 Redis）。开关 `RATE_LIMIT_ENABLED`（默认 `true`，测试置 `false`）。
+- **请求体硬上限** `MAX_REQUEST_BYTES`（默认 15MB，覆盖 GIF 多帧 base64；解析端点自身 10MB 文件上限不变）：`content-length` 超限预检直接拒绝、不读 body；无 `content-length` 的分块请求包装 ASGI `receive` 流式累计，超限抛错由中间件统一回 `413 Payload Too Large`（`{"code":"PAYLOAD_TOO_LARGE",...}`）。仅作用于 POST/PUT/PATCH。
+- **CORS 生产默认同源收紧**：`CORS_ORIGINS` 缺省时不放行任何跨域来源（同源部署不触发 CORS）；显式配置逗号分隔白名单，`*` 仍可显式开启（此时不带 credentials）。
+- 边缘层（Cloudflare，控制台配置，非代码）：WAF 自定义速率限制规则作为源站前置兜底、Bot Fight Mode、SSL Full(strict)；LLM 供应商后台设置月度账单硬上限是最后一道财务防线。
 
 ---
 

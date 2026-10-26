@@ -6,7 +6,8 @@
 **唯一规格来源：`SPEC.md`（v1.19）。任何代码实现必须先与 SPEC 对齐，冲突时先回写 SPEC。**
 
 ## 架构
-- `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder / analytics 埋点（SPEC v1.19 §7.1），契约见 SPEC §5/§6。
+- `backend/`：FastAPI（Python 3.12），模块 M1 parser / M2 semantic / M3 recommender / M4 pptx_builder / analytics 埋点（SPEC v1.19 §7.1）/ security 防护（SPEC v1.24 §7.2），契约见 SPEC §5/§6/§7。
+  - **API 滥用防护（v1.24，`backend/app/security.py`，无登录产品的防线）**：不加鉴权（破坏零摩擦且挡不住脚本），改纯 ASGI 中间件——①`RateLimitMiddleware` 固定窗口 60s 按「IP×端点档位」计数：recommend 20、gif/animated-pptx 15、pptx 20、parse 30、其他 /api 全局 60 兜底；health/stats/healthz/静态/环回豁免；超限 429+`Retry-After`+`{code:"RATE_LIMITED"}`；身份顺序 `CF-Connecting-IP`→XFF 首段→peer（app 端口不发布、仅 Caddy 回源故 CF 头可信）；进程内 dict+Lock+惰性 GC；`RATE_LIMIT_ENABLED`（默认 true，测试 conftest 置 false）。②`BodySizeLimitMiddleware`：POST/PUT/PATCH body 硬上限 `MAX_REQUEST_BYTES`（默认 15MB），content-length 预检直接 413 + 无 content-length 时包装 receive 流式累计抛 `_BodyTooLarge` 统一回 413 `PAYLOAD_TOO_LARGE`。③CORS 生产默认同源收紧（`CORS_ORIGINS` 缺省不放行跨域，白名单逗号分隔，`*` 显式可用但不带 credentials）。中间件洋葱注册顺序（main.py 反序 add）：CORS 最外 → 限流 → body 上限 → 业务。测试 `backend/tests/test_security.py`（16 用例，chunked 用例走原始 ASGI scope+receive 且桩端点必须真实 `await request.body()` 才能触发累计）。边缘层与 LLM 账单硬上限见 DEPLOY.md。
   - **使用统计埋点（v1.19）**：`backend/app/analytics.py`——五个业务端点成功响应时各记一条事件到 SQLite（`events(id, ts, event, lang, country, meta)`，单连接+模块锁，写入失败静默降级不影响业务）。存储 `DATA_DIR`（默认 `backend/data/`，生产容器 `/app/data` 挂 named volume `app_data`）。**隐私红线**：不记 IP/UA/请求体原文/用户数据内容/图表标题/列名；lang 取 `X-Lang` 头（recommend 以 body.lang 归一化值为准），country 仅取 `CF-IPCountry`（XX/T1→NULL），meta 只放产品维度。查询端点 `GET /api/stats?token=<STATS_TOKEN>`（未配置或不匹配恒 404），返回累计/今日/近 30 天、近 14 天按日、recommend 语言分布、PPTX 图型分布。前端 5 处 fetch 统一带 `X-Lang` 头。
 - `frontend/`：React 18 + TypeScript + Vite 5 + ECharts 5；`ChartSpec` 是前后端共享的唯一图表事实源，映射层为 `src/utils/specToOption.ts`。
   - 已实现**左右分布单工作区**（深色科技感，DESIGN.md）：左 `ControlPanel`（输入→/api/parse **成功后自动调 /api/recommend**、解析摘要、已选清单、导出）+ 右 `PreviewPanel`（`ChartCard` 卡片网格，ECharts 缩略图 + reasoning，点击选中全局 state）；导出已接 /api/generate-pptx（十三种图型逐张下载 .pptx，v1.6 起全覆盖）。无页签三步流已废弃；「解析」与「生成图表」已合并为一次点击。响应式：≤1080px 上下单列 + **自然文档流**（`.workspace` overflow 必须 visible，整页随 body 滚动，内部滚动会导致移动端候选区显示不完整）、≤640px 手机端卡片单列全宽 + 顶栏压缩 + 隐藏四角装饰 + 预览面板头部折行（文字占满整行，提示文案不被按钮挤压成竖长条）（`styles.css` 媒体查询）。
@@ -35,6 +36,7 @@
 - 编排：`docker-compose.yml`（app + caddy:2-alpine），`deploy/Caddyfile`（chartthat.com 自动 Let's Encrypt，www 301 到裸域，安全响应头）；环境变量走 `.env`（模板 `.env.example`，`.env` 已 gitignore）。
 - LLM 零改动接 DeepSeek：`LLM_API_KEY`/`LLM_BASE_URL=https://api.deepseek.com`/`LLM_MODEL=deepseek-chat`（config.py 原生支持，未配置自动走启发式降级）。
 - 使用统计（v1.19）：`.env` 配 `STATS_TOKEN=<随机串>`（`openssl rand -hex 16`）后，浏览器访问 `https://chartthat.com/api/stats?token=<该串>` 查看 JSON；数据在 named volume `app_data`（容器重建不丢）。
+- API 防护（v1.24）：限流/body 上限默认开箱即用（无需配置）；`.env` 可调 `RATE_LIMIT_ENABLED`、`MAX_REQUEST_BYTES`、`CORS_ORIGINS`；Cloudflare 边缘速率规则与 DeepSeek 账单硬上限配置步骤见 DEPLOY.md「安全防护」节。
 - 完整上线步骤（Hetzner VPS + Cloudflare DNS + 防火墙 + 更新/运维/备份）见 `DEPLOY.md`。
 
 ## 核心约束（实现时不可违反，详见 SPEC §3）

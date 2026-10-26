@@ -17,19 +17,25 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import settings
+from app.security import BodySizeLimitMiddleware, RateLimitMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
 
 app = FastAPI(title="智能数据图表 PPT 生成器", version="0.1.0")
 
+# 中间件为洋葱模型：最后 add 的在最外层。期望执行顺序
+# CORS 预检/头 → 限流 → body 上限 → 业务，因此按反序注册。
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
-    allow_credentials=True,
-    allow_methods=["*"],
+    # 通配 origin 下不可带 credentials（浏览器规范）；显式白名单才开启。
+    allow_credentials=settings.cors_origins != ("*",),
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware, enabled=settings.rate_limit_enabled)
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
 
 app.include_router(router)
 
