@@ -1715,6 +1715,10 @@ html[data-lang='es'] [data-lang-block='es'] {
     grid-template-columns: 1fr;
     /* 自然文档流：整页随 body 滚动，工作区不得内部滚动（否则候选区在移动端显示不完整） */
     overflow: visible;
+    /* 错位修复：flex:1（basis 0%）+ min-height:0 会让工作区在 height:auto 的 .stage 里
+       被压成「100vh - 顶栏」的固定高度，grid 内容溢出盒外与下方内容区重叠；
+       必须改为随内容自然撑开 */
+    flex: none;
   }
   .story-grid {
     grid-template-columns: 1fr;
@@ -1731,8 +1735,13 @@ html[data-lang='es'] [data-lang-block='es'] {
   .side {
     overflow: visible;
   }
+  /* 自然文档流下右列内部同样禁止 flex 拉伸（basis 0% 会低估内容高度） */
   .main .scroll {
+    flex: none;
     overflow: visible;
+  }
+  .empty {
+    flex: none;
   }
   .blk-foot {
     position: static;

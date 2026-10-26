@@ -28,7 +28,7 @@
 - `index.html`：`lang="en"`（出海定位）；JSON-LD `WebApplication` 结构化数据（免费、十三图型、PPTX/GIF 卖点）；`public/robots.txt` + `public/sitemap.xml`（3 URL，Vite 原样入 dist）。
 
 ## 响应式
-- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；底部导出条由 sticky 改为随文档流；How it works 三步骤卡改单列；故事区 `.story-grid` 改单列（插画落文字下）；人群场景 4 列降 2 列。
+- **≤1080px（平板/小桌面）**：左右工作区改为上下单列，**自然文档流**——`.shell` 高度自适应、`.workspace` 禁内部滚动（overflow 必须 visible），整页随 body 滚动；**flex 链同步解除拉伸**：`.workspace` / `.main .scroll` / `.empty` 必须 `flex: none`（column flex 链上 `flex:1` basis 0% + `min-height:0` 会把工作区压成「100vh − 顶栏」固定高，grid 内容溢出盒外与下方内容区重叠穿透）；底部导出条由 sticky 改为随文档流；How it works 三步骤卡改单列；故事区 `.story-grid` 改单列（插画落文字下）；人群场景 4 列降 2 列。
 - **≤640px（手机）**：候选卡片单列全宽（弃用 320px minmax，杜绝横向溢出）；顶栏压缩——状态只留圆点、品牌副标题省略号截断；隐藏四角括号装饰（小屏噪点）；各区块 padding/gap 收紧；预览面板头部允许折行——标题/提示文字占满整行、操作按钮换到下一行，避免提示文案被挤压成竖长条；人群场景卡改单列。
 
 ## 色彩（深色科技感）
