@@ -17,6 +17,9 @@ __pycache__/
 # 使用统计埋点本地数据（SPEC v1.19，生产走容器 volume）
 backend/data/
 
+# 生产服务器连接信息（含源站 IP，公开仓库不得入库，绕过 CF 防护风险）
+DEPLOY.local.md
+
 # JS/TS bundlers & build outputs
 .next
 .nuxt
