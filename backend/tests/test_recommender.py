@@ -416,3 +416,65 @@ def test_table_without_stats_does_not_500() -> None:
     result = recommend_charts(table, lang="en")
     assert result["degraded"] is True
     assert len(result["recommendations"]) >= 1
+
+
+# --------------------------------------------------------------------------- #
+# 回归（v1.26）：percent-only 表 / 全 percent 系列不得抛 StopIteration → 500
+# --------------------------------------------------------------------------- #
+
+_PERCENT_ONLY_TABLE: dict[str, Any] = {
+    "columns": [
+        {"name": "品牌", "role": "dimension", "unit": "text"},
+        {"name": "份额", "role": "percent", "unit": "percent"},
+    ],
+    "rows": [["A", 0.42], ["B", 0.28], ["C", 0.18], ["D", 0.12]],
+}
+
+
+def test_percent_only_table_llm_path_never_500() -> None:
+    """LLM 推荐 bar 仅引用 percent 列（bar ∈ percent 允许类型，389 行拦截不了）：
+    投影后系列全挂副轴 → 主轴单位集合为空 → 该条拒绝；降级路径 percent-only
+    表无法成图 → RecommendationError（路由层 400），绝不 StopIteration 500。"""
+    item = {
+        "chart_type": "bar",
+        "title": "市场份额对比",
+        "reasoning": "份额对比",
+        "config": {"dimension": "品牌", "semantic_layer": "comparison",
+                   "series": [{"column": "份额"}]},
+    }
+    with pytest.raises(RecommendationError):
+        recommend_charts(
+            _PERCENT_ONLY_TABLE,
+            llm_call=lambda msgs: __import__("json").dumps([item], ensure_ascii=False),
+            lang="zh",
+        )
+
+
+def test_percent_only_table_fallback_never_500() -> None:
+    """LLM 不可用 → 降级路径对 percent-only 表返回空 → RecommendationError 而非 500。"""
+    def boom(msgs: list[dict[str, str]]) -> str:
+        raise RuntimeError("llm down")
+
+    with pytest.raises(RecommendationError):
+        recommend_charts(_PERCENT_ONLY_TABLE, llm_call=boom, lang="zh")
+
+
+def test_all_percent_series_item_rejected_others_kept(table: dict[str, Any]) -> None:
+    """混合表：LLM 推一条全 percent 系列（拒）+ 一条正常 measure 系列（留）。"""
+    items = [
+        {"chart_type": "line", "title": "同比增速趋势", "reasoning": "增速",
+         "config": {"dimension": "平台", "semantic_layer": "trend",
+                    "series": [{"column": "同比"}]}},
+        _bar_item(),
+    ]
+    result = recommend_charts(
+        table, llm_call=lambda msgs: __import__("json").dumps(items, ensure_ascii=False), lang="zh"
+    )
+    assert result["degraded"] is False
+    assert any(s["chart_type"] == "bar" for s in result["recommendations"])
+    # 全 percent 的 line 必须被拒（主轴为空），不得混入结果
+    assert all(
+        s["chart_type"] != "line"
+        or any(ser["axis"] == "primary" for ser in s["series"])
+        for s in result["recommendations"]
+    )

@@ -424,6 +424,10 @@ def _project_spec(item: dict[str, Any], table: dict[str, Any], seq: int,
 
     categories = [str(v) for v in _column_values(table, dimension)]
     units_in_axis = {s["unit"] for s in projected if s["axis"] == "primary"}
+    if not units_in_axis:
+        # 全 percent 系列（主轴为空）无法构成有效图表——视为该条推荐不合法，
+        # 返回 None 让重试/降级兜底，禁止抛 StopIteration 炸穿线程池（500 根因）。
+        return None
     axes: dict[str, Any] = {"primary": {"unit": next(iter(units_in_axis)), "title": None}}
     if any(s["axis"] == "secondary" for s in projected):
         axes["secondary"] = {"unit": "percent", "title": None}
@@ -484,7 +488,9 @@ def _fallback_specs(table: dict[str, Any], lang: str = DEFAULT_LANG) -> list[dic
     dim = next((c["name"] for c in cols if c["role"] == "dimension"), None)
     measures = [c["name"] for c in cols if c["role"] == "measure"]
     percents = [c["name"] for c in cols if c["role"] == "percent"]
-    if dim is None or (not measures and not percents):
+    if dim is None or not measures:
+        # 无维度、或无 measure（percent-only 表）时降级无法成图：
+        # 所有降级形态都需要至少一个主轴 measure，percent 只能挂副轴。
         return []
 
     categories = [str(v) for v in _column_values(table, dim)]
@@ -658,7 +664,10 @@ def recommend_charts(
             continue
 
         for i, item in enumerate(items, start=1):
-            spec = _project_spec(item, table, i, lang)
+            try:
+                spec = _project_spec(item, table, i, lang)
+            except Exception:  # noqa: BLE001 - 单条投影异常视为该条不合法，不中断整批
+                spec = None
             if spec is not None:
                 specs.append(spec)
         if specs:
