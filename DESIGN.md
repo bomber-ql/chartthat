@@ -64,7 +64,8 @@
 - **生产托管**：`/guides/` 目录形式依赖 main.py `spa_fallback` 的目录 index.html 支持（candidate 为目录时补查其下 index.html），勿回退。
 
 ## 顶栏导航与首屏滚动提示（v1.26）
-- **顶栏全页 sticky**：topbar 移出 `.stage` 成为 `.shell` 首子元素（`position: sticky; top: 0; z-index: 60`，毛玻璃背景现成），内容区滚动时导航仍可达；导航项 = About（锚点 #site-content）+ Guides（/guides/）+ GitHub 图标，文案入 i18n（navAbout/navGuides）。
+- **顶栏全页 sticky**：topbar 移出 `.stage` 成为 `.shell` 首子元素（`position: sticky; top: 0; z-index: 60`，毛玻璃背景现成），内容区滚动时导航仍可达。
+- **顶栏控件统一胶囊体系 + 排序**（左→右）：文字导航胶囊 About / Guides（`.tb-link` 复用 `.tgl`/语言框形态：34px 高、999px 圆角、1px 边框、mono 12px、hover 青色+边框提亮+光晕，文案入 i18n navAbout/navGuides）→ 状态胶囊 → 圆按钮图标组 GitHub / 主题（`.tb-icon` 34px 圆形描边，与 `.tgl` 同 hover 语言）→ 语言下拉收尾；≤640px 控件收到 30px、隐藏状态胶囊与品牌副标题为导航腾位。
 - **首屏滚动提示条 `.scroll-cue`**：stage 之后、内容区之前的文档流内 40px 细条（`--cue-h`），mono 大写小字「Stories & guides」（navCue 五语言）+ chevron 上下浮动动画（reduced-motion 停）；点击锚跳 #site-content；零遮挡（不占 workspace 高度），滚动后随文档流自然离开，无需 JS 隐藏。
 - **首屏高度配平**：`.stage` 高度 = `calc(100vh − var(--tb-h) − var(--cue-h))`（--tb-h 桌面 65px / ≤640px 53px），三者合计恰好一屏，提示条在首屏可见；≤1080px 媒体查询 stage `min-height` 同步扣除两者。
 - **锚点留位**：`#site-content { scroll-margin-top: calc(var(--tb-h) + 14px) }`，跳转不被 sticky 顶栏遮标题。

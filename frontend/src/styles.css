@@ -1303,29 +1303,50 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ---- 页头内容链接（About / GitHub）---- */
+/* ---- 页头导航按钮（About / Guides）：与语言框 .tgl 统一胶囊形态 ---- */
 .tb-link {
-  color: var(--dim-hi);
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--chip-bg);
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
   text-decoration: none;
-  transition: color 160ms var(--ease);
+  white-space: nowrap;
+  transition: all 0.2s var(--ease);
 }
 .tb-link:hover {
   color: var(--accent);
+  border-color: var(--line-hi);
+  box-shadow: 0 0 12px var(--accent-bg);
 }
 .tb-icon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  color: var(--dim-hi);
-  transition: color 160ms var(--ease), transform 160ms var(--ease);
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--chip-bg);
+  color: var(--dim);
+  transition: all 0.2s var(--ease);
 }
 .tb-icon:hover {
   color: var(--accent);
+  border-color: var(--line-hi);
+  box-shadow: 0 0 12px var(--accent-bg);
   transform: translateY(-1px);
 }
 .tb-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 16px;
+  height: 16px;
 }
 
 /* ---- How it works：左三步纵向 + 右优势栏 ---- */
@@ -2062,5 +2083,32 @@ a.g-card:hover {
   }
   .sp-article h1 {
     font-size: 22px;
+  }
+
+  /* 顶栏胶囊/圆按钮体系上屏后，压缩控件尺寸并隐藏次级元素，保证 375px 不挤 */
+  .tb-link {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .tb-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .tb-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .tgl {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+  }
+  /* 状态胶囊（手机本来就只剩点）与顶栏副标题让位给导航控件；口号空态 hero 仍承载 */
+  .status {
+    display: none;
+  }
+  .brand-sub {
+    display: none;
   }
 }
