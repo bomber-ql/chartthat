@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Restyle the exported chart in your client's palette, keep one accent for your claim, and learn what red, green, and gray actually mean in a pitch. Field note #4 of Charts That Sell."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/colors-that-sell.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Colors That Sell — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="The client's brand colors tell their story. Your single accent color tells your claim. Get both onto the page — and never confuse red with negative."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/colors-that-sell.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Colors That Sell: Restyling a Chart in Your Client's Palette",
+        "description": "The client's brand colors tell their story; your one accent color tells your claim. A field note on color in client-facing charts.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-28",
+        "dateModified": "2026-10-28",
+        "mainEntityOfPage": "https://chartthat.com/guides/colors-that-sell.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Colors That Sell — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/guides/">← All field notes</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>Colors that sell</h1>
+        <p class="sp-sub">Field note #4 · 5 min read</p>
+
+        <p>
+          I once watched a rival agency get torn apart in a steering committee for a chart that was
+          technically perfect. Every number right, every label present — and every bar painted in
+          <em>our</em> agency's signature orange, in a deck for a bank whose entire identity is deep
+          green. The CFO didn't say a word about data. She said, "This doesn't feel like us." The
+          pitch died of aesthetics. I have never forgotten it.
+        </p>
+        <p>
+          Color in a client deck is not decoration. It does two jobs at once: it tells the client
+          <em>this is yours</em>, and it tells them <em>look here</em>. Mix the jobs up and the
+          chart sells nothing.
+        </p>
+
+        <h2>Rule one: the client's palette is the room</h2>
+        <p>
+          Before you make a single chart, open their brand book — or their website — and lift three
+          things: their primary brand color, a dark neutral from it, and a light neutral. The chart
+          panel, the neutral series, the text: all live in those colors. When their own green runs
+          through your slides, the deck stops being a vendor document and becomes <em>their
+          analysis</em> they happen to be watching you present. Ownership transferred before you
+          opened your mouth.
+        </p>
+        <p>
+          This is thirty seconds of work after export: select all, recolor neutral. It is the
+          cheapest trust on the slide.
+        </p>
+
+        <h2>Rule two: one accent, and it is never borrowed</h2>
+        <p>
+          Inside that room of neutrals, place <strong>exactly one loud color</strong> — the single
+          bar, line, or block that carries the claim. <a href="/guides/seven-edits-after-double-click.html">Edit two in the previous note</a>
+          exists for a reason: the eye follows saturation, and the eye can follow only one thing at
+          a time.
+        </p>
+        <p>
+          The accent can come from the client's palette too — a brighter or deeper step of their
+          own brand color works beautifully. Just don't spend it twice. Two loud bars is two
+          competing claims; five loud bars is a confetti cannon, and nobody remembers anything.
+        </p>
+
+        <h2>Rule three: respect the meanings color already has</h2>
+        <p>
+          Walking into a finance meeting with arbitrary color assignments is like walking into the
+          meeting speaking the wrong language and hoping. In these rooms the vocabulary is fixed:
+        </p>
+        <ul>
+          <li><strong>Red means negative.</strong> Decline, loss, cost, over budget, risk. Never use red for a hero series that is doing well — half the room will read it as danger before they read the label.</li>
+          <li><strong>Green means positive</strong> in most markets (growth, achieved, in budget) — but in China, red is the prosperous, celebratory color and green can carry loss. Know which room you're in; when unsure, use brand blue for "good" and a neutral gray for context.</li>
+          <li><strong>Gray means context.</strong> Last year, the benchmark, the others — everything the claim is measured <em>against</em>. Gray says "this exists, it is not the point."</li>
+        </ul>
+        <p>
+          The classic composition writes itself: gray rivals, one colored champion, and red reserved
+          exclusively for the gap you're about to say you can close.
+        </p>
+
+        <h2>Rule four: color must survive the projector and the printout</h2>
+        <p>
+          Two things always happen that nobody plans for. The conference-room projector washes
+          everything out, and your deck gets printed in black and white for the person who takes
+          notes on paper. So never encode meaning by hue <em>alone</em>. Red/green pairs — "up vs
+          down" — become indistinguishable at 12% grayscale. Add a second channel: shape, direct
+          labels, bold vs light weight, position. Test the chart in grayscale before you ship. If
+          the claim survives without color, the color will only make it stronger.
+        </p>
+
+        <h2>Rule five: dark decks or light decks, but pick one</h2>
+        <p>
+          Charts pasted from a dark tool into a white master deck look like stickers, and stickers
+          read as "not ours." Match the slide background family before export — light chart for a
+          white deck — or rebuild the slide around the dark chart. A chart belongs to the page it
+          sits on. ChartThat exports with theme-aware colors for exactly this reason; pick your
+          master, then export.
+        </p>
+
+        <h2>The ten-second test</h2>
+        <p>Squint at the chart until it blurs. What survives as a single colored shape? That's what the client will remember. If two things survive, delete one color. If the client's identity survives nowhere on the page, start with rule one.</p>
+
+        <div class="g-cta">
+          <p>Their palette, your one accent, meaning respected, grayscale-safe. Five rules, one chart.</p>
+          <a class="btn" href="/">Paste your table →</a>
+        </div>
+
+        <p class="g-sign">
+          — Written between pitches. Field note #4 of Charts That Sell. Next:
+          <a href="/guides/friday-night-data-cleanup.html">the fifteen-minute Friday-night cleanup</a>.
+        </p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>

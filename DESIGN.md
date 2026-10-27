@@ -59,7 +59,7 @@
 - **版式**（`.g-*`，sp-* 之上的增量）：`.g-kicker` 系列标签（mono 大写青色）→ h1 → `.sp-sub` 期号与时长 → 正文 → `.g-fig` 示意图卡（极简 SVG，CSS 变量双主题）→ `.g-pull` 金句左光条 → `.g-cta` 文末回工具卡 → `.g-sign` 斜体署名。
 - **语言策略**：英文单语先行（AdSense 审查看英文内容厚度），审查过后再补多语言；页头主题预检测脚本保留，无 data-lang-block。
 - **页面机制**：`frontend/guides/*.html` 独立静态页（Vite 多页 input 逐篇注册），Article JSON-LD + canonical + OG；sitemap 与首页页脚 Guides 链接（指向索引页 `/guides/`）同步。
-- **索引页 `/guides/index.html`**：系列封面 + 8 篇清单按三层架构分组（The Story #7-8 / The Charts #1-4 / The Data #5-6，分组顺序按读者旅程 Story→Charts→Data，期号保留发布序）；卡片复用 `.g-grid`（2 列，移动 1 列）+ `.g-card`（玻璃卡 hover 上浮；未发布篇为 `.g-soon` 降透明度不可点、meta 行琥珀色 Coming）。
+- **索引页 `/guides/index.html`**：系列封面 + 全 8 篇按三层架构分组（页面顺序 The Charts #1-4 → The Data #5-6 → The Story #7-8，期号即发布序）；卡片复用 `.g-grid`（2 列，移动 1 列）+ `.g-card`（玻璃卡 hover 上浮）。早期「未发布 `.g-soon` 占位」方案已废弃——2/8 可点让页面像半成品（v1.27 起改为发布一篇加一张卡，8 篇已全部上线）。
 - **首页导引区（fn\*，cases 与 faq 之间）**：`.fn-intro` 一句话定位 + 已发布篇 `.g-card` 列表 + `.fn-more` 指向索引页；文案入 SITE_COPY 五语言字典（fnTitle/fnIntro/fnCta/fnNotes，文章标题保持英文、desc 本地化、num 手记期号本地化），静态英文版逐字同步 en 分支。
 - **生产托管**：`/guides/` 目录形式依赖 main.py `spa_fallback` 的目录 index.html 支持（candidate 为目录时补查其下 index.html），勿回退。
 

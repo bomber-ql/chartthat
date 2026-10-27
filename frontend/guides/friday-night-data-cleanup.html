@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Fifteen minutes with the spreadsheet on Friday night beats three hours in the slide tool on Monday morning. A data-cleanup checklist for people who pitch. Field note #5 of Charts That Sell."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/friday-night-data-cleanup.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Friday-Night Data Cleanup That Saves Your Monday Pitch — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="Headers, numbers as text, units, dates, percentages, blanks — a seven-item Friday-night checklist that keeps Monday morning out of emergency mode."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/friday-night-data-cleanup.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "The Friday-Night Data Cleanup That Saves Your Monday Pitch",
+        "description": "A seven-item, fifteen-minute data cleanup checklist for people who pitch Monday morning.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-28",
+        "dateModified": "2026-10-28",
+        "mainEntityOfPage": "https://chartthat.com/guides/friday-night-data-cleanup.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>The Friday-Night Data Cleanup — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/guides/">← All field notes</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>The Friday-night data cleanup that saves your Monday pitch</h1>
+        <p class="sp-sub">Field note #5 · 6 min read</p>
+
+        <p>
+          Monday morning, 8:40. The numbers the client sent at 6 p.m. Friday are open on your
+          screen, the pitch is at ten, and the chart tool is doing that thing again: refusing to
+          sum a column, sorting "10" before "9", and splitting your dates into three columns.
+          Nobody in that meeting blames the data. They blame the person standing next to it.
+        </p>
+        <p>
+          Here's the rule I learned the hard way: <strong>spend fifteen minutes with the
+          spreadsheet on Friday night and you buy back three hours on Monday morning.</strong>
+          Charts are downstream of the table. A clean table makes itself into a chart in about ten
+          seconds — paste, pick, export. A dirty table turns every chart tool into an interrogation
+          room.
+        </p>
+        <p class="g-pull">You don't have a chart problem. You have a table problem, one night early.</p>
+
+        <p>
+          Run this checklist against the raw export before you close the laptop. Seven items, all
+          mechanical, none of them require taste or judgment. That's why Friday night is the right
+          time for them.
+        </p>
+
+        <h2>1. One header row, real names, no merged cells</h2>
+        <p>
+          The first row names the columns: "Region," "Q3 Revenue (&euro;m)," "Growth (%)." If the
+          source file has titles, logos, blank rows, or merged "Q3" headers above sub-columns,
+          delete them. Every chart tool in existence reads row one as the schema; anything clever
+          up there becomes confusing downstream. Unmerge everything — a cell either belongs to one
+          column or it doesn't.
+        </p>
+
+        <h2>2. Numbers stored as numbers</h2>
+        <p>
+          The single most common Monday disaster. A column that <em>looks</em> numeric but is
+          actually text — exports from finance systems love this — won't sum, won't sort, and
+          quietly drops out of charts. In a spreadsheet, select the column and check: text is
+          left-aligned, numbers right-aligned. Strip thousand separators and currency symbols that
+          are typed as characters; keep the unit in the header instead. Convert the whole column in
+          one pass.
+        </p>
+
+        <h2>3. One unit per column, stated in the header</h2>
+        <p>
+          "&euro;m" mixed with raw euros in the same column is a chart that lies by a factor of a
+          million. Pick one unit for the column and convert every cell to it. Percentages get their
+          own column, and they stay percentages — <strong>never mix a rate and an absolute value on
+          one axis</strong> ("revenue in millions" next to "growth in percent" sharing a single
+          scale produces nonsense bars and, worse, nonsense conclusions). That's a combo chart's
+          job: bars for the volume, line for the rate, two axes.
+        </p>
+
+        <h2>4. One date format, one grain</h2>
+        <p>
+          "Jan," "2025-01," "1/31/25," and "January 31st" are four strings to a spreadsheet and one
+          thing to a human. Normalize the whole column to one machine-readable format
+          (2025-01-31), let the chart display it however it likes. Same for grain: don't mix months
+          and quarters in one column — aggregate one of them. Tools sort strings alphabetically,
+          which is how you end up with "April, August, December" as your timeline.
+        </p>
+
+        <h2>5. Blanks mean missing — leave them blank</h2>
+        <p>
+          If the source says "N/A," "—," "pending," or a space, it isn't zero. Clear the cell so
+          the chart shows a gap. This one deserves its own note — replacing a missing value with
+          zero is the quietest way to fabricate data, and <a href="/guides/never-replace-missing-with-zero.html">that's field note #6</a>.
+        </p>
+
+        <h2>6. One row per thing; kill the totals row</h2>
+        <p>
+          Raw reports love a grand-total row at the bottom. It becomes a phantom category — a giant
+          "Total" bar towering over every real segment — in the first chart you make. Delete it from
+          the chart table (keep a separate summary sheet if finance needs it). The same logic: one
+          row = one category or one period, no subtotals interleaved with data.
+        </p>
+
+        <h2>7. Sanity-check the arithmetic before the tool gets blamed</h2>
+        <p>
+          Two checks, thirty seconds each. Eyeball the order of magnitude — is annual revenue
+          plausibly in millions, not billions? And confirm the percent column is a fraction (0.112)
+          or a full number (11.2) consistently, because 11.2 pasted where 0.112 is expected becomes
+          a 1,120% growth rate, and that kind of screenshot circulates internally forever.
+        </p>
+
+        <h2>Why Friday, not Monday</h2>
+        <p>
+          Because judgment is the only thing that can't be rushed, and none of these seven items
+          need it — but the thing they protect does. The job of Monday morning is deciding which
+          conclusion the data supports and which chart sells it (<a href="/guides/choose-chart-by-conclusion.html">note #1</a>).
+          Every minute spent converting text to numbers at 8:50 is a minute stolen from the actual
+          argument. Clean the ammunition Friday; aim Monday.
+        </p>
+        <p>
+          A clean table also survives contact with automation: paste it into ChartThat, and types,
+          units, percentages, and gaps are detected from the clean structure — the parser's whole
+          job is easier when the table is honest.
+        </p>
+
+        <div class="g-cta">
+          <p>Seven items, fifteen minutes, one calmer Monday. Then the table charts itself.</p>
+          <a class="btn" href="/">Paste your cleaned table →</a>
+        </div>
+
+        <p class="g-sign">
+          — Written between pitches. Field note #5 of Charts That Sell. Next:
+          <a href="/guides/never-replace-missing-with-zero.html">never replace a missing number with zero</a>.
+        </p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Zero is a measurement. Missing is a confession that you don't know. Substituting one for the other fabricates data and wrecks averages, trends, and your credibility. Field note #6 of Charts That Sell."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/never-replace-missing-with-zero.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Never Replace a Missing Number with Zero — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="What a blank cell actually means, the damage zero does to averages and trends, and how to present a gap honestly in a client chart."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/never-replace-missing-with-zero.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Never Replace a Missing Number with Zero",
+        "description": "Why missing values must stay missing in client-facing charts, and how to present gaps honestly.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-28",
+        "dateModified": "2026-10-28",
+        "mainEntityOfPage": "https://chartthat.com/guides/never-replace-missing-with-zero.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Never Replace a Missing Number with Zero — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/guides/">← All field notes</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>Never replace a missing number with zero</h1>
+        <p class="sp-sub">Field note #6 · 5 min read</p>
+
+        <p>
+          Of all the ways a pitch chart can lie, this is the quietest and the most common. A
+          monthly export arrives, one cell is blank — the warehouse system was down, the deal closed
+          on the 2nd and wasn't booked, the analyst simply didn't fill it in. To make the chart
+          "complete," someone types a 0. Nothing crashes. No error appears. And from that moment
+          the chart is fiction.
+        </p>
+        <p class="g-pull">Zero is a measurement. Missing is a confession that you don't know. They are not the same number.</p>
+
+        <h2>What zero actually claims</h2>
+        <p>
+          Putting zero in a revenue cell makes a specific, falsifiable statement: <em>we measured
+          this, and the measured amount was nothing.</em> Zero units shipped. Zero euros earned.
+          Zero customers acquired. Those are rare and meaningful events — a strike, a shutdown, a
+          product launch before its first sale. A blank cell from a broken feed makes none of those
+          claims. It says: the truth exists, and we don't currently possess it.
+        </p>
+        <p>
+          Everyone in the client's finance department knows the difference. The moment they spot a
+          fabricated zero, they stop reading the chart and start auditing the presenter.
+        </p>
+
+        <h2>The damage compounds downstream</h2>
+        <p>This isn't philosophical — the zeros quietly break every calculation you built the deck to sell:</p>
+        <ul>
+          <li><strong>Averages collapse.</strong> Six months of &euro;12m average plus a fake zero becomes &euro;10.3m. You've just argued your own client's business shrank 14%.</li>
+          <li><strong>Trends fake a cliff.</strong> A line chart plunges to the baseline and rockets back — the eye sees a crisis, and worse, a recovery from a crisis that never happened.</li>
+          <li><strong>Comparisons invert.</strong> Stacked bars, rankings, "best month" picks all re-sort around the phantom.</li>
+          <li><strong>Percent growth goes infinite or absurd.</strong> Dividing by zero errors out; dividing <em>from</em> zero manufactures an "infinite growth" label in the next period.</li>
+          <li><strong>The fabricated story is memorable.</strong> People remember the dramatic V-shaped dip. Nobody remembers your footnote.</li>
+        </ul>
+
+        <h2>The honest chart has a gap</h2>
+        <p>
+          Good news: modern chart engines know what missing means. Leave the cell empty and a line
+          chart <em>breaks</em> the line across the absent point — a visible, honest gap — or
+          optionally bridges it with a dashed connector if continuity matters. Bars simply skip the
+          slot; nothing is plotted. The reader sees eleven real columns and one silence. That's
+          exactly what happened. ChartThat keeps blanks as nulls end to end: they parse as missing,
+          the preview shows a gap, and the exported PPTX carries the gap as a genuine empty point
+          with "leave blank" semantics — not a zero.
+        </p>
+
+        <h2>If you must show something, annotate — don't invent</h2>
+        <p>
+          Sometimes an audience needs help interpreting a gap. Fine. Then say the true thing:
+          "January data unavailable — billing system migration," set as a direct annotation on the
+          empty slot. If an estimate is genuinely justified (a forecast model, a seasonal
+          apportionment), draw it <em>as an estimate</em>: dashed line, lighter shade, a small "e"
+          marker — visibly distinct from measured reality, with the method named in one line.
+          Estimation is honest when it wears a costume that says so. The sin is dressing a guess up
+          as a measurement.
+        </p>
+
+        <h2>The deeper pitch logic</h2>
+        <p>
+          Here's why this matters more than chart hygiene: you are selling trust in your solution.
+          The entire commercial premise of a B2B pitch is <em>rely on us</em>. A deck that invents a
+          number to avoid an awkward silence demonstrates the opposite instinct. Admitting a gap —
+          "one month wasn't captured; here it is, marked; we'd instrument it properly on day one" —
+          turns the missing data into evidence of the problem you're proposing to solve. The blank
+          cell stops being a flaw in your chart and becomes a gap in <em>their</em> current setup.
+          Presented honestly, missing data sells data discipline — and data discipline is often
+          exactly the product.
+        </p>
+
+        <h2>Thirty-second audit</h2>
+        <p>
+          Before every deck: filter the numeric columns for literal zeros and eyeball each one.
+          Real operational zero, or a patched hole? Zeros in counts are often real; zeros in
+          financial or sensor time series on a date that should have data are almost always missing.
+          Ask the source. Delete the digits. Keep the gap.
+        </p>
+
+        <div class="g-cta">
+          <p>Paste the table blanks and all. A chart that says "I don't know here" is worth more than one that knows the wrong thing.</p>
+          <a class="btn" href="/">Paste your table — gaps preserved →</a>
+        </div>
+
+        <p class="g-sign">
+          — Written between pitches. Field note #6 of Charts That Sell. Next: we move up a floor —
+          <a href="/guides/answer-first-pyramid-principle.html">answer first, with the pyramid principle</a>.
+        </p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>

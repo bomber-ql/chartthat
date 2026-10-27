@@ -26,6 +26,20 @@ export default defineConfig({
         guideOneSlide: fileURLToPath(
           new URL('./guides/one-slide-one-claim.html', import.meta.url),
         ),
+        guideSevenEdits: fileURLToPath(
+          new URL('./guides/seven-edits-after-double-click.html', import.meta.url),
+        ),
+        guideColors: fileURLToPath(new URL('./guides/colors-that-sell.html', import.meta.url)),
+        guideCleanup: fileURLToPath(
+          new URL('./guides/friday-night-data-cleanup.html', import.meta.url),
+        ),
+        guideMissing: fileURLToPath(
+          new URL('./guides/never-replace-missing-with-zero.html', import.meta.url),
+        ),
+        guidePyramid: fileURLToPath(
+          new URL('./guides/answer-first-pyramid-principle.html', import.meta.url),
+        ),
+        guideScqa: fileURLToPath(new URL('./guides/scqa-four-beats.html', import.meta.url)),
       },
     },
   },

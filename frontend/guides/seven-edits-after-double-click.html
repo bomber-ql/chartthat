@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="The exported chart is a starting line, not a finish line. Seven edits, thirty seconds each, turn a correct chart into a chart that sells. Field note #3 of Charts That Sell."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/seven-edits-after-double-click.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Seven Edits After You Double-Click — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="A freshly exported chart is a draft. Seven mechanical edits turn it into the chart you actually wanted to put in front of the client."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/seven-edits-after-double-click.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "The Seven Edits After You Double-Click",
+        "description": "Seven edits, thirty seconds each, turn a freshly exported, correct chart into a chart that sells.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-28",
+        "dateModified": "2026-10-28",
+        "mainEntityOfPage": "https://chartthat.com/guides/seven-edits-after-double-click.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>The Seven Edits After You Double-Click — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/guides/">← All field notes</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>The seven edits after you double-click</h1>
+        <p class="sp-sub">Field note #3 · 5 min read</p>
+
+        <p>
+          Every chart tool on earth exports the same thing: a correct chart that looks like nobody
+          owns it. Default colors, every axis tick, a legend box, labels on every point. Correct,
+          and completely generic. I've seen those slides on the client's desk. They belong to
+          nobody, so they argue for nothing.
+        </p>
+        <p>
+          When ChartThat hands you a native PowerPoint chart, double-clicking it is the whole point
+          — that's <a href="/guides/one-slide-one-claim.html">the claim from note #2</a> getting its
+          finishing work. Seven edits, about thirty seconds each. I have run this exact list on a
+          hundred decks.
+        </p>
+        <p class="g-pull">The export is the starting line. The deck is the finish line.</p>
+
+        <h2>1. Write the claim into the slide title</h2>
+        <p>
+          Not "Q3 revenue," but "The South region is carrying this company." Before you touch the
+          chart, write the sentence. The other six edits are just making the chart obey it.
+        </p>
+
+        <h2>2. Recolor everything neutral, one element loud</h2>
+        <p>
+          Select all series and set them to the quiet family — gray, muted blue, whatever disappears
+          in the panel. Then select the single bar, line, or slice that carries the claim and give
+          it your accent color. One loud thing per page. This one edit does more selling than the
+          other six combined.
+        </p>
+
+        <h2>3. Delete the legend if you can label directly</h2>
+        <p>
+          A legend is a matching game: color here, meaning over there, client doing the wiring in
+          their head. Two or three series? Click the series and put its name on the line or next to
+          the final bar. Delete the legend. The chart now reads without travel.
+        </p>
+
+        <h2>4. Strip the axis decoration; keep the unit</h2>
+        <p>
+          Faint gridlines: delete most of them, keep at most the two or three that help reading a
+          value. Tick marks and the thick plot border: delete. The axis label itself — the
+          <em>unit</em>, "Revenue, &euro;m" or "Retention, %" — never. Decoration is noise; the unit
+          is a fact. Know the difference.
+        </p>
+
+        <h2>5. Label the one number, not all of them</h2>
+        <p>
+          Twelve data labels on twelve bars is arithmetic homework, and the moment the client starts
+          doing math in their head they have stepped out of your story. Put a label on the element
+          that carries the claim — the biggest bar, the turning point. Let the gridline do its job
+          for the rest.
+        </p>
+
+        <h2>6. Draw the rival line</h2>
+        <p>
+          Add the target, last year, the benchmark — whatever the claim is measured against. A
+          number with no rival has no drama. "We hit 4.2%" is trivia; a bar at 4.2% with a target
+          line at 5% is a problem the client can feel.
+        </p>
+
+        <h2>7. Sort</h2>
+        <p>
+          Alphabetical is a filing cabinet, not an argument. Sort bars by value unless the axis is
+          time. The eye should never have to hunt for the conclusion; ranking hands it over.
+        </p>
+
+        <h2>Why these seven and nothing else</h2>
+        <p>
+          Notice what's not on the list: 3D, shadows, gradients, fonts nobody can read, pictures
+          pasted inside bars. None of those earn trust; all of them spend it. A client-facing chart
+          should look like a surgeon's tray — three instruments, laid out cleanly, each with a job.
+        </p>
+        <p>
+          Run the list top to bottom. If your chart still needs decoration after edit seven, edit
+          one is probably wrong: fix the claim, not the cosmetics.
+        </p>
+
+        <div class="g-cta">
+          <p>ChartThat exports the native, double-clickable chart — so edits two through seven take thirty seconds, not thirty minutes.</p>
+          <a class="btn" href="/">Paste your table →</a>
+        </div>
+
+        <p class="g-sign">
+          — Written between pitches. Field note #3 of Charts That Sell. Next:
+          <a href="/guides/colors-that-sell.html">colors that sell</a>.
+        </p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>
