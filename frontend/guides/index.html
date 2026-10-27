@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Charts That Sell — field notes from the pitch room. Eight guides on making data close deals: the story, the charts, the data."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Charts That Sell — Field notes from the pitch room" />
+    <meta
+      property="og:description"
+      content="Eight field notes on making data close deals: the story, the charts, the data."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Charts That Sell — Field notes from the pitch room · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/">← Back to the tool</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Field notes from the pitch room</p>
+        <h1>Charts That Sell</h1>
+        <p class="sp-sub">
+          Eight field notes on making data close deals — no chart-beauty contests, just what works
+          in front of a client.
+        </p>
+        <p>
+          I've made slides for a living for years. Everything here comes from the same observation:
+          clients don't buy charts, they buy the conclusion a chart makes impossible to argue with.
+          The notes run in three layers — the story your deck tells, the charts that carry it, and
+          the data that feeds them. Published notes are linked; the rest are being written between
+          pitches.
+        </p>
+
+        <h2>The story — the deck's spine</h2>
+        <div class="g-grid">
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #7</span>
+            <h3>Answer first: the Pyramid Principle, translated for people who pitch</h3>
+            <p>The client decides in the first ten minutes. Don't bury the answer on page eighteen.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #8</span>
+            <h3>SCQA: the four beats every winning proposal opens with</h3>
+            <p>Situation, Complication, Question, Answer — turn their problem into a story they need solved now.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+        </div>
+
+        <h2>The charts — one page, one weapon</h2>
+        <div class="g-grid">
+          <a class="g-card" href="/guides/choose-chart-by-conclusion.html">
+            <span class="g-num">FIELD NOTE #1</span>
+            <h3>Choose the chart by the conclusion you're selling</h3>
+            <p>Urgency wants a line. A gap wants bars. Reallocation wants blocks. Attribution wants a waterfall.</p>
+            <span class="g-meta">6 min read</span>
+          </a>
+          <a class="g-card" href="/guides/one-slide-one-claim.html">
+            <span class="g-num">FIELD NOTE #2</span>
+            <h3>One slide, one claim: the 3-second rule</h3>
+            <p>The client gives each page three seconds. Three claims on one page is no claim at all.</p>
+            <span class="g-meta">5 min read</span>
+          </a>
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #3</span>
+            <h3>The seven edits after you double-click</h3>
+            <p>Your exported chart is a starting line, not a finish line. Thirty seconds of edits make it yours.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #4</span>
+            <h3>Colors that sell</h3>
+            <p>The client's palette tells their story. Your single accent color tells your claim.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+        </div>
+
+        <h2>The data — ammunition prep</h2>
+        <div class="g-grid">
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #5</span>
+            <h3>The Friday-night data cleanup that saves your Monday pitch</h3>
+            <p>Fifteen minutes with the spreadsheet beats three hours in the slide tool.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+          <div class="g-card g-soon">
+            <span class="g-num">FIELD NOTE #6</span>
+            <h3>Never replace a missing number with zero</h3>
+            <p>"No data" and "zero" are different claims. Only one of them is honest.</p>
+            <span class="g-meta">Coming</span>
+          </div>
+        </div>
+
+        <div class="g-cta">
+          <p>The notes are the method. The tool is the mechanics.</p>
+          <a class="btn" href="/">Paste your table →</a>
+        </div>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>

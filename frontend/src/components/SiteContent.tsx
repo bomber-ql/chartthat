@@ -45,6 +45,10 @@ interface SiteCopy {
   guide: GuideItem[];
   casesTitle: string;
   cases: { title: string; desc: string }[];
+  fnTitle: string;
+  fnIntro: string;
+  fnCta: string;
+  fnNotes: { num: string; title: string; desc: string; href: string }[];
   faqTitle: string;
   faq: FaqItem[];
 }
@@ -111,6 +115,24 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { q: 'Does it work with WPS and older PowerPoint versions?', a: 'Any tool that opens .pptx works — Microsoft PowerPoint 2013+, WPS Office, Keynote, Google Slides. Charts stay editable everywhere, including WPS, with no broken-link prompts.' },
       { q: 'Can I use the exported files commercially?', a: 'Absolutely. Your data is yours and your charts are yours — client work, reports, publications, no attribution required.' },
     ],
+    fnTitle: 'Field notes: Charts That Sell',
+    fnIntro:
+      'No chart-beauty contests. Notes on making data close deals, written between pitches — in English, because that\u2019s where the pitches happen.',
+    fnCta: 'All field notes →',
+    fnNotes: [
+      {
+        num: 'Field note #1',
+        title: 'Choose the chart by the conclusion you\u2019re selling',
+        desc: 'Urgency wants a line. A gap wants bars. Reallocation wants blocks. Attribution wants a waterfall.',
+        href: '/guides/choose-chart-by-conclusion.html',
+      },
+      {
+        num: 'Field note #2',
+        title: 'One slide, one claim: the 3-second rule',
+        desc: 'The client gives each page three seconds. Three claims on one page is no claim at all.',
+        href: '/guides/one-slide-one-claim.html',
+      },
+    ],
   },
   zh: {
     storyTitle: '一个天天做 PPT 的人做的工具',
@@ -172,6 +194,23 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { q: '界面支持哪些语言？', a: '中文、English、Français、Deutsch、Español。界面自动跟随浏览器语言，图表标题也会用你正在使用的语言生成。' },
       { q: '兼容 WPS 和老版本 PowerPoint 吗？', a: '只要能打开 .pptx 就行——PowerPoint 2013+、WPS Office、Keynote、Google Slides。图表在各处都保持可编辑，WPS 里也不会弹「链接文件不可用」。' },
       { q: '导出的文件可以商用吗？', a: '当然。数据是你的，图表也是你的——客户交付、报告、出版物随便用，无需署名。' },
+    ],
+    fnTitle: '提案手记：Charts That Sell',
+    fnIntro: '不聊图表美学。一个以提案为生的人，写数据如何促成成交——手记以英文撰写，因为提案现场在那里。',
+    fnCta: '全部手记 →',
+    fnNotes: [
+      {
+        num: '手记 #1',
+        title: 'Choose the chart by the conclusion you\u2019re selling',
+        desc: '紧迫感用折线，差距用条形，挪预算用构成，归因用瀑布——按你要卖的结论选图。',
+        href: '/guides/choose-chart-by-conclusion.html',
+      },
+      {
+        num: '手记 #2',
+        title: 'One slide, one claim: the 3-second rule',
+        desc: '客户只给每页三秒钟。一页三个主张，等于没有主张。',
+        href: '/guides/one-slide-one-claim.html',
+      },
     ],
   },
   fr: {
@@ -235,6 +274,24 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { q: 'Compatible avec WPS et les anciens PowerPoint ?', a: 'Tout outil ouvrant le .pptx convient — PowerPoint 2013+, WPS Office, Keynote, Google Slides. Les graphiques restent modifiables partout, y compris WPS, sans message de lien rompu.' },
       { q: 'Puis-je utiliser les fichiers à des fins commerciales ?', a: 'Bien sûr. Vos données sont à vous, vos graphiques aussi — livrables clients, rapports, publications, sans attribution requise.' },
     ],
+    fnTitle: 'Notes de terrain : Charts That Sell',
+    fnIntro:
+      'Pas de concours de beauté pour graphiques. Des notes pour faire signer avec des données, écrites entre deux pitches — en anglais, parce que c\u2019est là que les pitches ont lieu.',
+    fnCta: 'Toutes les notes →',
+    fnNotes: [
+      {
+        num: 'Note #1',
+        title: 'Choose the chart by the conclusion you\u2019re selling',
+        desc: 'L\u2019urgence veut une ligne. L\u2019écart veut des barres. La réallocation veut des blocs. L\u2019attribution veut une cascade.',
+        href: '/guides/choose-chart-by-conclusion.html',
+      },
+      {
+        num: 'Note #2',
+        title: 'One slide, one claim: the 3-second rule',
+        desc: 'Le client accorde trois secondes par page. Trois messages sur une page, c\u2019est aucun message.',
+        href: '/guides/one-slide-one-claim.html',
+      },
+    ],
   },
   de: {
     storyTitle: 'Gebaut von jemandem, der beruflich Slides baut',
@@ -297,6 +354,24 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { q: 'Funktioniert es mit WPS und älteren PowerPoint-Versionen?', a: 'Alles, was .pptx öffnet — PowerPoint 2013+, WPS Office, Keynote, Google Slides. Diagramme bleiben überall editierbar, auch in WPS, ohne Fehlermeldungen zu Verknüpfungen.' },
       { q: 'Darf ich die Dateien kommerziell nutzen?', a: 'Selbstverständlich. Ihre Daten gehören Ihnen, Ihre Diagramme auch — Kundenarbeit, Berichte, Publikationen, ohne Namensnennung.' },
     ],
+    fnTitle: 'Praxis-Notizen: Charts That Sell',
+    fnIntro:
+      'Keine Diagramm-Schönheitswettbewerbe. Notizen darüber, wie Daten Abschlüsse machen — zwischen Pitches geschrieben, auf Englisch, weil dort die Pitches passieren.',
+    fnCta: 'Alle Notizen →',
+    fnNotes: [
+      {
+        num: 'Notiz #1',
+        title: 'Choose the chart by the conclusion you\u2019re selling',
+        desc: 'Dringlichkeit will eine Linie. Eine Lücke will Balken. Umverteilung will Blöcke. Attribution will einen Wasserfall.',
+        href: '/guides/choose-chart-by-conclusion.html',
+      },
+      {
+        num: 'Notiz #2',
+        title: 'One slide, one claim: the 3-second rule',
+        desc: 'Der Kunde gibt jeder Seite drei Sekunden. Drei Botschaften auf einer Seite sind keine Botschaft.',
+        href: '/guides/one-slide-one-claim.html',
+      },
+    ],
   },
   es: {
     storyTitle: 'Creado por alguien que vive haciendo presentaciones',
@@ -358,6 +433,24 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
       { q: '¿Qué idiomas admite la interfaz?', a: '中文, English, Français, Deutsch y Español. La interfaz sigue automáticamente el idioma de tu navegador, y los títulos de los gráficos se escriben en tu idioma.' },
       { q: '¿Funciona con WPS y versiones antiguas de PowerPoint?', a: 'Cualquier herramienta que abra .pptx sirve — PowerPoint 2013+, WPS Office, Keynote, Google Slides. Los gráficos siguen siendo editables en todas, incluido WPS, sin avisos de vínculos rotos.' },
       { q: '¿Puedo usar los archivos con fines comerciales?', a: 'Por supuesto. Tus datos son tuyos y tus gráficos también — trabajo para clientes, informes, publicaciones, sin atribución necesaria.' },
+    ],
+    fnTitle: 'Notas de campo: Charts That Sell',
+    fnIntro:
+      'Nada de concursos de belleza de gráficos. Notas sobre cómo cerrar tratos con datos, escritas entre presentaciones — en inglés, porque ahí es donde ocurren las presentaciones.',
+    fnCta: 'Todas las notas →',
+    fnNotes: [
+      {
+        num: 'Nota #1',
+        title: 'Choose the chart by the conclusion you\u2019re selling',
+        desc: 'La urgencia quiere una línea. La brecha quiere barras. La reasignación quiere bloques. La atribución quiere una cascada.',
+        href: '/guides/choose-chart-by-conclusion.html',
+      },
+      {
+        num: 'Nota #2',
+        title: 'One slide, one claim: the 3-second rule',
+        desc: 'El cliente da tres segundos por página. Tres mensajes en una página equivalen a ninguno.',
+        href: '/guides/one-slide-one-claim.html',
+      },
     ],
   },
 };
@@ -471,6 +564,23 @@ export function SiteContent() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="c-block">
+        <h2 className="c-title">{copy.fnTitle}</h2>
+        <p className="fn-intro">{copy.fnIntro}</p>
+        <div className="g-grid">
+          {copy.fnNotes.map((n) => (
+            <a className="g-card" href={n.href} key={n.num}>
+              <span className="g-num">{n.num}</span>
+              <h3>{n.title}</h3>
+              <p>{n.desc}</p>
+            </a>
+          ))}
+        </div>
+        <a className="fn-more" href="/guides/">
+          {copy.fnCta}
+        </a>
       </section>
 
       <section className="c-block">

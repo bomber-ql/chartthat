@@ -1733,6 +1733,83 @@ html[data-lang='es'] [data-lang-block='es'] {
   color: var(--dim);
 }
 
+/* Guides 索引页（/guides/）：三层分组的系列卡片 */
+.g-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin: 6px 0 26px;
+}
+.g-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+a.g-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-hi);
+}
+.g-card .g-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.g-card h3 {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+.g-card p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--dim);
+}
+.g-card .g-meta {
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.g-card.g-soon {
+  opacity: 0.55;
+  cursor: default;
+}
+.g-card.g-soon .g-meta {
+  color: var(--amber);
+}
+
+/* 首页导引区（Field notes，cases 与 faq 之间） */
+.fn-intro {
+  margin: 0 0 18px;
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--dim-hi);
+}
+.fn-more {
+  display: inline-flex;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.fn-more:hover {
+  text-decoration: underline;
+}
+
 /* 故事区分栏（文字 + 插画） */
 .story-grid {
   display: grid;

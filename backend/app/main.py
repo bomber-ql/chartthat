@@ -60,4 +60,9 @@ if FRONTEND_DIST.is_dir():
         candidate = (FRONTEND_DIST / full_path).resolve()
         if candidate.is_file() and FRONTEND_DIST.resolve() in candidate.parents:
             return FileResponse(candidate)
+        # 目录形式（如 /guides/）命中其 index.html（多页静态文章索引）
+        if candidate.is_dir() and FRONTEND_DIST.resolve() in candidate.parents:
+            dir_index = candidate / "index.html"
+            if dir_index.is_file():
+                return FileResponse(dir_index)
         return FileResponse(FRONTEND_DIST / "index.html")

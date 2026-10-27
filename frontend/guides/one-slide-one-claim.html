@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="The client gives each page three seconds, and in three seconds a human absorbs exactly one claim. Field note #2 of Charts That Sell: one slide, one claim."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/one-slide-one-claim.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="One Slide, One Claim: The 3-Second Rule — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="Three seconds per page, one claim per page. Slides are free; attention is the most expensive thing in the room."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/one-slide-one-claim.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "One Slide, One Claim: The 3-Second Rule for Client-Facing Charts",
+        "description": "The client gives each page three seconds. Three claims on one page is no claim at all.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-27",
+        "dateModified": "2026-10-27",
+        "mainEntityOfPage": "https://chartthat.com/guides/one-slide-one-claim.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>One Slide, One Claim: The 3-Second Rule — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/guides/">← All field notes</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>One slide, one claim: the 3-second rule for client-facing charts</h1>
+        <p class="sp-sub">Field note #2 · 5 min read</p>
+
+        <p>
+          Sit in the back of the room during a client pitch sometime, and watch what actually
+          happens when a new slide comes up. Nobody reads it. They glance. Three seconds, maybe
+          four. If nothing lands in that window, their eyes drop to the table, the phone, the
+          window — and you've lost the page. Worse: you've lost it silently. Nobody will ever tell
+          you.
+        </p>
+        <p>
+          That's the whole discipline of proposal charts, right there:
+          <strong>you have three seconds, and in three seconds a human being can absorb exactly one
+          claim.</strong> Not two. Not "mostly one." One.
+        </p>
+        <p class="g-pull">Slides are free. Attention is the most expensive thing in the room.</p>
+
+        <h2>The second claim gets its own page</h2>
+        <p>
+          The most common way I see junior decks die: one page carrying three charts, each one
+          correct, together saying nothing. The author saved a page. The client saved the trouble of
+          remembering anything.
+        </p>
+        <p>
+          Page count costs nothing. A confused client costs the deal. If the data holds three
+          claims, that's not one slide — it's three slides, each with one chart and one sentence on
+          top. <a href="/guides/choose-chart-by-conclusion.html">Field note #1</a> covered how to
+          match the chart to the claim. This note is about what happens next: keeping the claim
+          alive once it hits the page.
+        </p>
+
+        <h2>The title is the claim, not the topic</h2>
+        <p>Most slide titles are labels. Watch the same data climb through three levels:</p>
+        <ul>
+          <li><strong>Topic:</strong> "Q3 Revenue by Region" — a filing label. It commits to nothing.</li>
+          <li>
+            <strong>Observation:</strong> "Q3 revenue grew in 3 of 4 regions" — better, and the
+            client's answer is "so what?"
+          </li>
+          <li>
+            <strong>Claim:</strong> "The South region is carrying this company" — now the room is
+            arguing about your sentence, which is exactly where you want them.
+          </li>
+        </ul>
+        <p>
+          The claim goes in the title, the chart proves it, and your talk track prices it. If your
+          title could sit on top of a different chart without anyone noticing, it was a topic.
+        </p>
+
+        <h2>The delete list</h2>
+        <p>
+          Once the claim is on top, every element on the chart either serves it or dilutes it.
+          Dilution is the default, so I keep a standing delete list:
+        </p>
+        <ul>
+          <li><strong>Gridlines</strong> — keep the faintest possible, or none.</li>
+          <li><strong>Borders and plot backgrounds</strong> — delete. The panel the chart lives in already frames it.</li>
+          <li>
+            <strong>Legends</strong> — if you can label the series directly on the line or bar, the
+            legend is a scavenger hunt. Delete it.
+          </li>
+          <li>
+            <strong>Data labels</strong> — label the one bar you're selling, not all of them. Full
+            labels turn the chart into arithmetic homework; the moment the client starts doing math
+            in their head, they've left your story.
+          </li>
+          <li>
+            <strong>Axis decoration</strong> — but never the unit. An axis without its unit is not
+            minimalism, it's a missing fact.
+          </li>
+        </ul>
+
+        <h2>One accent color per page</h2>
+        <p>
+          Where the eye lands is where the claim lands. Give the whole chart quiet grays and muted
+          blues, then spend your one loud color on the single bar, line, or block that carries the
+          sentence. Highlight is a budget — spend it on one thing and it looks like confidence;
+          spread it across everything and it looks like a spreadsheet.
+        </p>
+
+        <h2>Give the number a rival</h2>
+        <p>
+          A number without a rival has no drama. Revenue means nothing until the target line shows
+          up. This year's bar is trivia until last year's bar stands next to it. Benchmarks,
+          targets, previous periods — whatever the comparison is, draw it. The claim lives in the
+          gap between the two, and the client can't feel a gap they can't see.
+        </p>
+
+        <h2>The 60-second audit</h2>
+        <p>The night before the pitch, walk the deck once with five questions per page:</p>
+        <ul>
+          <li>Is the title a claim or a topic?</li>
+          <li>Could a stranger get the claim in three seconds?</li>
+          <li>Is a second claim competing on this page? Move it to its own page.</li>
+          <li>Does every element serve the claim? Delete what doesn't.</li>
+          <li>
+            If the client repeats one sentence from this page tomorrow, which sentence is it? Make
+            sure it's yours.
+          </li>
+        </ul>
+
+        <h2>The mechanic's part</h2>
+        <p>
+          One table usually hides three claims, which is why one table should produce three pages,
+          not one crowded slide. <a href="/">ChartThat</a> hands you all thirteen chart types from a
+          single paste — not so you can stack them, but so you can pick the one that carries your
+          sentence and discard the rest without ceremony.
+        </p>
+        <p>The tool is fast. You have to be ruthless. That's the deal.</p>
+
+        <div class="g-cta">
+          <p>One page, one chart, one sentence on top.</p>
+          <a class="btn" href="/">Paste your table →</a>
+        </div>
+
+        <p class="g-sign">
+          — Written between pitches. Field note #2 of Charts That Sell. Next: the seven edits after
+          you double-click.
+        </p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>

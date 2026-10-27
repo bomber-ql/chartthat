@@ -16,7 +16,17 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://chartthat.com/guides/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://chartthat.com/guides/choose-chart-by-conclusion.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://chartthat.com/guides/one-slide-one-claim.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

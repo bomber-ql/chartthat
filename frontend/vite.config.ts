@@ -19,8 +19,12 @@ export default defineConfig({
         about: fileURLToPath(new URL('./about.html', import.meta.url)),
         privacy: fileURLToPath(new URL('./privacy.html', import.meta.url)),
         // Guides 文章页（Charts That Sell 系列）
+        guidesIndex: fileURLToPath(new URL('./guides/index.html', import.meta.url)),
         guideChooseChart: fileURLToPath(
           new URL('./guides/choose-chart-by-conclusion.html', import.meta.url),
+        ),
+        guideOneSlide: fileURLToPath(
+          new URL('./guides/one-slide-one-claim.html', import.meta.url),
         ),
       },
     },
