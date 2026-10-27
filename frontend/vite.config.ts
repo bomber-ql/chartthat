@@ -18,6 +18,10 @@ export default defineConfig({
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         about: fileURLToPath(new URL('./about.html', import.meta.url)),
         privacy: fileURLToPath(new URL('./privacy.html', import.meta.url)),
+        // Guides 文章页（Charts That Sell 系列）
+        guideChooseChart: fileURLToPath(
+          new URL('./guides/choose-chart-by-conclusion.html', import.meta.url),
+        ),
       },
     },
   },

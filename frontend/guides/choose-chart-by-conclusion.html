@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // 主题预检测（与主应用 theme.tsx 同规则），首帧前写入，防闪烁。
+      try {
+        if (localStorage.getItem('dc-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch (e) {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="A pitch veteran's field guide: pick the chart by the conclusion you're selling — urgency wants a line, a gap wants bars, reallocation wants blocks, attribution wants a waterfall."
+    />
+    <link rel="canonical" href="https://chartthat.com/guides/choose-chart-by-conclusion.html" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Choose the Chart by the Conclusion You're Selling — Charts That Sell" />
+    <meta
+      property="og:description"
+      content="Urgency wants a line. A gap wants bars. Reallocation wants blocks. Attribution wants a waterfall. Field notes from the pitch room."
+    />
+    <meta property="og:url" content="https://chartthat.com/guides/choose-chart-by-conclusion.html" />
+    <meta property="og:image" content="https://chartthat.com/og.jpg" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Choose the Chart by the Conclusion You're Selling, Not the Data You Have",
+        "description": "A pitch veteran's field guide: pick the chart by the conclusion you're selling — urgency, gaps, reallocation, attribution.",
+        "author": { "@type": "Organization", "name": "ChartThat" },
+        "publisher": { "@type": "Organization", "name": "ChartThat" },
+        "datePublished": "2026-10-27",
+        "dateModified": "2026-10-27",
+        "mainEntityOfPage": "https://chartthat.com/guides/choose-chart-by-conclusion.html",
+        "image": "https://chartthat.com/og.jpg",
+        "isPartOf": { "@type": "Blog", "name": "Charts That Sell" }
+      }
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <title>Choose the Chart by the Conclusion You're Selling — Charts That Sell · ChartThat</title>
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-brand" href="/">ChartThat</a>
+        <a class="sp-back" href="/">← Back to the tool</a>
+      </nav>
+
+      <article class="sp-article">
+        <p class="g-kicker">Charts That Sell · Field notes from the pitch room</p>
+        <h1>Choose the chart by the conclusion you're selling, not the data you have</h1>
+        <p class="sp-sub">Field note #1 · 6 min read</p>
+
+        <p>
+          It's 11:40 on a Friday night. A junior on my team sends me a spreadsheet and a message:
+          "Which chart type would look best for this?"
+        </p>
+        <p>Wrong question. It's always the wrong question.</p>
+        <p>
+          Nobody in a client meeting has ever approved a budget because a chart was pretty. They
+          approve it because, for one brief moment, a conclusion became impossible to argue with —
+          and the chart was the thing that made that happen.
+        </p>
+        <p class="g-pull">Aesthetics are the entry ticket. The argument is the product.</p>
+
+        <h2>The only question that matters</h2>
+        <p>
+          Here's the part nobody tells you in design courses: in a B2B pitch, a chart is not
+          evidence. It's a prop. You chose the data, you sliced the time range, you decided what to
+          leave out. All of it serves one sentence you need the client to say back to you — out
+          loud, ideally followed by "…so we should do something about it."
+        </p>
+        <p>
+          So the right question is never about the data you have. It's this:
+          <strong>what do I need the client to admit on this page?</strong>
+        </p>
+        <p>
+          My workflow hasn't changed in years. Before I touch a single number, I write the
+          conclusion as the slide title. Only then do I pick the chart whose grammar matches that
+          sentence. And after enough pitches, you notice something: nearly every conclusion you'll
+          ever sell comes in one of four shapes. Each shape has its chart.
+        </p>
+
+        <h2>1. "Something is changing" → line / area</h2>
+        <p><strong>What you're selling: urgency.</strong></p>
+        <p>
+          A falling curve needs no adjectives. When a client's organic traffic has slid for six
+          straight months, you can write three paragraphs about why this is concerning — or you can
+          show one line bending toward the floor and let the room go quiet by itself.
+        </p>
+        <p>
+          The line chart is the only common chart the eye reads left to right, like a sentence. That
+          makes it the native grammar of "this is happening, and it will keep happening." An area
+          chart is the same sentence with the volume turned up: the filled space under the line
+          makes loss feel physical, like watching a reservoir drain.
+        </p>
+        <p>
+          Rule of thumb: if your conclusion has a deadline in it — "if we wait two more quarters…" —
+          it wants a line.
+        </p>
+        <figure class="g-fig">
+          <svg viewBox="0 0 220 90" role="img" aria-label="A line chart trending downward">
+            <g stroke="var(--grid-line)" stroke-width="1">
+              <line x1="8" y1="20" x2="212" y2="20" />
+              <line x1="8" y1="45" x2="212" y2="45" />
+              <line x1="8" y1="70" x2="212" y2="70" />
+            </g>
+            <polyline
+              points="10,22 45,30 80,34 115,48 150,56 185,66 210,72"
+              fill="none"
+              stroke="var(--accent)"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="210" cy="72" r="3.5" fill="var(--accent)" />
+          </svg>
+          <figcaption>A line that falls needs no adjectives. It sells urgency by itself.</figcaption>
+        </figure>
+
+        <h2>2. "There is a gap" → bar / hbar</h2>
+        <p><strong>What you're selling: the problem itself.</strong></p>
+        <p>
+          Gaps only hurt when they stand side by side. "Your acquisition cost is 40% above the
+          industry benchmark" is a statistic. Two bars next to each other — theirs tall, the
+          benchmark short — is an indictment.
+        </p>
+        <p>
+          Bars are the chart of shame and ambition. When category names get long, tip them
+          horizontal and rank them top to bottom: now you have a league table, and the client can
+          see exactly where they sit in it without you ever sounding like you're attacking them. The
+          chart does the attacking for you.
+        </p>
+        <p>Rule of thumb: if your conclusion contains the words "compared to," it wants bars.</p>
+        <figure class="g-fig">
+          <svg viewBox="0 0 220 90" role="img" aria-label="Two bars with a large gap against a dashed benchmark line">
+            <line x1="16" y1="78" x2="204" y2="78" stroke="var(--grid-line)" stroke-width="1" />
+            <line
+              x1="16" y1="46" x2="204" y2="46"
+              stroke="var(--dim)" stroke-width="1" stroke-dasharray="4 4"
+            />
+            <rect x="58" y="46" width="26" height="32" fill="var(--accent-2)" opacity="0.55" />
+            <rect x="126" y="20" width="26" height="58" fill="var(--accent)" />
+          </svg>
+          <figcaption>A gap only hurts when it stands side by side. That's the bar chart's job.</figcaption>
+        </figure>
+
+        <h2>3. "This is where the money sits" → stacked / donut</h2>
+        <p><strong>What you're selling: reallocation.</strong></p>
+        <p>
+          Most clients don't have a budget problem. They have a placement problem. A stacked bar
+          showing 70% of spend flowing into the lowest-returning channel does something no memo can:
+          it makes moving money feel obvious, low-risk, almost boring.
+        </p>
+        <p>
+          That is the entire job of a composition chart — to make reallocation feel inevitable. The
+          moment the client leans forward and says "wait, why is that block so big?", the
+          reallocation has already begun. You're just there to formalize it.
+        </p>
+        <p>Rule of thumb: if your conclusion is "move the money," show the money as blocks first.</p>
+        <figure class="g-fig">
+          <svg viewBox="0 0 220 90" role="img" aria-label="A stacked bar with one dominant segment highlighted">
+            <rect x="88" y="10" width="34" height="18" fill="var(--accent-2)" opacity="0.45" />
+            <rect x="88" y="28" width="34" height="14" fill="var(--accent-2)" opacity="0.3" />
+            <rect x="88" y="42" width="34" height="36" fill="var(--accent)" />
+            <line x1="130" y1="60" x2="158" y2="60" stroke="var(--dim)" stroke-width="1" />
+            <circle cx="158" cy="60" r="2.5" fill="var(--dim)" />
+          </svg>
+          <figcaption>One oversized block is not a statistic. It's the case for moving the money.</figcaption>
+        </figure>
+
+        <h2>4. "Here's where the gap comes from" → waterfall</h2>
+        <p><strong>What you're selling: attribution — which is the pre-sale of your solution.</strong></p>
+        <p>
+          A waterfall walks the client from last year's number to this year's number, one colored
+          step per cause. Revenue up. Costs up harder. Churn quietly eating the middle. By the final
+          step, the client doesn't just know <em>that</em> there's a gap — they know exactly which
+          section of the bridge collapsed.
+        </p>
+        <p>
+          And here's the part that matters: one of those steps is the thing your proposal fixes.
+          Once attribution is laid out as a bridge, your solution stops being a pitch and becomes a
+          missing piece. The client walks across it themselves.
+        </p>
+        <p>
+          Rule of thumb: if your conclusion is "and that's why our fix is the right one," build the
+          bridge.
+        </p>
+        <figure class="g-fig">
+          <svg viewBox="0 0 220 90" role="img" aria-label="A waterfall chart bridging from a starting total to an ending total">
+            <g stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3">
+              <line x1="38" y1="26" x2="58" y2="26" />
+              <line x1="80" y1="12" x2="100" y2="12" />
+              <line x1="122" y1="36" x2="142" y2="36" />
+              <line x1="164" y1="46" x2="184" y2="46" />
+            </g>
+            <rect x="16" y="26" width="22" height="52" fill="var(--accent-2)" opacity="0.55" />
+            <rect x="58" y="12" width="22" height="14" fill="var(--accent)" />
+            <rect x="100" y="12" width="22" height="24" fill="var(--danger)" opacity="0.8" />
+            <rect x="142" y="36" width="22" height="10" fill="var(--danger)" opacity="0.8" />
+            <rect x="184" y="46" width="22" height="32" fill="var(--accent-2)" opacity="0.55" />
+          </svg>
+          <figcaption>
+            A waterfall turns "there's a gap" into "here's exactly which block your fix replaces."
+          </figcaption>
+        </figure>
+
+        <h2>Two ways to give your conclusion away</h2>
+        <p>
+          <strong>Telling a trend with pie charts.</strong> A pie has no time axis. Four pies in a
+          row, one per quarter, doesn't show change — it asks the client to reconstruct the change
+          in their own head, and they won't. You've handed them the pen. What they write with it is
+          rarely "yes."
+        </p>
+        <p>
+          <strong>Cramming three charts onto one slide to save pages.</strong> The client gives each
+          page about three seconds. Three charts is three claims, and three claims is no claim.
+          (That's the next field note.)
+        </p>
+
+        <h2>The one-sentence test</h2>
+        <p>
+          Before you open any chart tool, write the sentence. Not "Q3 regional performance" — that's
+          a topic, and topics don't close deals. Write "Retention, not acquisition, is where Q3 was
+          won."
+        </p>
+        <p>
+          If you can't write the sentence yet, no chart type will save you. Opening the tool early
+          just produces prettier confusion.
+        </p>
+        <p>
+          If you can? Then the rest is mechanics. Paste the table into
+          <a href="/">ChartThat</a>, get all thirteen chart types in seconds, and pick the one whose
+          grammar matches your sentence. The tool's job is speed. Your job is the claim.
+        </p>
+
+        <div class="g-cta">
+          <p>Write your one sentence first. Then let the tool do the typing.</p>
+          <a class="btn" href="/">Paste your table →</a>
+        </div>
+
+        <p class="g-sign">— Written between pitches. Field note #1 of Charts That Sell. More coming.</p>
+      </article>
+
+      <div class="sp-foot">
+        ChartThat — paste table data, get thirteen editable chart types. Free, no sign-up.
+      </div>
+    </div>
+  </body>
+</html>
