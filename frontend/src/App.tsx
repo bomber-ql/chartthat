@@ -172,14 +172,8 @@ export default function App() {
   return (
     <div className="shell">
       <div className="bg-grid" aria-hidden />
-      {/* 首屏容器：topbar + workspace 维持 100vh 应用壳；下方内容区随 body 滚动（SEO 内容区） */}
-      <div className="stage">
-        <span className="corner tl" aria-hidden />
-        <span className="corner tr" aria-hidden />
-        <span className="corner bl" aria-hidden />
-        <span className="corner br" aria-hidden />
-
-        <header className="topbar">
+      {/* 顶栏移出 stage：全页 sticky，内容区滚动时导航仍可达 */}
+      <header className="topbar">
         <div className="brand">
           <span className="brand-logo"><Logo size={32} /></span>
           <div>
@@ -189,6 +183,7 @@ export default function App() {
         </div>
         <div className="topbar-actions">
           <a className="tb-link" href="#site-content">{t('navAbout')}</a>
+          <a className="tb-link" href="/guides/">{t('navGuides')}</a>
           <a
             className="tb-icon"
             href="https://github.com/bomber-ql/chartthat"
@@ -240,6 +235,13 @@ export default function App() {
         </div>
       </header>
 
+      {/* 首屏容器：workspace 维持视口应用壳（高 = 视口 − 顶栏 − 提示条）；下方内容区随 body 滚动 */}
+      <div className="stage">
+        <span className="corner tl" aria-hidden />
+        <span className="corner tr" aria-hidden />
+        <span className="corner bl" aria-hidden />
+        <span className="corner br" aria-hidden />
+
       <main className="workspace">
         <ControlPanel
           table={table}
@@ -271,6 +273,15 @@ export default function App() {
         />
       </main>
       </div>
+
+      {/* 首屏底部滚动提示条：文档流占位（零遮挡），点击锚跳内容区，滚动后随文档流自然离开 */}
+      <a className="scroll-cue" href="#site-content">
+        <span>{t('navCue')}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </a>
+
       {/* v1.22 内容区多语言：portal 渲染到 index.html 的 #site-content（静态英文版已在 main.tsx 清空） */}
       {siteContentEl ? createPortal(<SiteContent />, siteContentEl) : null}
     </div>

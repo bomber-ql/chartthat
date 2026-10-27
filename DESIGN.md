@@ -63,6 +63,12 @@
 - **首页导引区（fn\*，cases 与 faq 之间）**：`.fn-intro` 一句话定位 + 已发布篇 `.g-card` 列表 + `.fn-more` 指向索引页；文案入 SITE_COPY 五语言字典（fnTitle/fnIntro/fnCta/fnNotes，文章标题保持英文、desc 本地化、num 手记期号本地化），静态英文版逐字同步 en 分支。
 - **生产托管**：`/guides/` 目录形式依赖 main.py `spa_fallback` 的目录 index.html 支持（candidate 为目录时补查其下 index.html），勿回退。
 
+## 顶栏导航与首屏滚动提示（v1.26）
+- **顶栏全页 sticky**：topbar 移出 `.stage` 成为 `.shell` 首子元素（`position: sticky; top: 0; z-index: 60`，毛玻璃背景现成），内容区滚动时导航仍可达；导航项 = About（锚点 #site-content）+ Guides（/guides/）+ GitHub 图标，文案入 i18n（navAbout/navGuides）。
+- **首屏滚动提示条 `.scroll-cue`**：stage 之后、内容区之前的文档流内 40px 细条（`--cue-h`），mono 大写小字「Stories & guides」（navCue 五语言）+ chevron 上下浮动动画（reduced-motion 停）；点击锚跳 #site-content；零遮挡（不占 workspace 高度），滚动后随文档流自然离开，无需 JS 隐藏。
+- **首屏高度配平**：`.stage` 高度 = `calc(100vh − var(--tb-h) − var(--cue-h))`（--tb-h 桌面 65px / ≤640px 53px），三者合计恰好一屏，提示条在首屏可见；≤1080px 媒体查询 stage `min-height` 同步扣除两者。
+- **锚点留位**：`#site-content { scroll-margin-top: calc(var(--tb-h) + 14px) }`，跳转不被 sticky 顶栏遮标题。
+
 ## 启动加载占位（boot）
 - React bundle 下载/执行期间 `#root` 为空、静态内容区文字先渲染，易误以为页面未加载——故在 `index.html` 的 `#root` 内放**静态启动占位**：`createRoot().render()` 挂载时自动整体替换，无需 JS 手动移除。
 - 结构：居中玻璃面板 = Logo 56px + ChartThat 渐变字（26px）+ 220px 伪进度光带（0→92%，1.6s `cubic-bezier(.22,.61,.36,1)` forwards + 流光扫过，与生成等待期同语言）+ 11px 大写加载文案（五语言 `data-lang-block`，显隐规则与 about.html 同构）。

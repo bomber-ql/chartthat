@@ -2,6 +2,9 @@
 @import url('https://fonts.googleapis.cn/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
+  /* 布局尺寸：顶栏高 + 首屏底部滚动提示条高（stage 高度 = 视口 − 两者） */
+  --tb-h: 65px;
+  --cue-h: 40px;
   /* 品牌主色（两主题共享色相，明度按主题切换） */
   --accent: #22d3ee;
   --accent-2: #3b82f6;
@@ -154,10 +157,11 @@ body {
   flex-direction: column;
 }
 
-/* 首屏容器：topbar + workspace 维持整视口应用壳，内部滚动行为与旧版一致 */
+/* 首屏容器：topbar 已移出（全页 sticky），workspace 维持视口应用壳，内部滚动行为与旧版一致 */
 .stage {
   position: relative;
-  height: 100vh;
+  /* 高度 = 视口 − 顶栏 − 滚动提示条，三者合计恰好一屏（提示条在首屏内可见，零遮挡） */
+  height: calc(100vh - var(--tb-h) - var(--cue-h));
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -198,10 +202,58 @@ body {
 .corner.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; }
 .corner.br { bottom: 14px; right: 14px; border-left: none; border-top: none; }
 
-/* ---- 顶部品牌栏 ---- */
-.topbar {
+/* ---- 顶部品牌栏（全页 sticky：移出 .stage，内容区滚动时导航仍可达） ---- */
+/* 首屏底部滚动提示条：文档流内占位（不占 workspace 高度、零遮挡），点击锚跳内容区 */
+.scroll-cue {
   position: relative;
   z-index: 2;
+  height: var(--cue-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-decoration: none;
+  opacity: 0.62;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+.scroll-cue:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+.scroll-cue svg {
+  width: 14px;
+  height: 14px;
+  animation: cue-bob 2.2s ease-in-out infinite;
+}
+@keyframes cue-bob {
+  0%,
+  100% {
+    transform: translateY(-1.5px);
+  }
+  50% {
+    transform: translateY(1.5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue svg {
+    animation: none;
+  }
+}
+
+/* 锚点跳转给 sticky 顶栏留位，避免区块标题被遮住 */
+#site-content {
+  scroll-margin-top: calc(var(--tb-h) + 14px);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1862,7 +1914,8 @@ a.g-card:hover {
   }
   .stage {
     height: auto;
-    min-height: 100vh;
+    /* 顶栏已移出 stage：首屏 = topbar + stage + cue，min-height 同步扣除两者 */
+    min-height: calc(100vh - var(--tb-h) - var(--cue-h));
     overflow: visible;
   }
   .side {
@@ -1891,6 +1944,10 @@ a.g-card:hover {
 
 /* 手机（≤640px）：单列全宽 + 顶栏压缩 + 隐藏装饰 */
 @media (max-width: 640px) {
+  :root {
+    /* 顶栏压缩后高度变小（11px×2 padding + 30px 内容 + 1px 边框），供锚点留位 */
+    --tb-h: 53px;
+  }
   .topbar {
     padding: 11px 14px;
     gap: 10px;
