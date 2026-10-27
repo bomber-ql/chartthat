@@ -63,6 +63,16 @@
 - **首页导引区（fn\*，cases 与 faq 之间）**：`.fn-intro` 一句话定位 + 已发布篇 `.g-card` 列表 + `.fn-more` 指向索引页；文案入 SITE_COPY 五语言字典（fnTitle/fnIntro/fnCta/fnNotes，文章标题保持英文、desc 本地化、num 手记期号本地化），静态英文版逐字同步 en 分支。
 - **生产托管**：`/guides/` 目录形式依赖 main.py `spa_fallback` 的目录 index.html 支持（candidate 为目录时补查其下 index.html），勿回退。
 
+## 图型落地页：/make/（v1.27）
+- **定位**：十三个图型各一页英文单语落地页（`frontend/make/*.html`），吃「xxx chart maker」类工具词搜索流量；与 guides（方法论长文）分工——make 页答「这个图怎么做/何时用」，文末互链回 guides。
+- **页面骨架**（复用 sp-* 版式 + `.g-*` 组件）：g-kicker（Chart maker · 图型名）→ h1「Xxx chart maker」→ sp-sub 一句话定位 → `.mk-demo` 内联 SVG 演示（640×320，玻璃卡包裹，fill/stroke 全走 `var(--accent)`/`var(--accent-2)`/`var(--dim)` 等 CSS 变量实现双主题；legend 色块透明度用 fill-opacity，rect 无 stroke）→ Paste/pick/download 三步 → `.mk-cols` 双栏（When it wins / When it lets you down，含页间互链）→ `.sp-table` 示例数据（可直接复制进工具）→ mk-tips 四条 Field notes → g-cta 跳首页 → 12 个 `.mk-chip` 互链 → guides 互链 → g-sign。
+- **`.mk-*` 样式**（styles.css，插于 `.g-soon` 后 `.fn-*` 前）：mk-demo / mk-cols（≤900px 收单列）/ mk-h3（mono 青色小节题）/ mk-tips（li::before 渐变短横 marker）/ mk-chips + mk-chip（胶囊链接，--chip-bg 双主题已有）。
+- **head 全要素**：主题预检测（仅 dc-theme，无语言块）+ AdSense 脚本 + HowTo & BreadcrumbList JSON-LD + canonical + OG；英文单语 lang="en"。
+- **诚实声明**：sunburst 页明说 PPTX 导出降级为环形（预览/ GIF 为真旭日，R-5）。
+- **文件命名**：scatter-plot.html（搜索量大于 scatter chart）、horizontal-bar-chart.html（非 hbar）。
+- **索引页 `/make/index.html`**：13 卡按四语义分组 Compare（bar/hbar/stacked/waterfall）→ Track change（line/area/slope/combo）→ Show composition（pie/donut/sunburst）→ Reveal relationships（scatter/radar），复用 g-grid/g-card，ItemList + BreadcrumbList JSON-LD。
+- **注册链**：vite.config input +14（makeIndex/makeBar/…）、sitemap +14 URL（make/ 索引 weekly 0.8，页 monthly 0.7）、首页静态页脚 `.sf-nav` 加「Chart makers」（Guides 与 Privacy 之间）；顶栏不加入口（保持 About/Guides 两链，落地页靠搜索+页脚+互链导流）。
+
 ## 顶栏导航与首屏滚动提示（v1.26）
 - **顶栏全页 sticky**：topbar 移出 `.stage` 成为 `.shell` 首子元素（`position: sticky; top: 0; z-index: 60`，毛玻璃背景现成），内容区滚动时导航仍可达。
 - **顶栏控件统一胶囊体系 + 排序**（左→右）：文字导航胶囊 About / Guides（`.tb-link` 复用 `.tgl`/语言框形态：34px 高、999px 圆角、1px 边框、mono 12px、hover 青色+边框提亮+光晕，文案入 i18n navAbout/navGuides）→ 状态胶囊 → 圆按钮图标组 GitHub / 主题（`.tb-icon` 34px 圆形描边，与 `.tgl` 同 hover 语言）→ 语言下拉收尾；≤640px 控件收到 30px、隐藏状态胶囊与品牌副标题为导航腾位。
