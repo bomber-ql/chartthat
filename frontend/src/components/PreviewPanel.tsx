@@ -137,6 +137,10 @@ export default function PreviewPanel({
               <span>{t('heroFeat2')}</span>
               <span>{t('heroFeat3')}</span>
             </div>
+            <div className="hero-links">
+              <a href="/make/">{t('heroLinkMakers')}</a>
+              <a href="/guides/">{t('heroLinkGuides')}</a>
+            </div>
           </div>
           <span className="empty-glyph" aria-hidden />
           <p>{t('emptyNoTable')}</p>

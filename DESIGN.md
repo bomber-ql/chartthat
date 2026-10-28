@@ -72,6 +72,7 @@
 - **文件命名**：scatter-plot.html（搜索量大于 scatter chart）、horizontal-bar-chart.html（非 hbar）。
 - **索引页 `/make/index.html`**：13 卡按四语义分组 Compare（bar/hbar/stacked/waterfall）→ Track change（line/area/slope/combo）→ Show composition（pie/donut/sunburst）→ Reveal relationships（scatter/radar），复用 g-grid/g-card，ItemList + BreadcrumbList JSON-LD。
 - **注册链**：vite.config input +14（makeIndex/makeBar/…）、sitemap +14 URL（make/ 索引 weekly 0.8，页 monthly 0.7）、首页静态页脚 `.sf-nav` 加「Chart makers」（Guides 与 Privacy 之间）；顶栏不加入口（保持 About/Guides 两链，落地页靠搜索+页脚+互链导流）。
+- **404 页与内链（v1.28）**：`frontend/404.html`（soft-404 修复配套，vite input 注册，main.py 真 404 时返回）——英文单语 + `noindex`、主题预检测、sp-wrap/sp-nav 骨架 + `.nf-*` 版式（`.nf-code` 大号品牌渐变字 clamp(72px,15vw,128px) / `.nf-title` / `.nf-sub` 中栏 520px / `.nf-links` 胶囊回链：primary 渐变按钮指首页 + 幽灵胶囊指 `/make/`、`/guides/`）；不放 AdSense 脚本（错误页禁广告）。**应用内链**：空态 hero 特性胶囊下加 `.hero-links`（mono 小号大写虚线下划线链接：`/make/` + `/guides/`，i18n 五语言 heroLinkMakers/heroLinkGuides）；首页 fn 区 `.fn-more` 改 `.fn-links` 双链并排（Guides + Chart makers，SITE_COPY 五语言 fnMakersCta + index.html 静态英文版逐字同步）。
 
 ## 顶栏导航与首屏滚动提示（v1.26）
 - **顶栏全页 sticky**：topbar 移出 `.stage` 成为 `.shell` 首子元素（`position: sticky; top: 0; z-index: 60`，毛玻璃背景现成），内容区滚动时导航仍可达。

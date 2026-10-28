@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 — Page Not Found | ChartThat</title>
+    <!-- 404 页必须 noindex：防止搜索引擎把错误页当内容收录 -->
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="This page does not exist. Head back to ChartThat and turn your data into presentation-ready charts." />
+    <script>
+      // 主题预检测（与 index.html / i18n.tsx 同规则），防闪烁
+      try {
+        var t = localStorage.getItem('dc-theme');
+        if (t !== 'light' && t !== 'dark') t = 'dark';
+        document.documentElement.dataset.theme = t;
+      } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+    </script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="sp-wrap">
+      <nav class="sp-nav">
+        <a class="sp-back" href="/">← ChartThat</a>
+      </nav>
+      <div class="nf">
+        <div class="nf-code">404</div>
+        <h1 class="nf-title">This page never made it onto a slide.</h1>
+        <p class="nf-sub">
+          The link may be old or mistyped. The chart maker is still here — paste your
+          data and get a PPT-ready chart in under a minute.
+        </p>
+        <div class="nf-links">
+          <a class="nf-link primary" href="/">Open the chart maker</a>
+          <a class="nf-link" href="/make/">All 13 chart makers</a>
+          <a class="nf-link" href="/guides/">Field guides</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
@@ -46,23 +46,38 @@ async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# ---- 生产环境：托管前端构建产物（SPA） ----
+# ---- 生产环境：托管前端构建产物（多页静态站，无前端路由） ----
 if FRONTEND_DIST.is_dir():
     assets_dir = FRONTEND_DIST / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
+    not_found_page = FRONTEND_DIST / "404.html"
+
     @app.get("/{full_path:path}")
-    async def spa_fallback(full_path: str) -> FileResponse:
-        # API 路径不应进入静态回退
+    async def static_fallback(full_path: str) -> Response:
+        # 未注册的 API 路径：JSON 404。回 HTML 200 会让集成方与爬虫误判（v1.28）
         if full_path.startswith("api/"):
-            return FileResponse(FRONTEND_DIST / "index.html")
+            return JSONResponse(
+                {"code": "NOT_FOUND", "message": "Unknown API endpoint.", "details": None},
+                status_code=404,
+            )
+        dist_root = FRONTEND_DIST.resolve()
         candidate = (FRONTEND_DIST / full_path).resolve()
-        if candidate.is_file() and FRONTEND_DIST.resolve() in candidate.parents:
+        # 越界校验：candidate 必须等于 dist 根（根路径 "/"）或位于其内部
+        in_dist = candidate == dist_root or dist_root in candidate.parents
+        if in_dist and candidate.is_file():
             return FileResponse(candidate)
-        # 目录形式（如 /guides/）命中其 index.html（多页静态文章索引）
-        if candidate.is_dir() and FRONTEND_DIST.resolve() in candidate.parents:
+        # 目录形式（如 /guides/、/make/）命中其 index.html（多页静态索引）
+        if in_dist and candidate.is_dir():
             dir_index = candidate / "index.html"
             if dir_index.is_file():
                 return FileResponse(dir_index)
-        return FileResponse(FRONTEND_DIST / "index.html")
+        # 本站无前端路由，未知路径必须真 404：回 index.html+200 是 soft-404，
+        # 会被搜索引擎降权（GSC 覆盖报告 "Soft 404"）并稀释站点质量分（v1.28）
+        if not_found_page.is_file():
+            return FileResponse(not_found_page, status_code=404)
+        return HTMLResponse(
+            "<!doctype html><title>404 Not Found</title><h1>404 Not Found</h1>",
+            status_code=404,
+        )

@@ -169,6 +169,8 @@ const zhStrings = {
   heroFeat1: '十三种图型',
   heroFeat2: '原生可编辑 PPTX',
   heroFeat3: '动效 GIF',
+  heroLinkMakers: '13 种图表工具',
+  heroLinkGuides: '实战指南',
 };
 
 export type StringKey = keyof typeof zhStrings;
@@ -240,6 +242,8 @@ const enStrings: Record<StringKey, string> = {
   heroFeat1: '13 chart types',
   heroFeat2: 'Native editable PPTX',
   heroFeat3: 'Animated GIF',
+  heroLinkMakers: '13 chart makers',
+  heroLinkGuides: 'Field guides',
 };
 
 const frStrings: Record<StringKey, string> = {
@@ -309,6 +313,8 @@ const frStrings: Record<StringKey, string> = {
   heroFeat1: '13 types de graphiques',
   heroFeat2: 'PPTX natif modifiable',
   heroFeat3: 'GIF animé',
+  heroLinkMakers: '13 outils graphiques',
+  heroLinkGuides: 'Guides pratiques',
 };
 
 const deStrings: Record<StringKey, string> = {
@@ -378,6 +384,8 @@ const deStrings: Record<StringKey, string> = {
   heroFeat1: '13 Diagrammtypen',
   heroFeat2: 'Nativ editierbares PPTX',
   heroFeat3: 'Animierte GIFs',
+  heroLinkMakers: '13 Chart-Maker',
+  heroLinkGuides: 'Praxis-Guides',
 };
 
 const esStrings: Record<StringKey, string> = {
@@ -447,6 +455,8 @@ const esStrings: Record<StringKey, string> = {
   heroFeat1: '13 tipos de gráficos',
   heroFeat2: 'PPTX nativo editable',
   heroFeat3: 'GIF animado',
+  heroLinkMakers: '13 herramientas de gráficos',
+  heroLinkGuides: 'Guías prácticas',
 };
 
 const STRINGS: Record<Lang, Record<StringKey, string>> = {

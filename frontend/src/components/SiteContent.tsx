@@ -48,6 +48,7 @@ interface SiteCopy {
   fnTitle: string;
   fnIntro: string;
   fnCta: string;
+  fnMakersCta: string;
   fnNotes: { num: string; title: string; desc: string; href: string }[];
   faqTitle: string;
   faq: FaqItem[];
@@ -119,6 +120,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
     fnIntro:
       'No chart-beauty contests. Notes on making data close deals, written between pitches — in English, because that\u2019s where the pitches happen.',
     fnCta: 'All field notes →',
+    fnMakersCta: 'Browse all 13 chart makers →',
     fnNotes: [
       {
         num: 'Field note #1',
@@ -198,6 +200,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
     fnTitle: '提案手记：Charts That Sell',
     fnIntro: '不聊图表美学。一个以提案为生的人，写数据如何促成成交——手记以英文撰写，因为提案现场在那里。',
     fnCta: '全部手记 →',
+    fnMakersCta: '查看全部 13 种图表工具 →',
     fnNotes: [
       {
         num: '手记 #1',
@@ -278,6 +281,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
     fnIntro:
       'Pas de concours de beauté pour graphiques. Des notes pour faire signer avec des données, écrites entre deux pitches — en anglais, parce que c\u2019est là que les pitches ont lieu.',
     fnCta: 'Toutes les notes →',
+    fnMakersCta: 'Voir les 13 outils graphiques →',
     fnNotes: [
       {
         num: 'Note #1',
@@ -358,6 +362,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
     fnIntro:
       'Keine Diagramm-Schönheitswettbewerbe. Notizen darüber, wie Daten Abschlüsse machen — zwischen Pitches geschrieben, auf Englisch, weil dort die Pitches passieren.',
     fnCta: 'Alle Notizen →',
+    fnMakersCta: 'Alle 13 Chart-Maker ansehen →',
     fnNotes: [
       {
         num: 'Notiz #1',
@@ -438,6 +443,7 @@ const SITE_COPY: Record<Lang, SiteCopy> = {
     fnIntro:
       'Nada de concursos de belleza de gráficos. Notas sobre cómo cerrar tratos con datos, escritas entre presentaciones — en inglés, porque ahí es donde ocurren las presentaciones.',
     fnCta: 'Todas las notas →',
+    fnMakersCta: 'Ver las 13 herramientas de gráficos →',
     fnNotes: [
       {
         num: 'Nota #1',
@@ -578,9 +584,14 @@ export function SiteContent() {
             </a>
           ))}
         </div>
-        <a className="fn-more" href="/guides/">
-          {copy.fnCta}
-        </a>
+        <div className="fn-links">
+          <a className="fn-more" href="/guides/">
+            {copy.fnCta}
+          </a>
+          <a className="fn-more" href="/make/">
+            {copy.fnMakersCta}
+          </a>
+        </div>
       </section>
 
       <section className="c-block">
