@@ -6,6 +6,7 @@
 - 产品介绍：右列空态（首次到访第一眼）承载品牌 hero——大号产品名 + 口号 + 一句话介绍（粘贴数据→十三种图表→PPTX/GIF）+ 三枚特性胶囊（图型数 / 原生可编辑 PPTX / 动效 GIF），下方保留原空态引导。
 - 分享组件：导出区底部 `.share-row`——等宽字体大写小标签 + 文字徽章按钮（X / in / f / r/ / 复制链接），幽灵边框 hover 变青上浮；链接带 `?ref=share-<平台>` 归因参数；OG 预览图 `/og.jpg`（1200×630 深空控制台品牌图），全平台（X/Facebook/LinkedIn/WhatsApp/Telegram 等）链接预览经 OG/Twitter Card meta 一次接入。
 - Logo：对话气泡 + 上升折线 SVG（`Logo.tsx`，方向 B——「数据给我，图表给你」的对话感 + 数据变图表的上升线）；气泡描边/底色走主题变量深浅自适应，折线固定青蓝品牌渐变；实例化多处时渐变 id 用 `useId` 防冲突。出现位：顶栏品牌位（32px）、空态 hero（58px 带青色投影）、favicon.svg（深色圆角方块底 + 标记）。
+- **联系方式（v1.28）**：公开邮箱 `hello@chartthat.com`（Cloudflare Email Routing 转发到真实邮箱；CF 代理自带 Email Address Obfuscation 防爬）。出现位：首页页脚 sf-nav「Contact」（mailto）/ privacy.html Contact 段（email 主通道 + GitHub 辅助）与 sp-foot / about.html sp-foot / 13 个 make 落地页 g-sign 署名尾缀 / 10 个 guides+make 索引页 sp-foot 尾缀。AdSense 可信度三件套（About/Privacy/Contact）自此齐。
 
 ## 气质与意象
 深空控制台：像太空任务指挥中心的操作台——深色空间中悬浮着半透明玻璃面板，数据流以青色光带穿行。克制、精密、冷冽，发光只用于指引视线，不做炫技。
